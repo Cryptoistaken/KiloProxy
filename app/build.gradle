@@ -45,10 +45,14 @@ android {
 
     splits {
         abi {
+            // CI sets abi=<target> to build a single ABI (faster pushes);
+            // tags/releases build all four + universal.
+            def requestedAbi = project.findProperty('abi')
             enable = true
             reset()
-            include "armeabi-v7a", "arm64-v8a", "x86", "x86_64"
-            universalApk = true
+            include requestedAbi ? [requestedAbi] :
+                ["armeabi-v7a", "arm64-v8a", "x86", "x86_64"]
+            universalApk = !requestedAbi
         }
     }
 

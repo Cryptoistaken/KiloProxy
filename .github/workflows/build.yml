@@ -3,6 +3,7 @@ name: Build APK
 on:
   push:
     branches: [ "master" ]
+    tags: [ "v*" ]
   pull_request:
     branches: [ "master" ]
   workflow_dispatch:
@@ -26,8 +27,16 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v4
 
-      - name: Install NDK
-        run: sdkmanager "ndk;27.0.12077973" --sdk_root=$ANDROID_HOME
+      # --- Install NDK only if not already pre-installed on runner ---
+      - name: Install NDK (skip if present)
+        run: |
+          NDK_DIR="$ANDROID_HOME/ndk/27.0.12077973"
+          if [ -d "$NDK_DIR" ]; then
+            echo "NDK 27.0.12077973 already present, skipping install"
+          else
+            echo "NDK not found, installing..."
+            sdkmanager "ndk;27.0.12077973" --sdk_root=$ANDROID_HOME
+          fi
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v6
@@ -39,8 +48,16 @@ jobs:
             echo "${{ secrets.RELEASE_KEYSTORE_B64 }}" | base64 -d > "$RUNNER_TEMP/ks/kiloproxy-release.jks"
           fi
 
+      # --- Build: arm64-v8a only on push to master; all ABIs on tags ---
       - name: Build Release APK
-        run: gradle assembleRelease --warning-mode all
+        run: |
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            echo "Tag push — building all ABIs"
+            gradle assembleRelease --warning-mode all
+          else
+            echo "Branch push — building arm64-v8a only"
+            gradle assembleRelease -Pabi=arm64-v8a --warning-mode all
+          fi
         env:
           ANDROID_NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/27.0.12077973
           KILO_KEYSTORE_FILE: ${{ runner.temp }}/ks/kiloproxy-release.jks
