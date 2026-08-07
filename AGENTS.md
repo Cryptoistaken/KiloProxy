@@ -29,3 +29,53 @@
 - App package: `com.kiloproxy.app`. Device ABI: supports `arm64-v8a`.
 - Cross-ABI versionCode mismatch causes `INSTALL_FAILED_VERSION_DOWNGRADE` — install the ABI that matches the device; only uninstall before switching ABIs.
 - Signature mismatch → the installed app was signed with an older key (pre-keystore ephemeral CI key, or a different ABI build); uninstall once, then all future updates install over cleanly.
+
+## State Snapshot & Restore
+
+Before making any major changes (UI redesign, architecture changes, etc.),
+always snapshot the current working state so you can restore it later.
+
+### Creating a snapshot
+```bash
+# Tag the current commit with a descriptive name
+git tag -a pre-ui-redesign -m "Working state before UI redesign"
+
+# Push the tag to remote
+git push origin pre-ui-redesign
+```
+
+### Listing available snapshots
+```bash
+# List all tags
+git tag -l
+
+# List tags with their commit dates
+git tag -l --sort=-creatordate
+```
+
+### Restoring a snapshot
+```bash
+# Option 1: Reset hard to a tagged state (DESTRUCTIVE — discards all changes)
+git checkout pre-ui-redesign
+git checkout -b restore-from-pre-ui-redesign
+# Now you're on a new branch at the old state
+
+# Option 2: Create a branch from a tag (SAFE — preserves current work)
+git checkout -b ui-redesign-attempt-1 pre-ui-redesign
+# You now have a branch with the old state
+
+# Option 3: Cherry-pick specific commits from a snapshot
+git log pre-ui-redesign..HEAD --oneline  # see what changed since snapshot
+git revert <commit-hash>                  # undo a specific commit
+```
+
+### Tag naming convention
+- `pre-<feature-name>` — before starting a feature (e.g. `pre-ui-redesign`)
+- `stable-<date>` — known working release (e.g. `stable-2026-08-07`)
+- `post-<feature-name>` — after completing a feature (e.g. `post-ui-redesign`)
+
+### Important notes
+- Tags are lightweight and don't affect branch history.
+- Always push tags to remote (`git push origin <tag>`) so they survive local disasters.
+- The `DesignPlan.md` file in the repo root describes the UI redesign plan.
+- Engine code (`SocksVpnService.kt`, `IVpnService.aidl`, `Utility.kt`, `ProfileManager.kt`) must never be modified by UI changes.
