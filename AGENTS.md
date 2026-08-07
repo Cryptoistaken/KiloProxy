@@ -74,6 +74,20 @@ git revert <commit-hash>                  # undo a specific commit
 - `stable-<date>` — known working release (e.g. `stable-2026-08-07`)
 - `post-<feature-name>` — after completing a feature (e.g. `post-ui-redesign`)
 
+### Existing snapshots
+| Tag | Commit | Date | Description |
+|---|---|---|---|
+| `pre-ui-redesign` | `397d4b0` | 2026-08-07 | Engine intact, CI passing, floating bubble fixed. Use this to restore before any UI redesign work. |
+
+### Quick restore (pre-ui-redesign)
+```bash
+# Safe restore — creates a new branch from the snapshot
+git checkout -b ui-redesign pre-ui-redesign
+
+# If you need to go back to THIS commit directly (destructive)
+git reset --hard 397d4b0
+```
+
 ### Important notes
 - Tags are lightweight and don't affect branch history.
 - Always push tags to remote (`git push origin <tag>`) so they survive local disasters.
