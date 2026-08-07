@@ -181,6 +181,7 @@ class FloatingControlService : Service() {
         }
 
         createNotificationChannel()
+        startAsForeground()
         touchSlop = ViewConfiguration.get(this).scaledTouchSlop
         windowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
         bubbleView = createBubbleView()
@@ -199,7 +200,6 @@ class FloatingControlService : Service() {
             onCountrySelected = { code -> onBubbleCountrySelected(code) },
             onDismissed = { longPressFired = false }
         )
-        startAsForeground()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -338,7 +338,9 @@ class FloatingControlService : Service() {
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.WRAP_CONTENT,
             type,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                    WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+                    WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
@@ -432,7 +434,9 @@ class FloatingControlService : Service() {
             bubbleSizePx,
             bubbleSizePx,
             type,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                    WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+                    WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.START
