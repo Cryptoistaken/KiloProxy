@@ -373,6 +373,14 @@ class FloatingControlService : Service() {
         try {
             if (view.isAttachedToWindow) return
             wm.addView(view, flagPillParams)
+            // Samsung One UI workaround: force view visible after async attachment
+            view.post {
+                if (!view.isAttachedToWindow || view.windowVisibility != View.VISIBLE) {
+                    Log.d(TAG, "addFlagPillToWindow: forcing view visible (Samsung workaround)")
+                    view.visibility = View.VISIBLE
+                    view.requestLayout()
+                }
+            }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to add flag pill overlay", e)
         }
@@ -690,8 +698,20 @@ class FloatingControlService : Service() {
             Log.d(TAG, "addBubbleToWindow: adding view with params type=${params?.type}, flags=${params?.flags}, size=${params?.width}x${params?.height}")
             wm.addView(view, params)
             Log.d(TAG, "addBubbleToWindow: view added successfully")
-            Log.d(TAG, "addBubbleToWindow: view.isShown=${view.isShown}, view.visibility=${view.visibility}, view.windowVisibility=${view.windowVisibility}")
-            Log.d(TAG, "addBubbleToWindow: view.parent=${view.parent}, view.isAttachedToWindow=${view.isAttachedToWindow}")
+
+            // Samsung One UI sets windowVisibility=8 (INVISIBLE) after addView.
+            // Force visibility on next frame to work around this.
+            view.post {
+                val attached = view.isAttachedToWindow
+                val vis = view.visibility
+                val winVis = view.windowVisibility
+                Log.d(TAG, "addBubbleToWindow[post]: attached=$attached, visibility=$vis, windowVisibility=$winVis")
+                if (!attached || winVis != View.VISIBLE) {
+                    Log.w(TAG, "addBubbleToWindow: forcing view visible (Samsung workaround)")
+                    view.visibility = View.VISIBLE
+                    view.requestLayout()
+                }
+            }
         } catch (e: WindowManager.BadTokenException) {
             Log.e(TAG, "Overlay token invalid — permission may have been revoked", e)
             Toast.makeText(
