@@ -32,6 +32,11 @@ redesign-mockup.html
 *.log
 *.hprof
 
+# Secrets — release keystore backup (never commit)
+.keystore-backup/
+*.jks
+*.b64
+
 # Misc
 .foglamp/
 superproxy_screen*.xml
