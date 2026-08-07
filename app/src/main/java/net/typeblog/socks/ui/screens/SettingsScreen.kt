@@ -51,6 +51,7 @@ import net.typeblog.socks.util.Constants.PREF_THEME_MODE
 @Composable
 fun SettingsScreen(
     onNavigateToSplitTunneling: () -> Unit,
+    onNavigateToDebugLogs: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -241,6 +242,20 @@ fun SettingsScreen(
                     value = null,
                     iconTint = MaterialTheme.colorScheme.primary,
                     onClick = onNavigateToSplitTunneling
+                )
+            }
+        }
+
+        // ═══ Support ═══
+        item {
+            SectionTitle(text = "Support")
+            SettingsGroup {
+                SettingsItem(
+                    icon = painterResource(R.drawable.lucide_settings),
+                    label = "Debug Logs",
+                    description = "View and share app logs for troubleshooting",
+                    iconTint = MaterialTheme.colorScheme.primary,
+                    onClick = onNavigateToDebugLogs
                 )
             }
         }

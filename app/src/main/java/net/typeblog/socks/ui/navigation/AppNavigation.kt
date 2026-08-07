@@ -26,6 +26,7 @@ import net.typeblog.socks.ui.screens.ProxiesScreen
 import net.typeblog.socks.ui.screens.StatusScreen
 import net.typeblog.socks.ui.screens.SettingsScreen
 import net.typeblog.socks.ui.screens.SplitTunnelingScreen
+import net.typeblog.socks.ui.screens.DebugLogsScreen
 import net.typeblog.socks.ui.viewmodel.VpnViewModel
 
 sealed class Screen(val route: String) {
@@ -33,6 +34,7 @@ sealed class Screen(val route: String) {
     data object Connect : Screen("connect")
     data object Settings : Screen("settings")
     data object SplitTunneling : Screen("split_tunneling")
+    data object DebugLogs : Screen("debug_logs")
 }
 
 private data class BottomNavItem(
@@ -121,9 +123,14 @@ fun AppNavigation() {
                 StatusScreen(viewModel = vpnViewModel)
             }
             composable(Screen.Settings.route) {
-                SettingsScreen(onNavigateToSplitTunneling = {
-                    navController.navigate(Screen.SplitTunneling.route)
-                })
+                SettingsScreen(
+                    onNavigateToSplitTunneling = {
+                        navController.navigate(Screen.SplitTunneling.route)
+                    },
+                    onNavigateToDebugLogs = {
+                        navController.navigate(Screen.DebugLogs.route)
+                    }
+                )
             }
             composable(Screen.SplitTunneling.route) {
                 SplitTunnelingScreen(
@@ -131,6 +138,13 @@ fun AppNavigation() {
                         navController.popBackStack()
                     },
                     viewModel = vpnViewModel
+                )
+            }
+            composable(Screen.DebugLogs.route) {
+                DebugLogsScreen(
+                    onNavigateBack = {
+                        navController.popBackStack()
+                    }
                 )
             }
         }

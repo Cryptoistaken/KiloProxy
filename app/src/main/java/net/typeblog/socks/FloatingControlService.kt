@@ -168,16 +168,21 @@ class FloatingControlService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        Log.d(TAG, "onCreate: starting FloatingControlService")
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
-            Log.e(TAG, "Overlay permission not granted — stopping service")
-            Toast.makeText(
-                this,
-                "Overlay permission required. Please enable \"Display over other apps\".",
-                Toast.LENGTH_LONG
-            ).show()
-            stopSelf()
-            return
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            val canOverlay = Settings.canDrawOverlays(this)
+            Log.d(TAG, "onCreate: canDrawOverlays=$canOverlay")
+            if (!canOverlay) {
+                Log.e(TAG, "Overlay permission not granted — stopping service")
+                Toast.makeText(
+                    this,
+                    "Overlay permission required. Please enable \"Display over other apps\".",
+                    Toast.LENGTH_LONG
+                ).show()
+                stopSelf()
+                return
+            }
         }
 
         createNotificationChannel()
@@ -429,6 +434,7 @@ class FloatingControlService : Service() {
             @Suppress("DEPRECATION")
             WindowManager.LayoutParams.TYPE_PHONE
         }
+        Log.d(TAG, "buildLayoutParams: type=$type, flags=${WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL}, size=${bubbleSizePx}x${bubbleSizePx}")
         return WindowManager.LayoutParams(
             bubbleSizePx,
             bubbleSizePx,
@@ -654,11 +660,22 @@ class FloatingControlService : Service() {
     }
 
     private fun addBubbleToWindow() {
-        val wm = windowManager ?: return
-        val view = bubbleView ?: return
+        val wm = windowManager ?: run {
+            Log.e(TAG, "addBubbleToWindow: windowManager is null")
+            return
+        }
+        val view = bubbleView ?: run {
+            Log.e(TAG, "addBubbleToWindow: bubbleView is null")
+            return
+        }
         try {
-            if (view.isAttachedToWindow) return
+            if (view.isAttachedToWindow) {
+                Log.d(TAG, "addBubbleToWindow: view already attached, skipping")
+                return
+            }
+            Log.d(TAG, "addBubbleToWindow: adding view with params type=${params.type}, flags=${params.flags}, size=${params.width}x${params.height}")
             wm.addView(view, params)
+            Log.d(TAG, "addBubbleToWindow: view added successfully")
         } catch (e: WindowManager.BadTokenException) {
             Log.e(TAG, "Overlay token invalid — permission may have been revoked", e)
             Toast.makeText(
@@ -668,7 +685,7 @@ class FloatingControlService : Service() {
             ).show()
             stopSelf()
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to add overlay view", e)
+            Log.e(TAG, "Failed to add overlay view: ${e.message}", e)
         }
     }
 
