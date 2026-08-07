@@ -169,10 +169,24 @@ class FloatingControlService : Service() {
     override fun onCreate() {
         super.onCreate()
         Log.d(TAG, "onCreate: starting FloatingControlService")
+        Log.d(TAG, "onCreate: device=${Build.MANUFACTURER} ${Build.MODEL}, Android=${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})")
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             val canOverlay = Settings.canDrawOverlays(this)
             Log.d(TAG, "onCreate: canDrawOverlays=$canOverlay")
+
+            // Samsung-specific: check if overlay is actually enabled in Samsung settings
+            if (Build.MANUFACTURER.equals("samsung", ignoreCase = true)) {
+                Log.d(TAG, "onCreate: Samsung device detected — checking One UI overlay settings")
+                try {
+                    // Check if "Appear on top" is enabled in Samsung settings
+                    val samsungOverlay = Settings.Secure.getInt(contentResolver, "enabled_notification_listeners", 0)
+                    Log.d(TAG, "onCreate: Samsung enabled_notification_listeners=$samsungOverlay")
+                } catch (e: Exception) {
+                    Log.d(TAG, "onCreate: Samsung settings check failed: ${e.message}")
+                }
+            }
+
             if (!canOverlay) {
                 Log.e(TAG, "Overlay permission not granted — stopping service")
                 Toast.makeText(
@@ -676,6 +690,8 @@ class FloatingControlService : Service() {
             Log.d(TAG, "addBubbleToWindow: adding view with params type=${params?.type}, flags=${params?.flags}, size=${params?.width}x${params?.height}")
             wm.addView(view, params)
             Log.d(TAG, "addBubbleToWindow: view added successfully")
+            Log.d(TAG, "addBubbleToWindow: view.isShown=${view.isShown}, view.visibility=${view.visibility}, view.windowVisibility=${view.windowVisibility}")
+            Log.d(TAG, "addBubbleToWindow: view.parent=${view.parent}, view.isAttachedToWindow=${view.isAttachedToWindow}")
         } catch (e: WindowManager.BadTokenException) {
             Log.e(TAG, "Overlay token invalid — permission may have been revoked", e)
             Toast.makeText(
