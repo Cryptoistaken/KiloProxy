@@ -23,6 +23,7 @@ import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.net.VpnService
 import android.os.Build
+import android.provider.Settings
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
@@ -167,6 +168,18 @@ class FloatingControlService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
+            Log.e(TAG, "Overlay permission not granted — stopping service")
+            Toast.makeText(
+                this,
+                "Overlay permission required. Please enable \"Display over other apps\".",
+                Toast.LENGTH_LONG
+            ).show()
+            stopSelf()
+            return
+        }
+
         createNotificationChannel()
         touchSlop = ViewConfiguration.get(this).scaledTouchSlop
         windowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
@@ -644,6 +657,14 @@ class FloatingControlService : Service() {
         try {
             if (view.isAttachedToWindow) return
             wm.addView(view, params)
+        } catch (e: WindowManager.BadTokenException) {
+            Log.e(TAG, "Overlay token invalid — permission may have been revoked", e)
+            Toast.makeText(
+                this,
+                "Cannot display overlay. Check \"Display over other apps\" permission.",
+                Toast.LENGTH_LONG
+            ).show()
+            stopSelf()
         } catch (e: Exception) {
             Log.e(TAG, "Failed to add overlay view", e)
         }
