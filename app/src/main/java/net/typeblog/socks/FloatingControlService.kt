@@ -673,7 +673,7 @@ class FloatingControlService : Service() {
                 Log.d(TAG, "addBubbleToWindow: view already attached, skipping")
                 return
             }
-            Log.d(TAG, "addBubbleToWindow: adding view with params type=${params.type}, flags=${params.flags}, size=${params.width}x${params.height}")
+            Log.d(TAG, "addBubbleToWindow: adding view with params type=${params?.type}, flags=${params?.flags}, size=${params?.width}x${params?.height}")
             wm.addView(view, params)
             Log.d(TAG, "addBubbleToWindow: view added successfully")
         } catch (e: WindowManager.BadTokenException) {
