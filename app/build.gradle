@@ -48,16 +48,13 @@ android {
             // CI sets -Pabi=<target> to build a single ABI (faster pushes);
             // tags/releases build all four + universal.
             def requestedAbi = project.findProperty('abi')
-            println ">>> ABI split: requestedAbi=${requestedAbi} (class=${requestedAbi?.getClass()?.name})"
             enable = true
             reset()
             if (requestedAbi) {
                 include(requestedAbi)
-                println ">>> ABI split: include(${requestedAbi}) called"
                 universalApk = false
             } else {
                 include("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
-                println ">>> ABI split: include(all 4) called"
                 universalApk = true
             }
         }
