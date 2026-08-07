@@ -1,0 +1,41 @@
+# Gradle build cache
+.gradle/
+build/
+
+# Android Studio / IDE
+.idea/
+*.iml
+
+# Local machine config (SDK paths etc.)
+local.properties
+
+# Native build output (copied into jniLibs during build)
+obj/
+libs/
+assets/
+app/src/main/jniLibs/
+
+# Built APKs & artifacts
+*.apk
+apk-out*/
+apk-out-fixed/
+artifacts/
+
+# Debug dumps, screenshots, mockups
+screenshots/
+uixml
+theme_dropdown.png
+screenshot.png
+redesign-mockup.html
+
+# Logs
+*.log
+*.hprof
+
+# Misc
+.foglamp/
+superproxy_screen*.xml
+
+# Tooling / demo files
+.playwright-mcp/
+floating-bubble-demo.html
