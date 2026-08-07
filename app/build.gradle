@@ -50,8 +50,11 @@ android {
             def requestedAbi = project.findProperty('abi')
             enable = true
             reset()
-            include requestedAbi ? [requestedAbi] :
-                ["armeabi-v7a", "arm64-v8a", "x86", "x86_64"]
+            if (requestedAbi) {
+                include requestedAbi
+            } else {
+                include "armeabi-v7a", "arm64-v8a", "x86", "x86_64"
+            }
             universalApk = !requestedAbi
         }
     }
