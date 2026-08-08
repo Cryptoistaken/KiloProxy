@@ -22,7 +22,7 @@ import net.typeblog.socks.util.Constants.INTENT_UDP_GW
 import net.typeblog.socks.util.Constants.PREF_ADV_APP_BYPASS
 import net.typeblog.socks.util.Constants.PREF_ADV_APP_LIST
 import net.typeblog.socks.util.Constants.PREF_ADV_PER_APP
-import net.typeblog.socks.util.Constants.PREF_RECENT_COUNTRIES
+
 import java.io.BufferedReader
 import java.io.File
 import java.io.FileInputStream
@@ -337,25 +337,25 @@ object Utility {
 
     @JvmStatic
     fun getRecentCountries(context: Context): List<String> {
-        val raw = PreferenceManager.getDefaultSharedPreferences(context)
-            .getString(PREF_RECENT_COUNTRIES, "")
-            ?: return emptyList()
-        if (raw.isEmpty()) return emptyList()
-        return raw.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+        val file = java.io.File(context.filesDir, "recent_countries.txt")
+        if (!file.exists()) return emptyList()
+        return try {
+            file.readText().split(",").map { it.trim() }.filter { it.isNotEmpty() }
+        } catch (_: Exception) {
+            emptyList()
+        }
     }
 
     @JvmStatic
     fun addRecentCountry(context: Context, code: String) {
         val normalized = code.trim().uppercase()
         if (normalized.isEmpty()) return
-        val prefs = PreferenceManager.getDefaultSharedPreferences(context)
-        val existing = prefs.getString(PREF_RECENT_COUNTRIES, "")
-            ?.split(",")
-            ?.map { it.trim() }
-            ?.filter { it.isNotEmpty() }
-            ?: emptyList()
-        val updated = (listOf(normalized) + existing.filter { it != normalized })
-        prefs.edit().putString(PREF_RECENT_COUNTRIES, updated.joinToString(",")).apply()
+        val existing = getRecentCountries(context)
+        val updated = (listOf(normalized) + existing.filter { it != normalized }).take(10)
+        try {
+            java.io.File(context.filesDir, "recent_countries.txt").writeText(updated.joinToString(","))
+        } catch (_: Exception) {
+        }
     }
 
     @JvmStatic
