@@ -323,11 +323,9 @@ class BubbleMenuOverlay(
             cleanup()
             return
         }
-        val panel = root.findViewById<LinearLayout>(R.id.menu_panel)
-        panel.animate().scaleX(0.3f).scaleY(0.3f).alpha(0f).setDuration(80).start()
-        root.animate().alpha(0f).setDuration(80).withEndAction {
-            cleanup()
-        }.start()
+        // Instant dismiss — no fade animation (avoids flash of underlying screen)
+        root.alpha = 0f
+        cleanup()
     }
 
     fun isShowing(): Boolean = rootView?.isAttachedToWindow == true
