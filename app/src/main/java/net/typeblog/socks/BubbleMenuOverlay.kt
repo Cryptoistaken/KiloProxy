@@ -36,7 +36,13 @@ class BubbleMenuOverlay(
     private val onCountrySelected: (String) -> Unit,
     private val onDismissed: () -> Unit = {}
 ) {
-    private val windowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
+    // Use display context so the menu overlay is a system-level window
+    private val windowManager: WindowManager = run {
+        val dm = context.getSystemService(Context.DISPLAY_SERVICE) as android.hardware.display.DisplayManager
+        val display = dm.getDisplay(android.view.Display.DEFAULT_DISPLAY)
+        val displayCtx = context.createDisplayContext(display)
+        displayCtx.getSystemService(Context.WINDOW_SERVICE) as WindowManager
+    }
     private val handler = Handler(Looper.getMainLooper())
     private val messageHandler = Handler(Looper.getMainLooper())
     private var rootView: FrameLayout? = null
