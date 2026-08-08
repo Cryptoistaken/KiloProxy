@@ -13,10 +13,13 @@ import android.os.Handler
 import android.os.Looper
 import android.view.Gravity
 import android.view.LayoutInflater
+import android.text.Editable
+import android.text.TextWatcher
 import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
 import android.view.animation.OvershootInterpolator
+import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -64,13 +67,14 @@ class BubbleMenuOverlay(
         val panel = root.findViewById<LinearLayout>(R.id.menu_panel)
         val scroll = root.findViewById<ScrollView>(R.id.menu_scroll)
         val list = root.findViewById<LinearLayout>(R.id.menu_list)
+        val searchInput = root.findViewById<EditText>(R.id.menu_search)
         menuList = list
 
         val panelWidth = minOf(
-            dp(260f),
+            dp(230f),
             (screenW - bubbleSizePx - dp(16f)).coerceAtLeast(1)
         )
-        val maxHeightPx = minOf(dp(340f), screenH - dp(32f)).coerceAtLeast(1)
+        val maxHeightPx = minOf(dp(200f), screenH - dp(32f)).coerceAtLeast(1)
 
         val panelLp = panel.layoutParams as? FrameLayout.LayoutParams
             ?: FrameLayout.LayoutParams(panelWidth, FrameLayout.LayoutParams.WRAP_CONTENT)
@@ -113,17 +117,113 @@ class BubbleMenuOverlay(
             allRows.forEach { list.addView(makeRow(it, isConnected = false)) }
         }
 
+        // Store all countries for search filtering
+        val allCountryItems = mutableListOf<Pair<Countries.Country, Boolean>>()
+        if (!connectedCode.isNullOrBlank() && !connectedInRecents) {
+            Countries.fromCode(connectedCode)?.let { allCountryItems.add(it to true) }
+        }
+        recents.forEach { code ->
+            if (!allCountryItems.any { it.first.code == code }) {
+                Countries.fromCode(code)?.let { allCountryItems.add(it to (it.code == connectedCode)) }
+            }
+        }
+        Countries.ALL.forEach { c ->
+            if (!allCountryItems.any { it.first.code == c.code }) {
+                allCountryItems.add(c to false)
+            }
+        }
+
+        // Search filtering
+        searchInput.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: Editable?) {
+                val query = s?.toString()?.trim()?.lowercase(Locale.ROOT) ?: ""
+                list.removeAllViews()
+                val filtered = if (query.isEmpty()) {
+                    allCountryItems
+                } else {
+                    val digits = query.filter { it.isDigit() }
+                    allCountryItems.filter { (country, _) ->
+                        country.name.lowercase(Locale.ROOT).contains(query) ||
+                            country.code.lowercase(Locale.ROOT).contains(query) ||
+                            (digits.isNotEmpty() && country.phone.startsWith(digits)) ||
+                            (digits.isNotEmpty() && digits.startsWith(country.phone))
+                    }
+                }
+                if (filtered.isEmpty()) {
+                    list.addView(sectionLabel("NO RESULTS"))
+                } else {
+                    var lastWasSection = false
+                    val connectedItems = filtered.filter { it.second }
+                    val otherItems = filtered.filter { !it.second }
+
+                    if (connectedItems.isNotEmpty()) {
+                        connectedItems.forEach { list.addView(makeRow(it.first, isConnected = true)) }
+                        lastWasSection = false
+                    }
+                    if (connectedItems.isNotEmpty() && otherItems.isNotEmpty()) {
+                        list.addView(separatorView())
+                        lastWasSection = true
+                    }
+                    if (otherItems.isNotEmpty()) {
+                        if (!lastWasSection && connectedItems.isEmpty()) {
+                            // Don't add "ALL" label during search
+                        }
+                        otherItems.forEach { list.addView(makeRow(it.first, isConnected = false)) }
+                    }
+                }
+                scroll.post { scroll.fullScroll(View.FOCUS_UP) }
+            }
+        })
+
+        // Request focus and show keyboard when search is tapped
+        searchInput.setOnFocusChangeListener { _, hasFocus ->
+            if (hasFocus) {
+                val params = root.layoutParams as? WindowManager.LayoutParams
+                if (params != null) {
+                    params.flags = params.flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE.inv()
+                    try {
+                        windowManager.updateViewLayout(root, params)
+                    } catch (_: Exception) {}
+                }
+            }
+        }
+
+        // Smart 4-side positioning: pick the side with most free space
         val margin8 = dp(8f)
-        val bubbleRadius = bubbleSizePx / 2
-        val openRight = (bubbleCenterX + bubbleRadius + panelWidth + margin8) <= screenW
-        var panelX = if (openRight) {
-            bubbleCenterX + bubbleRadius + margin8
-        } else {
-            bubbleCenterX - bubbleRadius - panelWidth - margin8
+        val bx = bubbleCenterX - bubbleSizePx / 2
+        val by = bubbleCenterY - bubbleSizePx / 2
+        val right  = screenW - (bx + bubbleSizePx) - margin8
+        val left   = bx - margin8
+        val bottom = screenH - (by + bubbleSizePx) - margin8
+        val top    = by - margin8
+
+        fun fitsH(s: Int) = s >= panelWidth
+        fun fitsV(s: Int) = s >= maxHeightPx
+
+        val hOptions = listOf("right" to right, "left" to left).filter { fitsH(it.second) }
+        val vOptions = listOf("bottom" to bottom, "top" to top).filter { fitsV(it.second) }
+
+        val side = when {
+            hOptions.isNotEmpty() -> hOptions.maxByOrNull { it.second }!!.first
+            vOptions.isNotEmpty() -> vOptions.maxByOrNull { it.second }!!.first
+            else -> listOf("right" to right, "left" to left, "bottom" to bottom, "top" to top)
+                .maxByOrNull { it.second }!!.first
+        }
+
+        var panelX = when (side) {
+            "right" -> bx + bubbleSizePx + margin8
+            "left"  -> bx - panelWidth - margin8
+            else    -> bx + bubbleSizePx / 2 - panelWidth / 2
+        }
+        var panelY = when (side) {
+            "bottom" -> by + bubbleSizePx + margin8
+            "top"    -> by - maxHeightPx - margin8
+            else     -> by + bubbleSizePx / 2 - maxHeightPx / 2
         }
         panelX = panelX.coerceIn(margin8, screenW - panelWidth - margin8)
-        var panelY = bubbleCenterY - dp(180f)
-        panelY = panelY.coerceIn(margin8, screenH - margin8)
+        panelY = panelY.coerceIn(margin8, screenH - maxHeightPx - margin8)
 
         panelLp.leftMargin = panelX
         panelLp.topMargin = panelY
@@ -153,8 +253,8 @@ class BubbleMenuOverlay(
         root.alpha = 0f
         root.animate().alpha(1f).setDuration(180).start()
 
-        panel.pivotX = if (openRight) 0f else panelWidth.toFloat()
-        panel.pivotY = 0f
+        panel.pivotX = if (side == "left") panelWidth.toFloat() else 0f
+        panel.pivotY = if (side == "top") maxHeightPx.toFloat() else 0f
         panel.scaleX = 0.55f
         panel.scaleY = 0.55f
         panel.alpha = 0f
@@ -185,10 +285,14 @@ class BubbleMenuOverlay(
             }
             val h = panel.height
             if (h > 0) {
-                val refined = (bubbleCenterY - h / 2)
-                    .coerceIn(margin8, (screenH - h - margin8).coerceAtLeast(margin8))
-                if (refined != panelLp.topMargin) {
-                    panelLp.topMargin = refined
+                // Refine vertical position based on actual panel height
+                val refinedY = when (side) {
+                    "top"    -> (by - h - margin8).coerceIn(margin8, (screenH - h - margin8).coerceAtLeast(margin8))
+                    "bottom" -> (by + bubbleSizePx + margin8).coerceIn(margin8, (screenH - h - margin8).coerceAtLeast(margin8))
+                    else     -> (bubbleCenterY - h / 2).coerceIn(margin8, (screenH - h - margin8).coerceAtLeast(margin8))
+                }
+                if (refinedY != panelLp.topMargin) {
+                    panelLp.topMargin = refinedY
                     panel.requestLayout()
                 }
                 panel.pivotY = h / 2f

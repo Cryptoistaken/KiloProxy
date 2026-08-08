@@ -8,7 +8,7 @@
 
     <LinearLayout
         android:id="@+id/menu_panel"
-        android:layout_width="260dp"
+        android:layout_width="230dp"
         android:layout_height="wrap_content"
         android:orientation="vertical"
         android:background="@drawable/menu_panel_bg"
@@ -17,20 +17,48 @@
         android:layout_marginStart="0dp"
         android:layout_marginTop="0dp">
 
+        <!-- Search bar -->
+        <EditText
+            android:id="@+id/menu_search"
+            android:layout_width="match_parent"
+            android:layout_height="34dp"
+            android:layout_marginStart="6dp"
+            android:layout_marginEnd="6dp"
+            android:layout_marginTop="6dp"
+            android:paddingStart="8dp"
+            android:layout_marginBottom="4dp"
+            android:background="@drawable/search_input_bg"
+            android:hint="Search country or code…"
+            android:textSize="11sp"
+            android:textColor="#18181B"
+            android:textColorHint="#71717A"
+            android:singleLine="true"
+            android:inputType="text"
+            android:imeOptions="actionSearch"
+            android:importantForAutofill="no"
+            android:alpha="0.9" />
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginStart="6dp"
+            android:layout_marginEnd="6dp"
+            android:background="#E4E4E7" />
+
         <ScrollView
             android:id="@+id/menu_scroll"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:overScrollMode="never"
-            android:scrollbars="vertical">
+            android:scrollbars="vertical"
+            android:layout_marginTop="2dp">
 
             <LinearLayout
                 android:id="@+id/menu_list"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:paddingTop="6dp"
-                android:paddingBottom="6dp" />
+                android:paddingBottom="4dp" />
         </ScrollView>
     </LinearLayout>
 </FrameLayout>

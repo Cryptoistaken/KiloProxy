@@ -26,6 +26,15 @@
 | Error states are plain text | Easy to miss, no recovery guidance |
 | No empty states with illustrations | Feels incomplete when no profiles exist |
 
+### What stays untouched (engine — NEVER modify)
+| File | Purpose |
+|---|---|
+| `SocksVpnService.kt` | VPN tunnel (tun2socks, pdnsd, IP check) |
+| `IVpnService.aidl` | Cross-process interface contract |
+| `Utility.kt` | startVpn(), checkPublicIp(), formatBytes() |
+| `ProfileManager.kt` | SharedPreferences profile storage |
+| `VpnViewModel.kt` | Bridge (data only, no UI) |
+
 ---
 
 ## 2. Design Principles (ProtonVPN-Inspired)
@@ -56,9 +65,101 @@ between states. KiloProxy should add `AnimatedVisibility` and
 
 ---
 
-## 3. Screen-by-Screen Redesign
+## 3. Asset Inventory
 
-### 3.1 Home Screen (formerly StatusScreen)
+### 3.1 Fonts (keep all — no changes needed)
+
+| Font | Files | Usage |
+|---|---|---|
+| Geist Regular | `fonts/geist-regular.ttf` | Body text, labels |
+| Geist Medium | `fonts/geist-medium.ttf` | Card titles, button text |
+| Geist SemiBold | `fonts/geist-semibold.ttf` | Hero status text |
+| Geist Bold | `fonts/geist-bold.ttf` | Screen headlines |
+| Geist Mono Regular | `fonts/geist-mono-regular.ttf` | Server addresses, IPs |
+| Geist Pixel Square | `fonts/geist-pixel.ttf` | Logo/brand accents only |
+
+### 3.2 Icons — Standardize to Lucide Filled
+
+| Current drawable | State | Action |
+|---|---|---|
+| `lucide_activity.xml` | Outline | Swap → `lucide_activity_filled` |
+| `lucide_globe.xml` | Outline | Swap → `lucide_globe_filled` |
+| `lucide_info.xml` | Outline | Swap → `lucide_info_filled` |
+| `lucide_paintbrush_vertical.xml` | Outline | Keep (unique enough) |
+| `lucide_panel_left.xml` | Outline | Swap → `lucide_panel_left_filled` |
+| `lucide_settings.xml` | Outline | Swap → `lucide_settings_filled` |
+| `lucide_shield.xml` | Outline | Swap → `lucide_shield_filled` |
+| `lucide_square_pen.xml` | Outline | Keep |
+| `lucide_triangle_alert.xml` | Outline | Swap → `lucide_triangle_alert_filled` |
+| `lucide_x.xml` | Outline | Keep (close button, outline is correct) |
+| `ic_bubble_play.xml` | Custom | Keep (bubble-specific) |
+| `ic_bubble_stop.xml` | Custom | Keep (bubble-specific) |
+
+**Standard:** All settings icons = 24dp, 2px stroke, Lucide Filled set.
+
+### 3.3 Colors
+
+**Keep (existing):**
+| Token | Hex | Usage |
+|---|---|---|
+| `Idle` | `#FF6B00` | Brand orange, default state |
+| `Connected` | `#22C55E` | Green, VPN active |
+| `Error` | `#EF4444` | Red, connection failed |
+
+**Add (new):**
+| Token | Hex | Usage |
+|---|---|---|
+| `Connecting` | `#F59E0B` | Amber, pulsing ring during connect |
+| `Disabled` | `#71717A` | Zinc-500, inactive/muted elements |
+| `SurfaceElevatedLight` | `#F4F4F5` | Zinc-100, card backgrounds (light) |
+| `SurfaceElevatedDark` | `#18181B` | Zinc-900, card backgrounds (dark) |
+
+### 3.4 Components — Current inventory
+
+**Keep as-is:**
+| Component | File | Lines | Notes |
+|---|---|---|---|
+| `SettingsItem` | `SettingsItem.kt` | ~60 | Add `iconTint` slot |
+| `AppToggleItem` | `AppToggleItem.kt` | ~80 | Add app icon loading (Coil) |
+| `ThemePickerDialog` | `ThemePickerDialog.kt` | ~80 | No changes |
+
+**Rewrite:**
+| Current | New | Lines (est.) | Key change |
+|---|---|---|---|
+| `ConnectionCard` | `ConnectionHero` | ~200 | Full-width ring + inline status |
+| `DataUsageCard` | `StatsRow` | ~80 | Horizontal compact row |
+| `ProxyCard` | `ProfileListItem` | ~120 | Status dot + mono address |
+
+**Build new:**
+| Component | Purpose | Lines (est.) |
+|---|---|---|
+| `StatusRing` | Animated circular pulse (200dp) | ~150 |
+| `EmptyState` | Illustration + CTA button | ~80 |
+| `SectionHeader` | Uppercase label divider | ~30 |
+| `SearchBar` | Search input with icon | ~60 |
+
+### 3.5 Screens — Current inventory
+
+| Screen | File | Lines | Action |
+|---|---|---|---|
+| `StatusScreen` | `StatusScreen.kt` | 327 | Rewrite → `HomeScreen.kt` |
+| `ProxiesScreen` | `ProxiesScreen.kt` | 1198 | Rewrite → `ProfilesScreen.kt` |
+| `SettingsScreen` | `SettingsScreen.kt` | 309 | Restructure (grouped sections) |
+| `SplitTunnelingScreen` | `SplitTunnelingScreen.kt` | 383 | Polish (search + segmented mode) |
+
+### 3.6 Dead code to delete
+
+| File | Reason |
+|---|---|
+| `ProfileFragment.kt` (624 lines) | Legacy XML PreferenceFragment, not connected to Compose UI |
+| `main.xml` | Legacy layout, unused by Compose path |
+| `AppSelector.kt` | Replaced by `SplitTunnelingScreen.kt` |
+
+---
+
+## 4. Screen-by-Screen Redesign
+
+### 4.1 Home Screen (formerly StatusScreen)
 
 **Current:** Profile dropdown + connect button + data card + details table
 **Proposed:** Full-height hero with connection state, minimal details below
@@ -99,7 +200,7 @@ between states. KiloProxy should add `AnimatedVisibility` and
 
 **ProtonVPN reference:** `redesign/home_screen/ui/Home.kt`
 
-### 3.2 Profiles Screen (formerly ProxiesScreen)
+### 4.2 Profiles Screen (formerly ProxiesScreen)
 
 **Current:** 1198-line monolith with inline editing
 **Proposed:** Clean list with FAB, editing in bottom sheet
@@ -141,7 +242,7 @@ between states. KiloProxy should add `AnimatedVisibility` and
 
 **ProtonVPN reference:** `redesign/countries/ui/` (server list cards)
 
-### 3.3 Settings Screen
+### 4.3 Settings Screen
 
 **Current:** Flat list of items
 **Proposed:** Grouped sections with headers (already has `SectionTitle`, enhance it)
@@ -171,6 +272,11 @@ between states. KiloProxy should add `AnimatedVisibility` and
 │  │ 🌐 DNS resolver  ▸   │  │  ← new: custom DNS
 │  └───────────────────────┘  │
 │                             │
+│  SUPPORT                    │
+│  ┌───────────────────────┐  │
+│  │ 📋 Debug logs       ▸ │  │  ← new: view/share logs
+│  └───────────────────────┘  │
+│                             │
 │  ABOUT                      │
 │  ┌───────────────────────┐  │
 │  │ 📋 Version    1.2.1  │  │
@@ -192,7 +298,7 @@ between states. KiloProxy should add `AnimatedVisibility` and
 
 **ProtonVPN reference:** `redesign/settings/ui/Settings.kt`
 
-### 3.4 Split Tunneling Screen
+### 4.4 Split Tunneling Screen
 
 **Current:** Functional but plain
 **Proposed:** Cleaner header + search + grouped app list
@@ -233,9 +339,9 @@ between states. KiloProxy should add `AnimatedVisibility` and
 
 ---
 
-## 4. Design System Updates
+## 5. Design System Updates
 
-### 4.1 Color tokens (keep monochrome, add semantic states)
+### 5.1 Color tokens (keep monochrome, add semantic states)
 
 ```kotlin
 // Existing — keep
@@ -252,7 +358,7 @@ val SurfaceElevated = Color(0xFFF4F4F5) // zinc-100 (light)
 val SurfaceElevated = Color(0xFF18181B) // zinc-900 (dark)
 ```
 
-### 4.2 Component tokens
+### 5.2 Component tokens
 
 | Token | Value | Usage |
 |---|---|---|
@@ -265,7 +371,7 @@ val SurfaceElevated = Color(0xFF18181B) // zinc-900 (dark)
 | `IconSize` | 24.dp | Standard icon size |
 | `HeroRingSize` | 200.dp | Connection state ring |
 
-### 4.3 Typography (already good, just organize)
+### 5.3 Typography (already good, just organize)
 
 ```
 Hero status:    Geist SemiBold 24sp
@@ -277,7 +383,7 @@ Mono (server):  Geist Mono Regular 13sp
 Caption:        Geist Regular 12sp
 ```
 
-### 4.4 Animation specs
+### 5.4 Animation specs
 
 | Animation | Duration | Easing |
 |---|---|---|
@@ -290,7 +396,7 @@ Caption:        Geist Regular 12sp
 
 ---
 
-## 5. New Components to Build
+## 6. New Components to Build
 
 | Component | Description | Replaces |
 |---|---|---|
@@ -301,10 +407,96 @@ Caption:        Geist Regular 12sp
 | `EmptyState` | Illustration + CTA for empty lists | New |
 | `SectionHeader` | Uppercase section divider | `SectionTitle` (enhanced) |
 | `SearchBar` | Search input with icon | New (for split tunneling) |
+| `DebugLogsScreen` | Log viewer + share (Compose) | New (ProtonVPN-inspired) |
 
 ---
 
-## 6. Implementation Phases
+## 7. Debug Logs Feature (ProtonVPN-inspired)
+
+### 7.1 What ProtonVPN does
+- Custom `ProtonLogger` writes to rolling log files (Logback, 300KB max, 2 files)
+- `LogActivity` shows logs in a RecyclerView (monospace, 9sp)
+- Share button creates a combined log file and opens system share sheet
+- Log format: `{timestamp} | {level} | {category}:{event} | {message}`
+- Debug builds also write to Logcat; release builds only write to files
+
+### 7.2 What we need (simpler)
+
+**No custom logging framework needed.** We already have Logcat. Just add:
+
+| Component | Purpose |
+|---|---|
+| `DebugLogsScreen` | Compose screen showing logcat output |
+| `LogCollector` | Utility to capture logcat for our package |
+| Settings entry | "Debug logs" in a new SUPPORT section |
+
+### 7.3 Implementation
+
+**LogCollector.kt** — captures logcat filtered to our package:
+```kotlin
+object LogCollector {
+    fun collectLogs(context: Context): String {
+        val process = Runtime.getRuntime().exec(
+            arrayOf("logcat", "-d", "-t", "1000", "--pid=${android.os.Process.myPid()}")
+        )
+        return process.inputStream.bufferedReader().readText()
+    }
+
+    fun shareLogs(context: Context, logs: String) {
+        val file = File(context.cacheDir, "kiloproxy_logs.txt")
+        file.writeText(logs)
+        val uri = FileProvider.getUriForFile(context, "${context.packageName}.provider", file)
+        val intent = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_STREAM, uri)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        context.startActivity(Intent.createChooser(intent, "Share logs"))
+    }
+}
+```
+
+**DebugLogsScreen.kt** — Compose screen:
+```kotlin
+@Composable
+fun DebugLogsScreen(onBack: () -> Unit) {
+    var logs by remember { mutableStateOf("") }
+    LaunchedEffect(Unit) { logs = LogCollector.collectLogs(context) }
+
+    Scaffold(
+        topBar = { TopAppBar(title = { Text("Debug Logs") }, onBack) }
+    ) { padding ->
+        Column(Modifier.padding(padding)) {
+            // Share button
+            Button(onClick = { LogCollector.shareLogs(context, logs) }) {
+                Icon(Icons.Default.Share, "Share")
+                Text("Share logs")
+            }
+            // Log viewer
+            LazyColumn {
+                item {
+                    Text(logs, fontFamily = FontFamily.Monospace, fontSize = 10.sp)
+                }
+            }
+        }
+    }
+}
+```
+
+### 7.4 Settings entry
+Add to SettingsScreen in a new "SUPPORT" section:
+```
+SUPPORT
+┌───────────────────────┐
+│ 📋 Debug logs       ▸ │  ← opens DebugLogsScreen
+└───────────────────────┘
+```
+
+**ProtonVPN reference:** `ui/drawer/LogActivity.kt`, `redesign/settings/ui/DebugTools.kt`
+
+---
+
+## 7. Implementation Phases
 
 ### Phase 1: Foundation (1-2 days)
 - [ ] Update `Color.kt` with new semantic tokens
@@ -342,7 +534,7 @@ Caption:        Geist Regular 12sp
 
 ---
 
-## 7. Files to Modify
+## 8. Files to Modify
 
 | File | Action |
 |---|---|
@@ -356,12 +548,13 @@ Caption:        Geist Regular 12sp
 | `ui/components/DataUsageCard.kt` | Replace with `StatsRow` |
 | `ui/components/ProxyCard.kt` | Simplify → `ProfileListItem` |
 | `ui/navigation/AppNavigation.kt` | Update routes if screen names change |
-| `ProfileFragment.kt` | Delete (dead code) |
+| `ProfileFragment.kt` | Delete (dead code, 624 lines) |
 | `main.xml` | Delete (dead code) |
+| `AppSelector.kt` | Delete (replaced by SplitTunnelingScreen) |
 
 ---
 
-## 8. References
+## 9. References
 
 | Resource | Link |
 |---|---|
