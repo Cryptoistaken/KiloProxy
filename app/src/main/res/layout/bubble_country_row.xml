@@ -16,20 +16,11 @@
         android:textSize="14sp" />
 
     <TextView
-        android:id="@+id/row_dial"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="4dp"
-        android:textSize="9sp"
-        android:textColor="#71717A"
-        android:fontFamily="sans-serif-medium" />
-
-    <TextView
         android:id="@+id/row_name"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_weight="1"
-        android:layout_marginStart="6dp"
+        android:layout_marginStart="8dp"
         android:textSize="11sp"
         android:textStyle="bold"
         android:textColor="#18181B"
@@ -45,22 +36,21 @@
         android:textColor="#71717A"
         android:fontFamily="sans-serif-medium" />
 
-    <View
-        android:id="@+id/row_dot"
-        android:layout_width="5dp"
-        android:layout_height="5dp"
-        android:layout_marginStart="6dp"
-        android:background="@drawable/signal_dot"
-        android:visibility="gone" />
-
     <TextView
-        android:id="@+id/row_status"
+        android:id="@+id/row_dial"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginStart="3dp"
-        android:text="@string/connected"
+        android:layout_marginStart="6dp"
         android:textSize="8sp"
-        android:textStyle="bold"
-        android:textColor="#16A34A"
+        android:textColor="#A1A1AA"
+        android:fontFamily="sans-serif-medium"
+        android:visibility="gone" />
+
+    <View
+        android:id="@+id/row_dot"
+        android:layout_width="7dp"
+        android:layout_height="7dp"
+        android:layout_marginStart="6dp"
+        android:background="@drawable/signal_dot"
         android:visibility="gone" />
 </LinearLayout>
