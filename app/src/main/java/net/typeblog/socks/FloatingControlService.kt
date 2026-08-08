@@ -201,7 +201,13 @@ class FloatingControlService : Service() {
 
         createNotificationChannel()
         touchSlop = ViewConfiguration.get(this).scaledTouchSlop
-        windowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
+        // Use display context for WindowManager so overlay is top-level system window,
+        // not attached to any activity window token.
+        val displayManager = getSystemService(Context.DISPLAY_SERVICE) as android.hardware.display.DisplayManager
+        val display = displayManager.getDisplay(android.view.Display.DEFAULT_DISPLAY)
+        val displayContext = createDisplayContext(display)
+        windowManager = displayContext.getSystemService(Context.WINDOW_SERVICE) as WindowManager
+        Log.d(TAG, "onCreate: windowManager obtained from displayContext, display=${display?.displayId}")
         bubbleView = createBubbleView()
         params = buildLayoutParams()
         flagPillView = createFlagPillView()
