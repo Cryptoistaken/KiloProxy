@@ -200,7 +200,6 @@ class FloatingControlService : Service() {
         }
 
         createNotificationChannel()
-        startAsForeground()
         touchSlop = ViewConfiguration.get(this).scaledTouchSlop
         windowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
         bubbleView = createBubbleView()
@@ -219,6 +218,7 @@ class FloatingControlService : Service() {
             onCountrySelected = { code -> onBubbleCountrySelected(code) },
             onDismissed = { longPressFired = false }
         )
+        startAsForeground()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
