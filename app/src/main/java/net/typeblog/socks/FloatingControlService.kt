@@ -207,7 +207,7 @@ class FloatingControlService : Service() {
         val display = displayManager.getDisplay(android.view.Display.DEFAULT_DISPLAY)
         val displayContext = createDisplayContext(display)
         windowManager = displayContext.getSystemService(Context.WINDOW_SERVICE) as WindowManager
-        Log.d(TAG, "onCreate: windowManager obtained from displayContext, display=${display?.displayId}")
+        Log.d(TAG, "onCreate: windowManager from displayContext, display=${display?.displayId}")
         bubbleView = createBubbleView()
         params = buildLayoutParams()
         flagPillView = createFlagPillView()
