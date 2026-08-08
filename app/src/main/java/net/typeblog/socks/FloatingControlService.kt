@@ -168,46 +168,26 @@ class FloatingControlService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        Log.d(TAG, "onCreate: starting FloatingControlService")
-        Log.d(TAG, "onCreate: device=${Build.MANUFACTURER} ${Build.MODEL}, Android=${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})")
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            val canOverlay = Settings.canDrawOverlays(this)
-            Log.d(TAG, "onCreate: canDrawOverlays=$canOverlay")
-
-            // Samsung-specific: check if overlay is actually enabled in Samsung settings
-            if (Build.MANUFACTURER.equals("samsung", ignoreCase = true)) {
-                Log.d(TAG, "onCreate: Samsung device detected — checking One UI overlay settings")
-                try {
-                    // Check if "Appear on top" is enabled in Samsung settings
-                    val samsungOverlay = Settings.Secure.getInt(contentResolver, "enabled_notification_listeners", 0)
-                    Log.d(TAG, "onCreate: Samsung enabled_notification_listeners=$samsungOverlay")
-                } catch (e: Exception) {
-                    Log.d(TAG, "onCreate: Samsung settings check failed: ${e.message}")
-                }
-            }
-
-            if (!canOverlay) {
-                Log.e(TAG, "Overlay permission not granted — stopping service")
-                Toast.makeText(
-                    this,
-                    "Overlay permission required. Please enable \"Display over other apps\".",
-                    Toast.LENGTH_LONG
-                ).show()
-                stopSelf()
-                return
-            }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
+            Log.e(TAG, "Overlay permission not granted — stopping service")
+            Toast.makeText(
+                this,
+                "Overlay permission required. Please enable \"Display over other apps\".",
+                Toast.LENGTH_LONG
+            ).show()
+            stopSelf()
+            return
         }
 
         createNotificationChannel()
         touchSlop = ViewConfiguration.get(this).scaledTouchSlop
-        // Use display context for WindowManager so overlay is top-level system window,
-        // not attached to any activity window token.
+        // Use display context for WindowManager so overlay is a top-level system window,
+        // not attached to the service's window token.
         val displayManager = getSystemService(Context.DISPLAY_SERVICE) as android.hardware.display.DisplayManager
         val display = displayManager.getDisplay(android.view.Display.DEFAULT_DISPLAY)
         val displayContext = createDisplayContext(display)
         windowManager = displayContext.getSystemService(Context.WINDOW_SERVICE) as WindowManager
-        Log.d(TAG, "onCreate: windowManager from displayContext, display=${display?.displayId}")
         bubbleView = createBubbleView()
         params = buildLayoutParams()
         flagPillView = createFlagPillView()
@@ -379,14 +359,6 @@ class FloatingControlService : Service() {
         try {
             if (view.isAttachedToWindow) return
             wm.addView(view, flagPillParams)
-            // Samsung One UI workaround: force view visible after async attachment
-            view.post {
-                if (!view.isAttachedToWindow || view.windowVisibility != View.VISIBLE) {
-                    Log.d(TAG, "addFlagPillToWindow: forcing view visible (Samsung workaround)")
-                    view.visibility = View.VISIBLE
-                    view.requestLayout()
-                }
-            }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to add flag pill overlay", e)
         }
@@ -462,7 +434,6 @@ class FloatingControlService : Service() {
             @Suppress("DEPRECATION")
             WindowManager.LayoutParams.TYPE_PHONE
         }
-        Log.d(TAG, "buildLayoutParams: type=$type, flags=${WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL}, size=${bubbleSizePx}x${bubbleSizePx}")
         return WindowManager.LayoutParams(
             bubbleSizePx,
             bubbleSizePx,
@@ -688,36 +659,11 @@ class FloatingControlService : Service() {
     }
 
     private fun addBubbleToWindow() {
-        val wm = windowManager ?: run {
-            Log.e(TAG, "addBubbleToWindow: windowManager is null")
-            return
-        }
-        val view = bubbleView ?: run {
-            Log.e(TAG, "addBubbleToWindow: bubbleView is null")
-            return
-        }
+        val wm = windowManager ?: return
+        val view = bubbleView ?: return
         try {
-            if (view.isAttachedToWindow) {
-                Log.d(TAG, "addBubbleToWindow: view already attached, skipping")
-                return
-            }
-            Log.d(TAG, "addBubbleToWindow: adding view with params type=${params?.type}, flags=${params?.flags}, size=${params?.width}x${params?.height}")
+            if (view.isAttachedToWindow) return
             wm.addView(view, params)
-            Log.d(TAG, "addBubbleToWindow: view added successfully")
-
-            // Samsung One UI sets windowVisibility=8 (INVISIBLE) after addView.
-            // Force visibility on next frame to work around this.
-            view.post {
-                val attached = view.isAttachedToWindow
-                val vis = view.visibility
-                val winVis = view.windowVisibility
-                Log.d(TAG, "addBubbleToWindow[post]: attached=$attached, visibility=$vis, windowVisibility=$winVis")
-                if (!attached || winVis != View.VISIBLE) {
-                    Log.w(TAG, "addBubbleToWindow: forcing view visible (Samsung workaround)")
-                    view.visibility = View.VISIBLE
-                    view.requestLayout()
-                }
-            }
         } catch (e: WindowManager.BadTokenException) {
             Log.e(TAG, "Overlay token invalid — permission may have been revoked", e)
             Toast.makeText(
@@ -727,7 +673,7 @@ class FloatingControlService : Service() {
             ).show()
             stopSelf()
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to add overlay view: ${e.message}", e)
+            Log.e(TAG, "Failed to add overlay view", e)
         }
     }
 

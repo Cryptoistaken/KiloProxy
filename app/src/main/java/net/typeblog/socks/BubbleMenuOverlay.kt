@@ -134,13 +134,6 @@ class BubbleMenuOverlay(
 
         try {
             windowManager.addView(root, params)
-            // Samsung One UI workaround: force view visible after async attachment
-            root.post {
-                if (!root.isAttachedToWindow || root.windowVisibility != View.VISIBLE) {
-                    root.visibility = View.VISIBLE
-                    root.requestLayout()
-                }
-            }
         } catch (_: Exception) {
             rootView = null
             menuList = null
