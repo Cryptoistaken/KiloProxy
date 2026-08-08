@@ -694,8 +694,8 @@ class FloatingControlService : Service() {
     }
 
     private fun handleTap() {
-        val now = System.currentTimeMillis()
-        val isDoubleTap = (now - lastTapTime) < 300
+        val now = android.os.SystemClock.elapsedRealtime()
+        val isDoubleTap = (now - lastTapTime) < 300L
         lastTapTime = now
 
         if (isDoubleTap && state != BubbleState.CONNECTING) {
