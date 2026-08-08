@@ -334,10 +334,14 @@ class BubbleMenuOverlay(
         row.findViewById<TextView>(R.id.row_flag).text = country.flag
         row.findViewById<TextView>(R.id.row_name).text = country.name
         row.findViewById<TextView>(R.id.row_code).text = country.code
+        val dialView = row.findViewById<TextView>(R.id.row_dial)
+        val dot = row.findViewById<View>(R.id.row_dot)
+        val statusView = row.findViewById<TextView>(R.id.row_status)
         if (isConnected) {
-            row.findViewById<TextView>(R.id.row_status).visibility = View.VISIBLE
-            val dot = row.findViewById<View>(R.id.row_dot)
+            // Connected: hide dial, show dot + "Connected"
+            dialView.visibility = View.GONE
             dot.visibility = View.VISIBLE
+            statusView.visibility = View.VISIBLE
             ObjectAnimator.ofPropertyValuesHolder(
                 dot,
                 PropertyValuesHolder.ofFloat("alpha", 0.6f, 1f),
@@ -349,6 +353,12 @@ class BubbleMenuOverlay(
                 repeatMode = ValueAnimator.REVERSE
                 start()
             }
+        } else {
+            // Not connected: show dial code, hide dot + status
+            dialView.text = "+${country.phone}"
+            dialView.visibility = View.VISIBLE
+            dot.visibility = View.GONE
+            statusView.visibility = View.GONE
         }
         row.setOnClickListener {
             if (countrySwitchEnabled) {
