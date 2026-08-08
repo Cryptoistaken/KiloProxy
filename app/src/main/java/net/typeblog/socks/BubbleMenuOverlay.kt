@@ -18,7 +18,7 @@ import android.text.TextWatcher
 import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
-import android.view.animation.OvershootInterpolator
+import androidx.interpolator.view.animation.FastOutSlowInInterpolator
 import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.LinearLayout
@@ -52,6 +52,7 @@ class BubbleMenuOverlay(
     private var menuList: LinearLayout? = null
     private var messageView: TextView? = null
     private var countrySwitchEnabled = false
+    private var connectedDotAnimator: ObjectAnimator? = null
 
     fun show(bubbleCenterX: Int, bubbleCenterY: Int, bubbleSizePx: Int, connectedCountryCode: String?, supportsCountrySwitch: Boolean) {
         if (isShowing()) return
@@ -241,10 +242,13 @@ class BubbleMenuOverlay(
             WindowManager.LayoutParams.MATCH_PARENT,
             WindowManager.LayoutParams.MATCH_PARENT,
             type,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
             PixelFormat.TRANSLUCENT
         )
         params.gravity = Gravity.TOP or Gravity.START
+
+        // Set alpha BEFORE addView to prevent 1-2 frame flash of the scrim
+        root.alpha = 0f
 
         try {
             windowManager.addView(root, params)
@@ -258,25 +262,23 @@ class BubbleMenuOverlay(
         panel.isClickable = true
         list.isClickable = true
 
-        root.alpha = 0f
-        root.animate().alpha(1f).setDuration(180).start()
+        // scrim fade: 100ms (fast, just enough to avoid hard pop-in)
+        root.animate().alpha(1f).setDuration(100).start()
 
+        // Panel: set correct pivot BEFORE animation, start immediately (no delay)
         panel.pivotX = if (side == "left") panelWidth.toFloat() else 0f
-        panel.pivotY = if (side == "top") maxHeightPx.toFloat() else 0f
+        panel.pivotY = maxHeightPx / 2f
         panel.scaleX = 0.55f
         panel.scaleY = 0.55f
         panel.alpha = 0f
-        handler.postDelayed({
-            panel.animate()
-                .scaleX(1f).scaleY(1f).alpha(1f)
-                .setDuration(200)
-                .setInterpolator(OvershootInterpolator(1.2f))
-                .start()
-        }, 60)
+        panel.animate()
+            .scaleX(1f).scaleY(1f).alpha(1f)
+            .setDuration(120)
+            .setInterpolator(FastOutSlowInInterpolator())
+            .start()
 
+        // Single post: clamp scroll height + refine panel Y in one pass
         panel.post {
-            // Clamp the scrollable height so the menu never overflows the screen
-            // (View.maxHeight needs API 26+, so we set explicit layout heights).
             val listHeight = list.measuredHeight
             if (listHeight > 0) {
                 val targetHeight = listHeight.coerceAtMost(maxHeightPx)
@@ -288,12 +290,10 @@ class BubbleMenuOverlay(
                 if (scrollLp.height != targetHeight) {
                     scrollLp.height = targetHeight
                     scroll.layoutParams = scrollLp
-                    panel.requestLayout()
                 }
             }
             val h = panel.height
             if (h > 0) {
-                // Refine vertical position based on actual panel height
                 val refinedY = when (side) {
                     "top"    -> (by - h - margin8).coerceIn(margin8, (screenH - h - margin8).coerceAtLeast(margin8))
                     "bottom" -> (by + bubbleSizePx + margin8).coerceIn(margin8, (screenH - h - margin8).coerceAtLeast(margin8))
@@ -310,6 +310,9 @@ class BubbleMenuOverlay(
 
     fun hide() {
         handler.removeCallbacksAndMessages(null)
+        // Cancel the pulsing dot animator to prevent leak
+        connectedDotAnimator?.cancel()
+        connectedDotAnimator = null
         // Hide keyboard if search was open
         try {
             val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
@@ -321,8 +324,8 @@ class BubbleMenuOverlay(
             return
         }
         val panel = root.findViewById<LinearLayout>(R.id.menu_panel)
-        panel.animate().scaleX(0.6f).scaleY(0.6f).alpha(0f).setDuration(150).start()
-        root.animate().alpha(0f).setDuration(150).withEndAction {
+        panel.animate().scaleX(0.3f).scaleY(0.3f).alpha(0f).setDuration(80).start()
+        root.animate().alpha(0f).setDuration(80).withEndAction {
             cleanup()
         }.start()
     }
@@ -340,7 +343,7 @@ class BubbleMenuOverlay(
             // Connected: hide dial, show pulsing green dot
             dialView.visibility = View.GONE
             dot.visibility = View.VISIBLE
-            ObjectAnimator.ofPropertyValuesHolder(
+            connectedDotAnimator = ObjectAnimator.ofPropertyValuesHolder(
                 dot,
                 PropertyValuesHolder.ofFloat("alpha", 0.6f, 1f),
                 PropertyValuesHolder.ofFloat("scaleX", 1f, 1.15f),
@@ -422,7 +425,7 @@ class BubbleMenuOverlay(
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.WRAP_CONTENT,
             overlayType(),
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
             PixelFormat.TRANSLUCENT
         )
         params.gravity = Gravity.TOP or Gravity.START
@@ -463,6 +466,8 @@ class BubbleMenuOverlay(
 
     private fun cleanup() {
         handler.removeCallbacksAndMessages(null)
+        connectedDotAnimator?.cancel()
+        connectedDotAnimator = null
         val root = rootView
         if (root != null && root.isAttachedToWindow) {
             try {
