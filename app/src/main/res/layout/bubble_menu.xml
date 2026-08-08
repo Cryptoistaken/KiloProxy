@@ -28,7 +28,7 @@
             android:paddingStart="8dp"
             android:layout_marginBottom="4dp"
             android:background="@drawable/search_input_bg"
-            android:hint="Search country or code…"
+            android:hint="Search name, code or +dial…"
             android:textSize="11sp"
             android:textColor="#18181B"
             android:textColorHint="#71717A"

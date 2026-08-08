@@ -177,16 +177,24 @@ class BubbleMenuOverlay(
             }
         })
 
-        // Request focus and show keyboard when search is tapped
+        // When search is tapped, make the overlay focusable so keyboard works
+        searchInput.setOnClickListener {
+            val winParams = root.layoutParams as? WindowManager.LayoutParams ?: return@setOnClickListener
+            if (winParams.flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE != 0) {
+                winParams.flags = winParams.flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE.inv()
+                try {
+                    windowManager.updateViewLayout(root, winParams)
+                } catch (_: Exception) {}
+                searchInput.requestFocus()
+                val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
+                imm.showSoftInput(searchInput, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
+            }
+        }
+        // Also handle the case where focus already arrived (e.g. flag was cleared)
         searchInput.setOnFocusChangeListener { _, hasFocus ->
             if (hasFocus) {
-                val params = root.layoutParams as? WindowManager.LayoutParams
-                if (params != null) {
-                    params.flags = params.flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE.inv()
-                    try {
-                        windowManager.updateViewLayout(root, params)
-                    } catch (_: Exception) {}
-                }
+                val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
+                imm.showSoftInput(searchInput, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
             }
         }
 
@@ -302,6 +310,11 @@ class BubbleMenuOverlay(
 
     fun hide() {
         handler.removeCallbacksAndMessages(null)
+        // Hide keyboard if search was open
+        try {
+            val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
+            rootView?.let { imm.hideSoftInputFromWindow(it.windowToken, 0) }
+        } catch (_: Exception) {}
         val root = rootView ?: return
         if (!root.isAttachedToWindow) {
             cleanup()
