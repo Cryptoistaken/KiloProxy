@@ -86,7 +86,6 @@ fun ProxiesScreen(
     val sentBytes by viewModel.sentBytes.collectAsState()
 
     var showAddSheet by remember { mutableStateOf(false) }
-    var showProviderDialog by remember { mutableStateOf(false) }
     var selectedProvider by remember { mutableStateOf<String?>(null) }
     var editTargetProfile by remember { mutableStateOf<String?>(null) }
     var deleteTarget by remember { mutableStateOf<String?>(null) }
@@ -95,7 +94,10 @@ fun ProxiesScreen(
         modifier = modifier,
         floatingActionButton = {
             FloatingActionButton(
-                onClick = { showProviderDialog = true },
+                onClick = {
+                    selectedProvider = "custom"
+                    showAddSheet = true
+                },
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary
             ) {
@@ -156,75 +158,6 @@ fun ProxiesScreen(
                 item { Spacer(modifier = Modifier.height(72.dp)) }
             }
         }
-    }
-
-    // ── Provider Selection Dialog ──
-    if (showProviderDialog) {
-        AlertDialog(
-            onDismissRequest = { showProviderDialog = false },
-            title = { Text("Select Provider") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    // Custom provider card
-                    OutlinedButton(
-                        onClick = {
-                            showProviderDialog = false
-                            selectedProvider = "custom"
-                            showAddSheet = true
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(10.dp),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
-                    ) {
-                        Column(
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
-                            horizontalAlignment = Alignment.Start
-                        ) {
-                            Text(
-                                text = "Custom",
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Text(
-                                text = "Enter your own proxy server details",
-                                fontSize = 12.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                    // OwlProxy provider card
-                    OutlinedButton(
-                        onClick = {
-                            showProviderDialog = false
-                            selectedProvider = "owl"
-                            showAddSheet = true
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(10.dp),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
-                    ) {
-                        Column(
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
-                            horizontalAlignment = Alignment.Start
-                        ) {
-                            Text(
-                                text = "🦉 OwlProxy",
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Text(
-                                text = "Choose country, IP mode & stick time",
-                                fontSize = 12.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { showProviderDialog = false }) { Text("Cancel") }
-            }
-        )
     }
 
     // ── Delete Confirmation ──
