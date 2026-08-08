@@ -178,20 +178,14 @@ class BubbleMenuOverlay(
             }
         })
 
-        // When search is tapped, make the overlay focusable so keyboard works
+        // Search tap: the popup window is already focusable (no FLAG_NOT_FOCUSABLE),
+        // so the EditText can receive input immediately — request focus and show IME.
         searchInput.setOnClickListener {
-            val winParams = root.layoutParams as? WindowManager.LayoutParams ?: return@setOnClickListener
-            if (winParams.flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE != 0) {
-                winParams.flags = winParams.flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE.inv()
-                try {
-                    windowManager.updateViewLayout(root, winParams)
-                } catch (_: Exception) {}
-                searchInput.requestFocus()
-                val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
-                imm.showSoftInput(searchInput, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
-            }
+            searchInput.requestFocus()
+            val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
+            imm.showSoftInput(searchInput, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
         }
-        // Also handle the case where focus already arrived (e.g. flag was cleared)
+        // Also handle the case where focus arrived programmatically
         searchInput.setOnFocusChangeListener { _, hasFocus ->
             if (hasFocus) {
                 val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
@@ -238,11 +232,16 @@ class BubbleMenuOverlay(
         panelLp.topMargin = panelY
 
         val type = overlayType()
+        // No FLAG_NOT_FOCUSABLE: a non-focusable window cannot receive text input,
+        // so toggling the flag at runtime to open the search keyboard is unreliable
+        // (the keyboard can lag for seconds). A plain focusable window lets the
+        // EditText connect to the IME immediately; the keyboard only appears when
+        // the search field is tapped.
         val params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.MATCH_PARENT,
             WindowManager.LayoutParams.MATCH_PARENT,
             type,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+            0,
             PixelFormat.TRANSLUCENT
         )
         params.gravity = Gravity.TOP or Gravity.START
@@ -265,46 +264,53 @@ class BubbleMenuOverlay(
         // scrim fade: 100ms (fast, just enough to avoid hard pop-in)
         root.animate().alpha(1f).setDuration(100).start()
 
-        // Panel: set correct pivot BEFORE animation, start immediately (no delay)
-        panel.pivotX = if (side == "left") panelWidth.toFloat() else 0f
-        panel.pivotY = maxHeightPx / 2f
+        // Panel: keep hidden until geometry is finalized below (prevents flash)
         panel.scaleX = 0.55f
         panel.scaleY = 0.55f
         panel.alpha = 0f
-        panel.animate()
-            .scaleX(1f).scaleY(1f).alpha(1f)
-            .setDuration(120)
-            .setInterpolator(FastOutSlowInInterpolator())
-            .start()
 
-        // Single post: clamp scroll height + refine panel Y in one pass
+        // Single post: clamp scroll height, refine panel Y using the TRUE clamped
+        // height, set per-side pivots, then start the grow-in animation.
         panel.post {
             val listHeight = list.measuredHeight
-            if (listHeight > 0) {
-                val targetHeight = listHeight.coerceAtMost(maxHeightPx)
-                val scrollLp = scroll.layoutParams as? LinearLayout.LayoutParams
-                    ?: LinearLayout.LayoutParams(
-                        LinearLayout.LayoutParams.MATCH_PARENT,
-                        targetHeight
-                    )
-                if (scrollLp.height != targetHeight) {
-                    scrollLp.height = targetHeight
-                    scroll.layoutParams = scrollLp
-                }
+            val targetHeight = if (listHeight > 0) listHeight.coerceAtMost(maxHeightPx) else maxHeightPx
+            val scrollLp = scroll.layoutParams as? LinearLayout.LayoutParams
+                ?: LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    targetHeight
+                )
+            if (scrollLp.height != targetHeight) {
+                scrollLp.height = targetHeight
+                scroll.layoutParams = scrollLp
             }
-            val h = panel.height
-            if (h > 0) {
-                val refinedY = when (side) {
-                    "top"    -> (by - h - margin8).coerceIn(margin8, (screenH - h - margin8).coerceAtLeast(margin8))
-                    "bottom" -> (by + bubbleSizePx + margin8).coerceIn(margin8, (screenH - h - margin8).coerceAtLeast(margin8))
-                    else     -> (bubbleCenterY - h / 2).coerceIn(margin8, (screenH - h - margin8).coerceAtLeast(margin8))
-                }
-                if (refinedY != panelLp.topMargin) {
-                    panelLp.topMargin = refinedY
-                    panel.requestLayout()
-                }
-                panel.pivotY = h / 2f
+            // panel.height and scroll.height are read from the same (stale) layout pass,
+            // so their difference is the fixed header height (search bar + divider).
+            val headerHeight = (panel.height - scroll.height).coerceAtLeast(0)
+            val trueHeight = headerHeight + targetHeight
+            val refinedY = when (side) {
+                "top"    -> (by - trueHeight - margin8).coerceIn(margin8, (screenH - trueHeight - margin8).coerceAtLeast(margin8))
+                "bottom" -> (by + bubbleSizePx + margin8).coerceIn(margin8, (screenH - trueHeight - margin8).coerceAtLeast(margin8))
+                else     -> (bubbleCenterY - trueHeight / 2).coerceIn(margin8, (screenH - trueHeight - margin8).coerceAtLeast(margin8))
             }
+            if (refinedY != panelLp.topMargin) {
+                panelLp.topMargin = refinedY
+                panel.requestLayout()
+            }
+            panel.pivotX = when (side) {
+                "left" -> panelWidth.toFloat()
+                "top", "bottom" -> panelWidth / 2f
+                else -> 0f
+            }
+            panel.pivotY = when (side) {
+                "top" -> trueHeight.toFloat()
+                "bottom" -> 0f
+                else -> trueHeight / 2f
+            }
+            panel.animate()
+                .scaleX(1f).scaleY(1f).alpha(1f)
+                .setDuration(120)
+                .setInterpolator(FastOutSlowInInterpolator())
+                .start()
         }
     }
 

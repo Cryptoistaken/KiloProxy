@@ -2,7 +2,6 @@
     android:id="@+id/menu_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#59000000"
     android:clickable="true"
     android:focusable="true">
 

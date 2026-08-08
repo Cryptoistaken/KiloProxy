@@ -262,7 +262,6 @@ class FloatingControlService : Service() {
 
         val bubble = FrameLayout(this)
         bubble.outlineProvider = ViewOutlineProvider.BACKGROUND
-        bubble.elevation = (12 * density)
         bubble.clipChildren = false
         bubble.clipToPadding = false
 
@@ -316,7 +315,6 @@ class FloatingControlService : Service() {
             (5 * density).toInt(),
             (3 * density).toInt()
         )
-        pill.elevation = (10 * density)
 
         val bg = GradientDrawable()
         bg.shape = GradientDrawable.RECTANGLE
