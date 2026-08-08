@@ -17,20 +17,33 @@
 
     <TextView
         android:id="@+id/row_name"
-        android:layout_width="0dp"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_weight="1"
         android:layout_marginStart="8dp"
         android:textSize="11sp"
+        android:textStyle="bold"
         android:textColor="#18181B"
         android:maxLines="1"
         android:ellipsize="end" />
 
     <TextView
+        android:id="@+id/row_code"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="4dp"
+        android:textSize="10sp"
+        android:textColor="#A1A1AA"
+        android:fontFamily="sans-serif-medium" />
+
+    <View
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:layout_weight="1" />
+
+    <TextView
         android:id="@+id/row_dial"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginStart="6dp"
         android:textSize="8sp"
         android:textColor="#A1A1AA"
         android:fontFamily="sans-serif-medium"

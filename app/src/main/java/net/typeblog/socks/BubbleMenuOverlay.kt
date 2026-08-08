@@ -332,7 +332,8 @@ class BubbleMenuOverlay(
     private fun makeRow(country: Countries.Country, isConnected: Boolean): View {
         val row = LayoutInflater.from(context).inflate(R.layout.bubble_country_row, menuList, false)
         row.findViewById<TextView>(R.id.row_flag).text = country.flag
-        row.findViewById<TextView>(R.id.row_name).text = "${country.name} ${country.code}"
+        row.findViewById<TextView>(R.id.row_name).text = country.name
+        row.findViewById<TextView>(R.id.row_code).text = country.code
         val dialView = row.findViewById<TextView>(R.id.row_dial)
         val dot = row.findViewById<View>(R.id.row_dot)
         if (isConnected) {
