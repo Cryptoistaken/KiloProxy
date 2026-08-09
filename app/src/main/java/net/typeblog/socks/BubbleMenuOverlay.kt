@@ -382,8 +382,8 @@ class BubbleMenuOverlay(
             connectedDotAnimator = ObjectAnimator.ofPropertyValuesHolder(
                 dot,
                 PropertyValuesHolder.ofFloat("alpha", 0.6f, 1f),
-                PropertyValuesHolder.ofFloat("scaleX", 1f, 1.15f),
-                PropertyValuesHolder.ofFloat("scaleY", 1f, 1.15f)
+                PropertyValuesHolder.ofFloat("scaleX", 1f, 1.08f),
+                PropertyValuesHolder.ofFloat("scaleY", 1f, 1.08f)
             ).apply {
                 duration = 900
                 repeatCount = ValueAnimator.INFINITE

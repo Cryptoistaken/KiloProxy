@@ -54,6 +54,7 @@
         android:layout_width="7dp"
         android:layout_height="7dp"
         android:layout_marginStart="6dp"
+        android:layout_marginEnd="10dp"
         android:background="@drawable/signal_dot"
         android:visibility="gone" />
 </LinearLayout>

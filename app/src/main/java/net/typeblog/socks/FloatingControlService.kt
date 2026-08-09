@@ -88,6 +88,10 @@ class FloatingControlService : Service() {
     private var windowManager: WindowManager? = null
     private var params: WindowManager.LayoutParams? = null
     private var bubbleView: FrameLayout? = null
+    // The inner circle that carries the gradient/icon/spinner/timer. Scaled by
+    // the breathing/pop animations; the transparent outer container (bubbleView)
+    // stays fixed-sized so the grown circle is never clipped by the square window.
+    private var bubbleVisualView: FrameLayout? = null
     private var iconView: ImageView? = null
     private var progressBar: ProgressBar? = null
     private var timerView: TextView? = null
@@ -103,6 +107,11 @@ class FloatingControlService : Service() {
     private var dragging = false
 
     private var bubbleSizePx = 0
+    // Reserve extra window space around the visual circle so scale animations
+    // (breathing 1.07x, connect-pop 1.18x) never push the drawn oval past the
+    // square overlay window bounds, which would clip its border mid-spin.
+    private var bubbleGrowMarginPx = 0
+    private var bubbleWindowSizePx = 0
     private var breatheAnimator: ValueAnimator? = null
     private var colorAnimator: ValueAnimator? = null
     private var longPressHandler = Handler(Looper.getMainLooper())
@@ -234,8 +243,8 @@ class FloatingControlService : Service() {
     private fun reClampBubblePosition() {
         val lp = params ?: return
         val bounds = currentDragBounds()
-        val maxX = (bounds.right - bubbleSizePx).coerceAtLeast(bounds.left)
-        val maxY = (bounds.bottom - bubbleSizePx).coerceAtLeast(bounds.top)
+        val maxX = (bounds.right - bubbleWindowSizePx).coerceAtLeast(bounds.left)
+        val maxY = (bounds.bottom - bubbleWindowSizePx).coerceAtLeast(bounds.top)
         val newX = lp.x.coerceIn(bounds.left, maxX)
         val newY = lp.y.coerceIn(bounds.top, maxY)
         if (newX != lp.x || newY != lp.y) {
@@ -292,25 +301,41 @@ class FloatingControlService : Service() {
         val density = resources.displayMetrics.density
         val sizePx = (60 * density).toInt()
         bubbleSizePx = sizePx
+        // 12dp of transparent window room around the visual circle on each side —
+        // more than the 60 * 0.18 ≈ 10.8dp max connect-pop overshoot, so scaling
+        // never clips the oval against the square overlay window.
+        val growMarginPx = (12 * density).toInt()
+        bubbleGrowMarginPx = growMarginPx
+        val windowSizePx = sizePx + 2 * growMarginPx
+        bubbleWindowSizePx = windowSizePx
         val glyphSizePx = (26 * density).toInt()
         val progressSizePx = (26 * density).toInt()
 
-        val bubble = FrameLayout(this)
-        bubble.outlineProvider = ViewOutlineProvider.BACKGROUND
-        bubble.clipChildren = false
-        bubble.clipToPadding = false
+        // Outer transparent window container. It owns the WindowManager.LayoutParams
+        // (drag/position/pill math); the visual circle lives inside it and is the
+        // only thing scaled by the breathing/pop animations.
+        val root = FrameLayout(this)
+        root.clipChildren = false
+        root.clipToPadding = false
+        root.layoutParams = FrameLayout.LayoutParams(windowSizePx, windowSizePx)
+
+        val circle = FrameLayout(this)
+        circle.outlineProvider = ViewOutlineProvider.BACKGROUND
+        circle.clipChildren = false
+        circle.clipToPadding = false
+        circle.layoutParams = FrameLayout.LayoutParams(sizePx, sizePx, Gravity.CENTER)
 
         val (startColor, endColor) = stateGradient(BubbleState.DISCONNECTED)
         val background = GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(startColor, endColor))
         background.shape = GradientDrawable.OVAL
-        bubble.background = background
+        circle.background = background
 
         iconView = ImageView(this)
         iconView!!.layoutParams = FrameLayout.LayoutParams(glyphSizePx, glyphSizePx, Gravity.CENTER)
         iconView!!.setImageResource(R.drawable.ic_bubble_play)
         iconView!!.setColorFilter(Color.WHITE)
         iconView!!.scaleType = ImageView.ScaleType.FIT_CENTER
-        bubble.addView(iconView)
+        circle.addView(iconView)
 
         progressBar = ProgressBar(this, null, android.R.attr.progressBarStyle)
         progressBar!!.isIndeterminate = true
@@ -318,7 +343,7 @@ class FloatingControlService : Service() {
             ?.setTint(Color.WHITE)
         progressBar!!.layoutParams = FrameLayout.LayoutParams(progressSizePx, progressSizePx, Gravity.CENTER)
         progressBar!!.visibility = View.GONE
-        bubble.addView(progressBar)
+        circle.addView(progressBar)
 
         timerView = TextView(this)
         timerView!!.text = "00:00"
@@ -333,10 +358,12 @@ class FloatingControlService : Service() {
             Gravity.CENTER
         )
         timerView!!.visibility = View.GONE
-        bubble.addView(timerView)
+        circle.addView(timerView)
 
-        bubble.setOnTouchListener(createTouchListener())
-        return bubble
+        root.addView(circle)
+        bubbleVisualView = circle
+        root.setOnTouchListener(createTouchListener())
+        return root
     }
 
     private fun createFlagPillView(): LinearLayout {
@@ -456,8 +483,8 @@ class FloatingControlService : Service() {
         val insets = currentSystemBarInsets()
         val bounds = currentDragBounds()
         val displayWidth = bounds.width() + insets.left + insets.right
-        pillParams.x = (bubbleParams.x + bubbleSizePx / 2) - displayWidth / 2
-        pillParams.y = bubbleParams.y + bubbleSizePx - (2 * density).toInt()
+        pillParams.x = (bubbleParams.x + bubbleWindowSizePx / 2) - displayWidth / 2
+        pillParams.y = bubbleParams.y + bubbleGrowMarginPx + bubbleSizePx - (2 * density).toInt()
         try {
             if (flagPillView?.isAttachedToWindow == true) {
                 windowManager?.updateViewLayout(flagPillView, pillParams)
@@ -480,8 +507,8 @@ class FloatingControlService : Service() {
             WindowManager.LayoutParams.TYPE_PHONE
         }
         return WindowManager.LayoutParams(
-            bubbleSizePx,
-            bubbleSizePx,
+            bubbleWindowSizePx,
+            bubbleWindowSizePx,
             type,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
             PixelFormat.TRANSLUCENT
@@ -556,7 +583,9 @@ class FloatingControlService : Service() {
                     dragging = false
                     longPressFired = false
                     longPressHandler.postDelayed(longPressRunnable, 480)
-                    v.animate().scaleX(0.92f).scaleY(0.92f).setDuration(120).start()
+                    bubbleVisualView?.let {
+                        it.animate().scaleX(0.92f).scaleY(0.92f).setDuration(120).start()
+                    } ?: v.animate().scaleX(0.92f).scaleY(0.92f).setDuration(120).start()
                 }
                 MotionEvent.ACTION_MOVE -> {
                     if (abs(event.rawX - initialRawX) > touchSlop || abs(event.rawY - initialRawY) > touchSlop) {
@@ -575,8 +604,8 @@ class FloatingControlService : Service() {
                         } else {
                             0
                         }
-                        val maxX = (bounds.right - bubbleSizePx).coerceAtLeast(bounds.left)
-                        val maxY = (bounds.bottom - bubbleSizePx - pillHeightPx + (2 * dm.density).toInt())
+                        val maxX = (bounds.right - bubbleWindowSizePx).coerceAtLeast(bounds.left)
+                        val maxY = (bounds.bottom - bubbleWindowSizePx - pillHeightPx + (2 * dm.density).toInt())
                             .coerceAtLeast(bounds.top)
                         lp.x = (initialX + (event.rawX - initialRawX).toInt()).coerceIn(bounds.left, maxX)
                         lp.y = (initialY + (event.rawY - initialRawY).toInt()).coerceIn(bounds.top, maxY)
@@ -590,8 +619,14 @@ class FloatingControlService : Service() {
                 }
                 MotionEvent.ACTION_UP -> {
                     longPressHandler.removeCallbacks(longPressRunnable)
-                    v.animate().scaleX(1f).scaleY(1f).setDuration(150)
-                        .setInterpolator(OvershootInterpolator(2.5f)).start()
+                    val circle = bubbleVisualView
+                    if (circle != null) {
+                        circle.animate().scaleX(1f).scaleY(1f).setDuration(150)
+                            .setInterpolator(OvershootInterpolator(2.5f)).start()
+                    } else {
+                        v.animate().scaleX(1f).scaleY(1f).setDuration(150)
+                            .setInterpolator(OvershootInterpolator(2.5f)).start()
+                    }
                     if (!dragging && !longPressFired) {
                         v.performClick()
                         handleTap()
@@ -600,7 +635,9 @@ class FloatingControlService : Service() {
                 }
                 MotionEvent.ACTION_CANCEL -> {
                     longPressHandler.removeCallbacks(longPressRunnable)
-                    v.animate().scaleX(1f).scaleY(1f).setDuration(150).start()
+                    bubbleVisualView?.let {
+                        it.animate().scaleX(1f).scaleY(1f).setDuration(150).start()
+                    } ?: v.animate().scaleX(1f).scaleY(1f).setDuration(150).start()
                     dragging = false
                 }
             }
@@ -800,8 +837,8 @@ class FloatingControlService : Service() {
         val y = params?.y ?: 0
         val connectedCountry = try { vpnService?.countryCode } catch (_: Exception) { null }
         menuOverlay?.show(
-            x + bubbleSizePx / 2,
-            y + bubbleSizePx / 2,
+            x + bubbleWindowSizePx / 2,
+            y + bubbleWindowSizePx / 2,
             bubbleSizePx,
             if (state == BubbleState.CONNECTED) connectedCountry else null,
             supportsCountrySwitch()
@@ -1013,6 +1050,7 @@ class FloatingControlService : Service() {
 
     private fun updateBubbleUi(oldState: BubbleState) {
         val view = bubbleView ?: return
+        val circle = bubbleVisualView ?: view
         animateGradientTransition(oldState, state)
         stopBreathing()
 
@@ -1022,7 +1060,7 @@ class FloatingControlService : Service() {
                 progressBar?.visibility = View.VISIBLE
                 timerView?.visibility = View.GONE
                 stopTimer()
-                startBreathing(view)
+                startBreathing(circle)
             }
             BubbleState.CONNECTED -> {
                 progressBar?.visibility = View.GONE
@@ -1038,7 +1076,7 @@ class FloatingControlService : Service() {
                     stopTimer()
                 }
                 if (oldState == BubbleState.CONNECTING) {
-                    playConnectPop(view)
+                    playConnectPop(circle)
                 }
             }
             BubbleState.DISCONNECTED -> {
@@ -1086,14 +1124,13 @@ class FloatingControlService : Service() {
     private fun stopBreathing() {
         breatheAnimator?.cancel()
         breatheAnimator = null
-        bubbleView?.let {
-            it.scaleX = 1f
-            it.scaleY = 1f
-        }
+        val circle = bubbleVisualView ?: return
+        circle.scaleX = 1f
+        circle.scaleY = 1f
     }
 
     private fun animateGradientTransition(oldState: BubbleState, newState: BubbleState) {
-        if (bubbleView == null) return
+        if (bubbleVisualView == null && bubbleView == null) return
         val (oldStart, oldEnd) = stateGradient(oldState)
         val (newStart, newEnd) = stateGradient(newState)
 
@@ -1125,7 +1162,7 @@ class FloatingControlService : Service() {
      * constructed each time instead — cheap enough for a ~260ms crossfade.
      */
     private fun applyGradientColors(colors: IntArray) {
-        val view = bubbleView ?: return
+        val view = bubbleVisualView ?: bubbleView ?: return
         val drawable = GradientDrawable(GradientDrawable.Orientation.TL_BR, colors)
         drawable.shape = GradientDrawable.OVAL
         view.background = drawable

@@ -535,25 +535,15 @@ class SocksVpnService : VpnService() {
     private fun updateNotification() {
         if (!mRunning) return
 
-        val country = mIpInfo?.country ?: ""
-        val flag = if (!mCountryCode.isNullOrEmpty()) {
-            Utility.countryCodeToFlag(mCountryCode!!)
-        } else {
-            ""
-        }
-        val ipText = if (!mCurrentIp.isNullOrEmpty()) {
-            if (country.isNotEmpty()) {
-                "$flag $country · $mCurrentIp"
-            } else {
-                "$flag $mCurrentIp"
-            }
+        val notificationText = if (!mCurrentIp.isNullOrEmpty()) {
+            getString(R.string.notify_msg, mProfileName ?: "")
         } else {
             "Connecting..."
         }
 
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(getString(R.string.notify_title))
-            .setContentText(ipText)
+            .setContentText(notificationText)
             .setSmallIcon(R.drawable.ic_launcher)
             .setOngoing(true)
             .build()
@@ -561,11 +551,11 @@ class SocksVpnService : VpnService() {
         val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
         // Skip redundant re-issues when the visible content+actions haven't changed
         // (the healthy-proxy / ip-api-fail retry path can otherwise fire this ~2x/sec).
-        val ipTextNow = ipText
-        if (ipTextNow == mLastNotificationText && ((notification.actions?.size ?: 0) == mLastNotificationActions)) {
+        val textNow = notificationText
+        if (textNow == mLastNotificationText && ((notification.actions?.size ?: 0) == mLastNotificationActions)) {
             return
         }
-        mLastNotificationText = ipTextNow
+        mLastNotificationText = textNow
         mLastNotificationActions = notification.actions?.size ?: 0
         nm.notify(1, notification)
     }
