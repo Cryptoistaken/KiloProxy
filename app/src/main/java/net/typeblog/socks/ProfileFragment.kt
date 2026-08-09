@@ -294,7 +294,7 @@ class ProfileFragment : PreferenceFragmentCompat(),
         }
     }
 
-    override fun onCheckedChanged(buttonView: CompoundButton?, isChecked: Boolean) {
+    override fun onCheckedChanged(buttonView: CompoundButton, isChecked: Boolean) {
         if (isChecked) {
             startVpn()
         } else {
