@@ -14,7 +14,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -27,11 +26,9 @@ import net.typeblog.socks.ui.theme.GeistMonoFonts
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
-import net.typeblog.socks.R
 
 /**
  * Hero connection control for the Connect tab.
@@ -136,17 +133,8 @@ fun ConnectionCard(
                             color = MaterialTheme.colorScheme.onPrimary,
                             strokeWidth = 2.5.dp
                         )
-                    } else {
-                        Icon(
-                            painter = painterResource(
-                                if (isConnected) R.drawable.lucide_square else R.drawable.lucide_play
-                            ),
-                            contentDescription = if (isConnected) "Stop" else "Start",
-                            tint = MaterialTheme.colorScheme.onPrimary,
-                            modifier = Modifier.size(22.dp)
-                        )
+                        Spacer(modifier = Modifier.width(8.dp))
                     }
-                    Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = when {
                             isConnecting -> "Connecting…"

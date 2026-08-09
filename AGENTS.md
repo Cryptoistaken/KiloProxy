@@ -79,6 +79,8 @@ git revert <commit-hash>                  # undo a specific commit
 |---|---|---|---|
 | `pre-ui-redesign` | `397d4b0` | 2026-08-07 | Engine intact, CI passing, floating bubble fixed. Use this to restore before any UI redesign work. |
 
+> **One-time (do before the notification/dot pass):** tag the current commit as `pre-notif-and-dot-fixes` before this UI pass starts — `git tag -a pre-notif-and-dot-fixes -m "Before notification/dot fixes"` then `git push origin pre-notif-and-dot-fixes`. Add it to the table above once created.
+
 ### Quick restore (pre-ui-redesign)
 ```bash
 # Safe restore — creates a new branch from the snapshot
@@ -132,6 +134,11 @@ git reset --hard 397d4b0
 | `AppSelector.kt` | Per-app selection list adapter |
 | `System.kt` | JNI bridge (sendfd) |
 
+Notes on the merged notification/dot pass:
+- `SocksVpnService.kt` — reuses the shared "floating control" notification (id 2, channel `floating_control`) instead of a separate VPN notification; user sees only ONE notification. `stopMe` uses DETACH (not REMOVE) so the shared FGS notification is not torn down.
+- `FloatingControlService.kt` — notification uses custom RemoteViews: always-visible centered pill with Connect/Disconnect; connected bubble color is now `#DC2626` (light-theme `LightError`) instead of `DarkError #EF4444`.
+- `BubbleMenuOverlay.kt` / `bubble_country_row.xml` — connected-dot now positioned where the dial code was shown.
+
 ### `.../util/`
 | File | Responsibility |
 |---|---|
@@ -147,6 +154,7 @@ git reset --hard 397d4b0
 
 ### `.../ui/`
 - `components/` — Compose components: AppToggleItem, ConnectionCard, ConnectionStatusCard, DataUsageCard, ProxyCard, SettingsItem, ThemePickerDialog
+  - `ConnectionCard.kt` — Connect/Disconnect button is now text-only (icon removed); spinner shown while connecting.
 - `navigation/AppNavigation.kt` — NavHost destinations
 - `screens/` — DebugLogsScreen, ProxiesScreen, SettingsScreen, SplitTunnelingScreen, StatusScreen
 - `theme/` — Color, Fonts, Theme, Type (Compose theming, Geist fonts)
@@ -173,8 +181,8 @@ git reset --hard 397d4b0
 - `networkSecurityConfig="@xml/network_security_config"`
 
 ### Resources — `app/src/main/res/`
-- `layout/` — `main.xml`, `app_item.xml`, `bubble_menu.xml` (bubble popup panel), `bubble_country_row.xml`
-- `drawable/` — lucide_* icons, menu_panel_bg, search_input_bg, signal_dot, logo_*, launcher
+- `layout/` — `main.xml`, `app_item.xml`, `bubble_menu.xml` (bubble popup panel), `bubble_country_row.xml`, `notification_action.xml` (RemoteViews layout for the notification Connect/Disconnect pill)
+- `drawable/` — lucide_* icons, menu_panel_bg, search_input_bg, signal_dot, logo_*, launcher, notification_pill (pill button background)
 - `font/` — Geist family TTFs (bold/medium/mono/pixel etc.)
 - `mipmap-*/` — legacy + adaptive launcher icons
 - `values/` — strings.xml (+`values-ru/strings.xml`), arrays.xml, styles.xml, pdnsd.xml, ruroute.xml, simpleroute.xml, ic_launcher_background

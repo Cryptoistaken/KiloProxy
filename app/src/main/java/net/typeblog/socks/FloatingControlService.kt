@@ -42,11 +42,11 @@ import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ProgressBar
+import android.widget.RemoteViews
 import android.widget.TextView
 import android.widget.Toast
 import androidx.compose.ui.graphics.toArgb
 import androidx.core.app.NotificationCompat
-import net.typeblog.socks.ui.theme.DarkError
 import net.typeblog.socks.util.Constants.ACTION_START_VPN
 import net.typeblog.socks.util.Constants.ACTION_STOP_VPN
 import net.typeblog.socks.util.ProfileManager
@@ -83,7 +83,7 @@ class FloatingControlService : Service() {
     // Last notification content we actually issued, so the 200ms poll loop can
     // skip redundant notify() calls when nothing on screen changed.
     private var lastNotificationText: String? = null
-    private var lastNotificationActions = -1
+    private var lastNotificationState: String? = null
 
     private var windowManager: WindowManager? = null
     private var params: WindowManager.LayoutParams? = null
@@ -711,11 +711,11 @@ class FloatingControlService : Service() {
         // Rebuild lazily so we can compare against the last-issued content.
         val notification = buildForegroundNotification()
         val latestText = notification.extras?.getCharSequence(Notification.EXTRA_TEXT)?.toString()
-        val latestActionCount = notification.actions?.size ?: 0
-        if (latestText == lastNotificationText && latestActionCount == lastNotificationActions) return
+        val latestState = state.name
+        if (latestText == lastNotificationText && latestState == lastNotificationState) return
         manager.notify(NOTIFICATION_ID, notification)
         lastNotificationText = latestText
-        lastNotificationActions = latestActionCount
+        lastNotificationState = latestState
     }
 
     private fun buildForegroundNotification(): Notification {
@@ -751,21 +751,31 @@ class FloatingControlService : Service() {
             "Floating control"
         }
 
-        val builder = NotificationCompat.Builder(this, CHANNEL_ID)
-        return builder
+        val isConnected = state == BubbleState.CONNECTED || state == BubbleState.CONNECTING
+        val buttonText = if (isConnected) "Disconnect" else "Connect"
+        val buttonPending = if (isConnected) stopPending else connectPending
+
+        val collapsed = RemoteViews(packageName, R.layout.notification_action).apply {
+            setTextViewText(R.id.notify_button, buttonText)
+            setTextViewText(R.id.notify_text, text)
+            setInt(R.id.notify_button, "setBackgroundResource", R.drawable.notification_pill)
+            setOnClickPendingIntent(R.id.notify_button, buttonPending)
+        }
+        val expanded = RemoteViews(packageName, R.layout.notification_action).apply {
+            setTextViewText(R.id.notify_button, buttonText)
+            setTextViewText(R.id.notify_text, text)
+            setInt(R.id.notify_button, "setBackgroundResource", R.drawable.notification_pill)
+            setOnClickPendingIntent(R.id.notify_button, buttonPending)
+        }
+
+        return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(title)
             .setContentText(text)
             .setSmallIcon(R.drawable.ic_launcher)
             .setOngoing(true)
-            .apply {
-                // Only show the action that matches the current state — never both.
-                when (state) {
-                    BubbleState.CONNECTED, BubbleState.CONNECTING ->
-                        addAction(android.R.drawable.ic_media_pause, "Disconnect", stopPending)
-                    BubbleState.DISCONNECTED ->
-                        addAction(android.R.drawable.ic_media_play, "Connect", connectPending)
-                }
-            }
+            .setCustomContentView(collapsed)
+            .setCustomBigContentView(expanded)
+            .setStyle(NotificationCompat.DecoratedCustomViewStyle())
             .build()
     }
 
@@ -1224,8 +1234,8 @@ class FloatingControlService : Service() {
                 0xFF000000.toInt()
             )
             BubbleState.CONNECTED -> Pair(
-                DarkError.toArgb(),
-                DarkError.toArgb()
+                0xFFDC2626.toInt(),
+                0xFFDC2626.toInt()
             )
             BubbleState.DISCONNECTED -> Pair(
                 0xFF000000.toInt(),

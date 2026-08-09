@@ -295,7 +295,7 @@ class SocksVpnService : VpnService() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 CHANNEL_ID,
-                "VPN Service",
+                "Floating Control",
                 NotificationManager.IMPORTANCE_LOW
             )
             val manager = getSystemService(NotificationManager::class.java)
@@ -414,11 +414,11 @@ class SocksVpnService : VpnService() {
         }
         persistProfileBytes()
         mStatsHandler.removeCallbacks(mStatsRunnable)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            stopForeground(STOP_FOREGROUND_REMOVE)
-        } else {
+        if (Build.VERSION.SDK_INT >= 34) {
+            stopForeground(STOP_FOREGROUND_DETACH)
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
             @Suppress("DEPRECATION")
-            stopForeground(true)
+            stopForeground(false)
         }
 
         val dir = filesDir.absolutePath
@@ -526,9 +526,9 @@ class SocksVpnService : VpnService() {
             .build()
 
         if (Build.VERSION.SDK_INT >= 34) {
-            startForeground(1, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+            startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
         } else {
-            startForeground(1, notification)
+            startForeground(NOTIFICATION_ID, notification)
         }
     }
 
@@ -557,7 +557,7 @@ class SocksVpnService : VpnService() {
         }
         mLastNotificationText = textNow
         mLastNotificationActions = notification.actions?.size ?: 0
-        nm.notify(1, notification)
+        nm.notify(NOTIFICATION_ID, notification)
     }
 
     private fun configure(name: String?, route: String?, perApp: Boolean, bypass: Boolean, apps: Array<String>?, ipv6: Boolean) {
@@ -823,7 +823,8 @@ class SocksVpnService : VpnService() {
 
     companion object {
         private const val TAG = "SocksVpnService"
-        private const val CHANNEL_ID = "vpn_service"
+        private const val CHANNEL_ID = "floating_control"
+        private const val NOTIFICATION_ID = 2
         private const val IP_CHECK_INTERVAL = 30000L
         private const val IP_INFO_RETRY = 500L
         private const val IP_CHECK_RETRY = 5000L
