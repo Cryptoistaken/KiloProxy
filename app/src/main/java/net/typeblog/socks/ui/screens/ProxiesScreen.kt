@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -425,6 +426,7 @@ private fun AddEditProxySheet(
                 .fillMaxWidth()
                 .padding(horizontal = 18.dp)
                 .padding(bottom = 24.dp)
+                .imePadding()
         ) {
             Text(
                 text = if (isEdit) "Edit Proxy" else "Add Proxy",
@@ -875,7 +877,9 @@ private fun AddEditProxySheet(
             },
             title = { Text("Select Country") },
             text = {
-                Column {
+                Column(
+                    modifier = Modifier.imePadding()
+                ) {
                     // Search field
                     OutlinedTextField(
                         value = countrySearch,

@@ -31,7 +31,7 @@
             android:textColor="#18181B"
             android:textColorHint="#71717A"
             android:singleLine="true"
-            android:inputType="text|number"
+            android:inputType="text"
             android:imeOptions="actionSearch"
             android:importantForAutofill="no"
             android:alpha="0.9" />

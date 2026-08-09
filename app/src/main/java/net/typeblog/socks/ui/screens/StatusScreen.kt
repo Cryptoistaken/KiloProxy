@@ -1,8 +1,12 @@
 package net.typeblog.socks.ui.screens
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -132,6 +136,10 @@ fun StatusScreen(
         }
     }
 
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { }
+
     val serverName = remember(activeProfileName, profiles) {
         if (activeProfileName != null) {
             try {
@@ -165,7 +173,7 @@ fun StatusScreen(
                     val pm = ProfileManager.getInstance(context)
                     val p = displayProfileName?.let { pm.getProfile(it) }
                     if (p != null) {
-                        val suffix = Integer.toHexString(p.getPassword().hashCode())
+                        val suffix = displayProfileName?.replace(Regex("[^A-Za-z0-9]"), "_") ?: ""
                         val prefs = PreferenceManager.getDefaultSharedPreferences(context)
                         rx = prefs.getLong("usage_rx_${displayProfileName}_$suffix", 0L)
                         tx = prefs.getLong("usage_tx_${displayProfileName}_$suffix", 0L)
@@ -273,6 +281,12 @@ fun StatusScreen(
                 onStartClick = {
                     val targetProfile = selectedProfile ?: activeProfileName ?: profiles.firstOrNull()
                     if (targetProfile != null) {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
+                            PackageManager.PERMISSION_GRANTED
+                        ) {
+                            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        }
                         isConnecting = true
                         viewModel.clearError()
                         val intent = viewModel.prepareAndStartVpn(context, targetProfile)

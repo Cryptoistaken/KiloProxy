@@ -68,7 +68,7 @@ fun ProxyCard(
     var usageRx by remember { mutableStateOf(0L) }
     var usageTx by remember { mutableStateOf(0L) }
 
-    val usageSuffix = remember(password) { Integer.toHexString(password.hashCode()) }
+    val usageSuffix = remember(profileName) { profileName.replace(Regex("[^A-Za-z0-9]"), "_") }
 
     fun refreshPersistedUsage() {
         val prefs = PreferenceManager.getDefaultSharedPreferences(context)

@@ -6,6 +6,7 @@ import android.animation.ValueAnimator
 import android.content.Context
 import android.graphics.Color
 import android.graphics.PixelFormat
+import android.graphics.Rect
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Build
@@ -17,6 +18,8 @@ import android.text.Editable
 import android.text.TextWatcher
 import android.view.View
 import android.view.ViewGroup
+import android.view.ViewTreeObserver
+import android.view.WindowInsets
 import android.view.WindowManager
 import androidx.interpolator.view.animation.FastOutSlowInInterpolator
 import android.widget.EditText
@@ -54,6 +57,14 @@ class BubbleMenuOverlay(
     private var countrySwitchEnabled = false
     private var connectedDotAnimator: ObjectAnimator? = null
 
+    private val globalLayoutListener = ViewTreeObserver.OnGlobalLayoutListener {
+        val root = rootView ?: return@OnGlobalLayoutListener
+        if (!root.isAttachedToWindow) return@OnGlobalLayoutListener
+        val search = root.findViewById<EditText>(R.id.menu_search) ?: return@OnGlobalLayoutListener
+        if (!search.hasFocus()) return@OnGlobalLayoutListener
+        repositionPanelAboveIme(root)
+    }
+
     fun show(bubbleCenterX: Int, bubbleCenterY: Int, bubbleSizePx: Int, connectedCountryCode: String?, supportsCountrySwitch: Boolean) {
         if (isShowing()) return
         countrySwitchEnabled = supportsCountrySwitch
@@ -61,15 +72,18 @@ class BubbleMenuOverlay(
             .inflate(R.layout.bubble_menu, null) as FrameLayout
         rootView = root
 
-        val metrics = context.resources.displayMetrics
-        val screenW = metrics.widthPixels
-        val screenH = metrics.heightPixels
-
         val panel = root.findViewById<LinearLayout>(R.id.menu_panel)
         val scroll = root.findViewById<ScrollView>(R.id.menu_scroll)
         val list = root.findViewById<LinearLayout>(R.id.menu_list)
         val searchInput = root.findViewById<EditText>(R.id.menu_search)
         menuList = list
+
+        // Clamp against the inset-aware content area (display minus system bars /
+        // cutouts), not the raw screen, so the panel never sits under the status
+        // bar, nav bar, or a cutout.
+        val bounds = contentBounds()
+        val screenW = bounds.width()
+        val screenH = bounds.height()
 
         val panelWidth = minOf(
             dp(230f),
@@ -197,10 +211,10 @@ class BubbleMenuOverlay(
         val margin8 = dp(8f)
         val bx = bubbleCenterX - bubbleSizePx / 2
         val by = bubbleCenterY - bubbleSizePx / 2
-        val right  = screenW - (bx + bubbleSizePx) - margin8
-        val left   = bx - margin8
-        val bottom = screenH - (by + bubbleSizePx) - margin8
-        val top    = by - margin8
+        val right  = bounds.right - (bx + bubbleSizePx) - margin8
+        val left   = bx - bounds.left - margin8
+        val bottom = bounds.bottom - (by + bubbleSizePx) - margin8
+        val top    = by - bounds.top - margin8
 
         fun fitsH(s: Int) = s >= panelWidth
         fun fitsV(s: Int) = s >= maxHeightPx
@@ -225,8 +239,8 @@ class BubbleMenuOverlay(
             "top"    -> by - maxHeightPx - margin8
             else     -> by + bubbleSizePx / 2 - maxHeightPx / 2
         }
-        panelX = panelX.coerceIn(margin8, screenW - panelWidth - margin8)
-        panelY = panelY.coerceIn(margin8, screenH - maxHeightPx - margin8)
+        panelX = panelX.coerceIn(bounds.left + margin8, bounds.right - panelWidth - margin8)
+        panelY = panelY.coerceIn(bounds.top + margin8, bounds.bottom - maxHeightPx - margin8)
 
         panelLp.leftMargin = panelX
         panelLp.topMargin = panelY
@@ -245,6 +259,9 @@ class BubbleMenuOverlay(
             PixelFormat.TRANSLUCENT
         )
         params.gravity = Gravity.TOP or Gravity.START
+        // Resize the window to sit above the keyboard when the search field opens,
+        // so the panel can be re-positioned on top of it (see globalLayoutListener).
+        params.softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
 
         // Set alpha BEFORE addView to prevent 1-2 frame flash of the scrim
         root.alpha = 0f
@@ -256,6 +273,10 @@ class BubbleMenuOverlay(
             menuList = null
             return
         }
+
+        // Track IME appearance so the panel can be pushed above the keyboard while
+        // the search field is focused.
+        root.viewTreeObserver.addOnGlobalLayoutListener(globalLayoutListener)
 
         root.setOnClickListener { hide() }
         panel.isClickable = true
@@ -288,9 +309,9 @@ class BubbleMenuOverlay(
             val headerHeight = (panel.height - scroll.height).coerceAtLeast(0)
             val trueHeight = headerHeight + targetHeight
             val refinedY = when (side) {
-                "top"    -> (by - trueHeight - margin8).coerceIn(margin8, (screenH - trueHeight - margin8).coerceAtLeast(margin8))
-                "bottom" -> (by + bubbleSizePx + margin8).coerceIn(margin8, (screenH - trueHeight - margin8).coerceAtLeast(margin8))
-                else     -> (bubbleCenterY - trueHeight / 2).coerceIn(margin8, (screenH - trueHeight - margin8).coerceAtLeast(margin8))
+                "top"    -> (by - trueHeight - margin8).coerceIn(bounds.top + margin8, (bounds.bottom - trueHeight - margin8).coerceAtLeast(bounds.top + margin8))
+                "bottom" -> (by + bubbleSizePx + margin8).coerceIn(bounds.top + margin8, (bounds.bottom - trueHeight - margin8).coerceAtLeast(bounds.top + margin8))
+                else     -> (bubbleCenterY - trueHeight / 2).coerceIn(bounds.top + margin8, (bounds.bottom - trueHeight - margin8).coerceAtLeast(bounds.top + margin8))
             }
             if (refinedY != panelLp.topMargin) {
                 panelLp.topMargin = refinedY
@@ -316,9 +337,20 @@ class BubbleMenuOverlay(
 
     fun hide() {
         handler.removeCallbacksAndMessages(null)
+        messageHandler.removeCallbacksAndMessages(null)
         // Cancel the pulsing dot animator to prevent leak
         connectedDotAnimator?.cancel()
         connectedDotAnimator = null
+        // Remove any lingering snackbar-style message overlay
+        messageView?.let {
+            if (it.isAttachedToWindow) {
+                try {
+                    windowManager.removeView(it)
+                } catch (_: Exception) {
+                }
+            }
+            messageView = null
+        }
         // Hide keyboard if search was open
         try {
             val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
@@ -473,15 +505,87 @@ class BubbleMenuOverlay(
         connectedDotAnimator?.cancel()
         connectedDotAnimator = null
         val root = rootView
-        if (root != null && root.isAttachedToWindow) {
+        if (root != null) {
             try {
-                windowManager.removeView(root)
+                root.viewTreeObserver.removeOnGlobalLayoutListener(globalLayoutListener)
             } catch (_: Exception) {
+            }
+            if (root.isAttachedToWindow) {
+                try {
+                    windowManager.removeView(root)
+                } catch (_: Exception) {
+                }
             }
         }
         rootView = null
         menuList = null
         onDismissed()
+    }
+
+    private fun displayBounds(): Rect {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            try {
+                val b = windowManager.currentWindowMetrics.bounds
+                return Rect(0, 0, b.width(), b.height())
+            } catch (e: Exception) {
+            }
+        }
+        val dm = context.resources.displayMetrics
+        return Rect(0, 0, dm.widthPixels, dm.heightPixels)
+    }
+
+    private fun systemBarInsets(): Rect {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            try {
+                val insets = windowManager.currentWindowMetrics.windowInsets
+                    .getInsets(WindowInsets.Type.systemBars())
+                return Rect(insets.left, insets.top, insets.right, insets.bottom)
+            } catch (e: Exception) {
+            }
+        }
+        val statusBar = try {
+            context.resources.getDimensionPixelSize(
+                context.resources.getIdentifier("status_bar_height", "dimen", "android")
+            )
+        } catch (e: Exception) {
+            0
+        }
+        val navBar = try {
+            context.resources.getDimensionPixelSize(
+                context.resources.getIdentifier("navigation_bar_height", "dimen", "android")
+            )
+        } catch (e: Exception) {
+            0
+        }
+        return Rect(0, statusBar, 0, navBar)
+    }
+
+    /** Display bounds minus ALL four system-bar/cutout insets. */
+    private fun contentBounds(): Rect {
+        val b = displayBounds()
+        val i = systemBarInsets()
+        return Rect(i.left, i.top, b.width() - i.right, b.height() - i.bottom)
+    }
+
+    /**
+     * When the search field is focused the IME covers the lower part of the
+     * overlay (SOFT_INPUT_ADJUST_RESIZE shrinks the window), so push the panel up
+     * so its bottom stays above the top of the keyboard.
+     */
+    private fun repositionPanelAboveIme(root: View) {
+        val panel = root.findViewById<LinearLayout>(R.id.menu_panel) ?: return
+        val displayH = displayBounds().height()
+        val imeHeight = (displayH - root.height).coerceAtLeast(0)
+        if (imeHeight <= 0) return
+        val bounds = contentBounds()
+        val panelBottom = panel.top + panel.height
+        val limitBottom = displayH - imeHeight
+        if (panelBottom > limitBottom) {
+            val delta = panelBottom - limitBottom
+            val lp = panel.layoutParams as? FrameLayout.LayoutParams ?: return
+            lp.topMargin = (lp.topMargin - delta).coerceAtLeast(bounds.top)
+            panel.requestLayout()
+        }
     }
 
     private fun overlayType(): Int =

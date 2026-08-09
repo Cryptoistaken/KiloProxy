@@ -10,11 +10,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.SideEffect
 import android.content.SharedPreferences
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
-import androidx.core.view.WindowCompat
 import androidx.preference.PreferenceManager
 import net.typeblog.socks.util.Constants.PREF_THEME_MODE
 
@@ -83,18 +80,6 @@ fun KiloProxyTheme(content: @Composable () -> Unit) {
     }
 
     val colorScheme = if (useDarkTheme) DarkColorScheme else LightColorScheme
-
-    // Update status bar color to match theme
-    val statusBarColor = colorScheme.surface.toArgb()
-    val window = (context as? android.app.Activity)?.window
-    if (window != null) {
-        SideEffect {
-            window.statusBarColor = statusBarColor
-            WindowCompat.getInsetsController(window, window.decorView).apply {
-                isAppearanceLightStatusBars = !useDarkTheme
-            }
-        }
-    }
 
     MaterialTheme(
         colorScheme = colorScheme,

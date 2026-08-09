@@ -18,6 +18,7 @@ import android.os.IBinder
 import android.os.Looper
 import android.os.ParcelFileDescriptor
 import android.os.Process
+import android.os.PowerManager
 import android.text.TextUtils
 import android.util.Log
 import androidx.core.app.NotificationCompat
@@ -186,8 +187,26 @@ class SocksVpnService : VpnService() {
             }
         }
     }
+    private val mScreenOnReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action == Intent.ACTION_SCREEN_ON && mRunning) {
+                Log.d(TAG, "Screen on — re-verifying connectivity")
+                mIpCheckFailures = 0
+                mIpCheckHandler.removeCallbacks(mIpCheckRunnable)
+                mIpCheckHandler.post(mIpCheckRunnable)
+            }
+        }
+    }
     private val mIpCheckRunnable = object : Runnable {
         override fun run() {
+            if (!mRunning) return
+            // During Doze (or while the screen is off) the network is suspended,
+            // so every probe would fail. Skip the check instead of counting these
+            // failures toward teardown; the loop re-verifies on wake.
+            if (isNetworkCheckBlocked()) {
+                mIpCheckHandler.postDelayed(this, DOZE_CHECK_INTERVAL)
+                return
+            }
             // Use the pre-resolved server IP when available so the ip-api and
             // SOCKS probes avoid a repeated hostname DNS round-trip.
             val server = mResolvedServer ?: mServer
@@ -253,6 +272,12 @@ class SocksVpnService : VpnService() {
                 }
             }.start()
         }
+    }
+
+    private fun isNetworkCheckBlocked(): Boolean {
+        val pm = getSystemService(Context.POWER_SERVICE) as? PowerManager ?: return false
+        return !pm.isInteractive ||
+            (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && pm.isDeviceIdleMode)
     }
 
     private val mNotificationActionReceiver = object : BroadcastReceiver() {
@@ -349,12 +374,14 @@ class SocksVpnService : VpnService() {
     }
 
     override fun onBind(intent: Intent?): IBinder? {
-        val callingUid = android.os.Binder.getCallingUid()
-        if (callingUid != Process.SYSTEM_UID && callingUid != Process.myUid()) {
-            Log.w(TAG, "Unauthorized bind attempt from UID $callingUid")
-            return null
+        if (intent?.action == VpnService.SERVICE_INTERFACE) {
+            return super.onBind(intent)
         }
-        return mBinder
+        if (android.os.Binder.getCallingUid() == Process.myUid()) {
+            return mBinder
+        }
+        Log.w(TAG, "Unauthorized bind attempt from UID ${android.os.Binder.getCallingUid()}")
+        return null
     }
 
     /**
@@ -458,12 +485,16 @@ class SocksVpnService : VpnService() {
             unregisterReceiver(mScreenOffReceiver)
         } catch (e: Exception) { }
 
+        try {
+            unregisterReceiver(mScreenOnReceiver)
+        } catch (e: Exception) { }
+
         stopSelf()
     }
 
     private fun usageKeySuffix(): String {
-        val passwd = mPassword ?: ""
-        return Integer.toHexString(passwd.hashCode())
+        val name = mProfileName ?: ""
+        return name.replace(Regex("[^A-Za-z0-9]"), "_")
     }
 
     private fun loadProfileBytes(profileName: String?) {
@@ -685,7 +716,10 @@ class SocksVpnService : VpnService() {
                     command.add(udpgw)
                 }
 
-                Log.d(TAG, "tun2socks full command: ${command.joinToString(" ")}")
+                val loggable = command.mapIndexed { i, arg ->
+                    if (i > 0 && command[i - 1] == "--password") "***" else arg
+                }.joinToString(" ")
+                Log.d(TAG, "tun2socks full command: $loggable")
 
                 // Start tun2socks non-blocking (no daemonization). Store Process for later cleanup.
                 try {
@@ -790,6 +824,7 @@ class SocksVpnService : VpnService() {
             val filter = IntentFilter(Intent.ACTION_SCREEN_OFF)
             registerReceiverCompat(mScreenOffReceiver, filter)
         }
+        registerReceiverCompat(mScreenOnReceiver, IntentFilter(Intent.ACTION_SCREEN_ON))
     }
 
     private fun runOnMainThread(action: () -> Unit) {
@@ -803,6 +838,7 @@ class SocksVpnService : VpnService() {
         private const val IP_INFO_RETRY = 500L
         private const val IP_CHECK_RETRY = 5000L
         private const val MAX_IP_CHECK_FAILURES = 3
+        private const val DOZE_CHECK_INTERVAL = 60000L
         private const val STATS_INTERVAL = 1000L
         private const val USAGE_PERSIST_TICKS = 5L
     }

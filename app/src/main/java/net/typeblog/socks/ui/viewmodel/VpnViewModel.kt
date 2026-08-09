@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
 import android.net.VpnService
+import android.os.Build
 import android.os.IBinder
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
@@ -89,16 +90,29 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
 
     private var vpnService: IVpnService? = null
     private var bound = false
+    private var rebinding = false
+    private var cleared = false
 
     private val serviceConnection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
             vpnService = IVpnService.Stub.asInterface(service)
             bound = true
+            rebinding = false
+            // Re-sync live state so the UI never keeps stale "disconnected"
+            // after the VPN process restarts and reconnects.
+            syncState()
         }
 
         override fun onServiceDisconnected(name: ComponentName?) {
             vpnService = null
             bound = false
+            scheduleRebind()
+        }
+
+        override fun onBindingDied(name: ComponentName?) {
+            vpnService = null
+            bound = false
+            scheduleRebind()
         }
     }
 
@@ -110,12 +124,27 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
         startPolling()
     }
 
-    private fun bindToService(context: Context) {
+    private fun bindToService(context: Context): Boolean {
         val intent = Intent(context, SocksVpnService::class.java)
-        try {
-            context.bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE)
+        return try {
+            val flags = Context.BIND_AUTO_CREATE or
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) Context.BIND_ABOVE_CLIENT else 0
+            context.bindService(intent, serviceConnection, flags)
         } catch (_: Exception) {
             // Service not available or binding failed
+            false
+        }
+    }
+
+    // The :vpn process can be killed (OOM, crash) while our Activity is alive.
+    // Rather than leaving the UI bound=false forever (which the poller reports
+    // as disconnected), re-establish the connection so we can re-sync real state.
+    private fun scheduleRebind() {
+        if (cleared || rebinding) return
+        rebinding = true
+        Log.d("KiloProxyVM", "VPN service connection lost; rebinding")
+        if (!bindToService(getApplication())) {
+            rebinding = false
         }
     }
 
@@ -149,62 +178,70 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             while (isActive) {
                 if (bound && vpnService != null) {
-                    try {
-                        val running = vpnService!!.isRunning
-                        _isRunning.value = running
-                        _proxyVerified.value = vpnService!!.isProxyVerified
-                        val serviceError = vpnService!!.getErrorMessage()
-                        if (serviceError.isNotEmpty()) {
-                            _errorMessage.value = serviceError
-                        }
-                        if (running) {
-                            _currentIp.value = vpnService!!.currentIp.ifEmpty { null }
-                            _countryCode.value = vpnService!!.countryCode.ifEmpty { null }
-                            _country.value = vpnService!!.country.ifEmpty { null }
-                            _region.value = vpnService!!.region.ifEmpty { null }
-                            _city.value = vpnService!!.city.ifEmpty { null }
-                            _isp.value = vpnService!!.isp.ifEmpty { null }
-                            _org.value = vpnService!!.org.ifEmpty { null }
-                            _asName.value = vpnService!!.asName.ifEmpty { null }
-                            _timezone.value = vpnService!!.timezone.ifEmpty { null }
-                            _receivedBytes.value = vpnService!!.receivedBytes
-                            _sentBytes.value = vpnService!!.sentBytes
-                            _connectedSince.value = vpnService!!.connectedSince
-                            // Always derive the live profile from the running service
-                            // (not just from VM-initiated starts), so the bubble /
-                            // notification / auto-start path keeps the correct card live.
-                            val runningProfile = vpnService!!.profileName
-                            if (runningProfile.isNotEmpty()) {
-                                _activeProfileName.value = runningProfile
-                                _lastProfileName.value = runningProfile
-                            }
-                            if (serviceError.isEmpty()) _errorMessage.value = null
-                        } else {
-                            _currentIp.value = null
-                            _countryCode.value = null
-                            _country.value = null
-                            _region.value = null
-                            _city.value = null
-                            _isp.value = null
-                            _org.value = null
-                            _asName.value = null
-                            _timezone.value = null
-                            // Keep the last-known transfer totals so the usage card
-                            // does not drop to zero the moment the VPN disconnects.
-                            _connectedSince.value = 0L
-                            _proxyVerified.value = false
-                            _activeProfileName.value = null
-                            if (serviceError.isEmpty()) _errorMessage.value = null
-                        }
-                    } catch (e: Exception) {
-                        clearState()
-                        _errorMessage.value = e.message ?: "VPN service error"
-                    }
+                    syncState()
                 } else {
                     clearState()
                 }
                 delay(200L)
             }
+        }
+    }
+
+    // Reads live state from the bound service. Called from the polling loop and
+    // immediately after a (re)connect so the UI re-syncs when the service process
+    // comes back instead of staying on a stale disconnected state.
+    private fun syncState() {
+        if (vpnService == null) return
+        try {
+            val running = vpnService!!.isRunning
+            _isRunning.value = running
+            _proxyVerified.value = vpnService!!.isProxyVerified
+            val serviceError = vpnService!!.getErrorMessage()
+            if (serviceError.isNotEmpty()) {
+                _errorMessage.value = serviceError
+            }
+            if (running) {
+                _currentIp.value = vpnService!!.currentIp.ifEmpty { null }
+                _countryCode.value = vpnService!!.countryCode.ifEmpty { null }
+                _country.value = vpnService!!.country.ifEmpty { null }
+                _region.value = vpnService!!.region.ifEmpty { null }
+                _city.value = vpnService!!.city.ifEmpty { null }
+                _isp.value = vpnService!!.isp.ifEmpty { null }
+                _org.value = vpnService!!.org.ifEmpty { null }
+                _asName.value = vpnService!!.asName.ifEmpty { null }
+                _timezone.value = vpnService!!.timezone.ifEmpty { null }
+                _receivedBytes.value = vpnService!!.receivedBytes
+                _sentBytes.value = vpnService!!.sentBytes
+                _connectedSince.value = vpnService!!.connectedSince
+                // Always derive the live profile from the running service
+                // (not just from VM-initiated starts), so the bubble /
+                // notification / auto-start path keeps the correct card live.
+                val runningProfile = vpnService!!.profileName
+                if (runningProfile.isNotEmpty()) {
+                    _activeProfileName.value = runningProfile
+                    _lastProfileName.value = runningProfile
+                }
+                if (serviceError.isEmpty()) _errorMessage.value = null
+            } else {
+                _currentIp.value = null
+                _countryCode.value = null
+                _country.value = null
+                _region.value = null
+                _city.value = null
+                _isp.value = null
+                _org.value = null
+                _asName.value = null
+                _timezone.value = null
+                // Keep the last-known transfer totals so the usage card
+                // does not drop to zero the moment the VPN disconnects.
+                _connectedSince.value = 0L
+                _proxyVerified.value = false
+                _activeProfileName.value = null
+                if (serviceError.isEmpty()) _errorMessage.value = null
+            }
+        } catch (e: Exception) {
+            clearState()
+            _errorMessage.value = e.message ?: "VPN service error"
         }
     }
 
@@ -342,6 +379,7 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
 
     override fun onCleared() {
         super.onCleared()
+        cleared = true
         try {
             getApplication<Application>().unbindService(serviceConnection)
         } catch (_: Exception) {

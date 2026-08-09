@@ -1,7 +1,6 @@
 package net.typeblog.socks
 
 import android.Manifest
-import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -21,28 +20,16 @@ import net.typeblog.socks.util.Constants.PREF_FLOATING_CONTROL
 class MainActivity : ComponentActivity() {
     private val notificationPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
-    ) { }
+    ) { granted ->
+        if (granted) {
+            startFloatingControlIfPersisted()
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        val prefs = PreferenceManager.getDefaultSharedPreferences(this)
-
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-
-        if (prefs.getBoolean(PREF_FLOATING_CONTROL, false) &&
-            (Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.canDrawOverlays(this))
-        ) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-                checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
-            ) {
-                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-            }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                startForegroundService(Intent(this, FloatingControlService::class.java))
-            } else {
-                startService(Intent(this, FloatingControlService::class.java))
-            }
-        }
+        startFloatingControlIfPersisted()
 
         setContent {
             KiloProxyTheme {
@@ -51,5 +38,17 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    private fun startFloatingControlIfPersisted() {
+        val prefs = PreferenceManager.getDefaultSharedPreferences(this)
+        if (!prefs.getBoolean(PREF_FLOATING_CONTROL, false)) return
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) return
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) {
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+        FloatingControlService.start(this)
     }
 }

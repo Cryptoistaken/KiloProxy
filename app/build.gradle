@@ -5,7 +5,7 @@ plugins {
 
 android {
     namespace = "net.typeblog.socks"
-    compileSdk 34
+    compileSdk 36
 
     // Monotonic versionCode so each new build installs over the previous one
     // (adb install -r) without INSTALL_FAILED_VERSION_DOWNGRADE. In CI the
@@ -30,7 +30,7 @@ android {
     defaultConfig {
         applicationId "com.kiloproxy.app"
         minSdk 21
-        targetSdk 34
+        targetSdk 36
         versionCode baseVersionCode
         versionName "1.2.1"
 

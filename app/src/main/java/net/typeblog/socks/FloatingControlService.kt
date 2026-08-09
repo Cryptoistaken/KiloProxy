@@ -16,6 +16,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.ServiceConnection
 import android.content.pm.ServiceInfo
+import android.content.res.Configuration
 import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.Rect
@@ -212,10 +213,44 @@ class FloatingControlService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (bubbleView?.isAttachedToWindow == true) {
+            return START_STICKY
+        }
         return START_STICKY
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        reClampBubblePosition()
+    }
+
+    /**
+     * Rotation/density changes can leave the saved bubble position outside the new
+     * display's content area — re-clamp it into the current inset-aware drag
+     * bounds so it is never left off-screen.
+     */
+    private fun reClampBubblePosition() {
+        val lp = params ?: return
+        val bounds = currentDragBounds()
+        val maxX = (bounds.right - bubbleSizePx).coerceAtLeast(bounds.left)
+        val maxY = (bounds.bottom - bubbleSizePx).coerceAtLeast(bounds.top)
+        val newX = lp.x.coerceIn(bounds.left, maxX)
+        val newY = lp.y.coerceIn(bounds.top, maxY)
+        if (newX != lp.x || newY != lp.y) {
+            lp.x = newX
+            lp.y = newY
+            try {
+                if (bubbleView?.isAttachedToWindow == true) {
+                    windowManager?.updateViewLayout(bubbleView, lp)
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "updateViewLayout failed during re-clamp", e)
+            }
+        }
+        updateFlagPillPosition()
+    }
 
     override fun onDestroy() {
         pollHandler.removeCallbacks(pollRunnable)
@@ -345,8 +380,7 @@ class FloatingControlService : Service() {
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.WRAP_CONTENT,
             type,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                    WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
@@ -414,11 +448,15 @@ class FloatingControlService : Service() {
         val pillParams = flagPillParams ?: return
         val bubbleParams = params ?: return
         val density = resources.displayMetrics.density
-        val screenWidth = resources.displayMetrics.widthPixels
-        // gravity = TOP|CENTER_HORIZONTAL, so x is measured from the screen's
-        // horizontal center. Convert the bubble's center into that coordinate
-        // system, then overlap the pill on the bubble's bottom edge.
-        pillParams.x = (bubbleParams.x + bubbleSizePx / 2) - screenWidth / 2
+        // Use the same inset-aware display source as the bubble drag math so the
+        // pill and bubble share one coordinate system. The pill uses
+        // TOP|CENTER_HORIZONTAL gravity: x is measured from the display's
+        // horizontal center, y from the display's top edge — the same origin the
+        // bubble's TOP|START coordinates use.
+        val insets = currentSystemBarInsets()
+        val bounds = currentDragBounds()
+        val displayWidth = bounds.width() + insets.left + insets.right
+        pillParams.x = (bubbleParams.x + bubbleSizePx / 2) - displayWidth / 2
         pillParams.y = bubbleParams.y + bubbleSizePx - (2 * density).toInt()
         try {
             if (flagPillView?.isAttachedToWindow == true) {
@@ -426,6 +464,11 @@ class FloatingControlService : Service() {
             }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to update flag pill position", e)
+        }
+        // The pill may not be measured yet (height == 0) when it was just made
+        // visible — re-run once it is laid out so its geometry is correct.
+        if (flagPillView?.height ?: 0 == 0) {
+            flagPillView?.post { updateFlagPillPosition() }
         }
     }
 
@@ -440,13 +483,14 @@ class FloatingControlService : Service() {
             bubbleSizePx,
             bubbleSizePx,
             type,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                    WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.START
             x = 0
-            y = 100
+            // Density-scale the initial offset so it sits below the status bar on
+            // any density instead of a raw-pixel 100px.
+            y = (100 * resources.displayMetrics.density).toInt()
         }
     }
 
@@ -468,7 +512,36 @@ class FloatingControlService : Service() {
         } catch (e: Exception) {
             0
         }
-        return Rect(0, statusBarHeight, 0, 0)
+        val navBarHeight = try {
+            resources.getDimensionPixelSize(
+                resources.getIdentifier("navigation_bar_height", "dimen", "android")
+            )
+        } catch (e: Exception) {
+            0
+        }
+        return Rect(0, statusBarHeight, 0, navBarHeight)
+    }
+
+    /**
+     * Visible content area for the bubble/pill: the full display bounds minus ALL
+     * four system-bar/cutout insets (API 30+ via currentWindowMetrics, else
+     * display metrics minus status/navigation bar dimensions).
+     */
+    private fun currentDragBounds(): Rect {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            try {
+                val metrics = windowManager?.currentWindowMetrics
+                if (metrics != null) {
+                    val b = metrics.bounds
+                    val insets = metrics.windowInsets.getInsets(WindowInsets.Type.systemBars())
+                    return Rect(insets.left, insets.top, b.width() - insets.right, b.height() - insets.bottom)
+                }
+            } catch (e: Exception) {
+            }
+        }
+        val dm = resources.displayMetrics
+        val insets = currentSystemBarInsets()
+        return Rect(insets.left, insets.top, dm.widthPixels - insets.right, dm.heightPixels - insets.bottom)
     }
 
     private fun createTouchListener(): View.OnTouchListener {
@@ -492,22 +565,21 @@ class FloatingControlService : Service() {
                     }
                     if (dragging) {
                         val dm = resources.displayMetrics
-                        // The overlay's TOP|START coordinates are relative to the
-                        // area below the status bar, so its frame is shifted down by
-                        // the top inset. Subtract the system-bar insets from the
-                        // drag bounds to keep the bubble fully within the visible
-                        // screen on every edge.
-                        val insets = currentSystemBarInsets()
+                        // Overlay windows use TOP|START / TOP|CENTER_HORIZONTAL gravity
+                        // relative to the display frame, so clamp the bubble inside the
+                        // visible content area: display bounds minus ALL four system-bar
+                        // /cutout insets, applied symmetrically to min AND max edges.
+                        val bounds = currentDragBounds()
                         val pillHeightPx = if (flagPillView?.visibility == View.VISIBLE) {
                             flagPillView?.height ?: 0
                         } else {
                             0
                         }
-                        val maxX = (dm.widthPixels - bubbleSizePx - insets.left).coerceAtLeast(0)
-                        val maxY = (dm.heightPixels - bubbleSizePx - insets.top - pillHeightPx + (2 * dm.density).toInt())
-                            .coerceAtLeast(0)
-                        lp.x = (initialX + (event.rawX - initialRawX).toInt()).coerceIn(0, maxX)
-                        lp.y = (initialY + (event.rawY - initialRawY).toInt()).coerceIn(0, maxY)
+                        val maxX = (bounds.right - bubbleSizePx).coerceAtLeast(bounds.left)
+                        val maxY = (bounds.bottom - bubbleSizePx - pillHeightPx + (2 * dm.density).toInt())
+                            .coerceAtLeast(bounds.top)
+                        lp.x = (initialX + (event.rawX - initialRawX).toInt()).coerceIn(bounds.left, maxX)
+                        lp.y = (initialY + (event.rawY - initialRawY).toInt()).coerceIn(bounds.top, maxY)
                         try {
                             windowManager?.updateViewLayout(v, lp)
                             updateFlagPillPosition()
