@@ -11,6 +11,7 @@
         android:layout_height="wrap_content"
         android:orientation="vertical"
         android:background="@drawable/menu_panel_bg"
+        android:clipToOutline="true"
         android:layout_gravity="top|start"
         android:layout_marginStart="0dp"
         android:layout_marginTop="0dp">
