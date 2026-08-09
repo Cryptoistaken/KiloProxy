@@ -13,8 +13,11 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import net.typeblog.socks.IVpnService
@@ -85,6 +88,25 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
     // copy is stale after a disconnect).
     private val _lastProfileName = MutableStateFlow<String?>(null)
     val lastProfileName: StateFlow<String?> = _lastProfileName.asStateFlow()
+
+    // Set while a connect was requested by the user but the tunnel is not up
+    // yet (VPN-permission dialog / service bring-up). Only covers the window
+    // where the service is not running; once it runs, the derived state below
+    // is authoritative. Cleared on connect, disconnect, error, or timeout so a
+    // stale request can never strand the UI on a disabled "Connecting…" button.
+    private val _connectRequested = MutableStateFlow(false)
+
+    /**
+     * Connecting state derived from the live service, mirroring the floating
+     * bubble's CONNECTING logic (`running && !verified`). Both surfaces read
+     * the same remote state, so the app's connect button and the bubble always
+     * agree regardless of which one initiated the connect.
+     */
+    val isConnecting: StateFlow<Boolean> = combine(
+        _isRunning, _connectedSince, _proxyVerified, _connectRequested
+    ) { running, since, verified, requested ->
+        (running && !(since > 0L && verified)) || (requested && !running)
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
     private var _pendingProfile = MutableStateFlow<String?>(null)
 
@@ -199,8 +221,12 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
             val serviceError = vpnService!!.getErrorMessage()
             if (serviceError.isNotEmpty()) {
                 _errorMessage.value = serviceError
+                // A service-reported failure ends any in-flight connect request.
+                _connectRequested.value = false
             }
             if (running) {
+                // Tunnel is up — the derived CONNECTING state takes over.
+                _connectRequested.value = false
                 _currentIp.value = vpnService!!.currentIp.ifEmpty { null }
                 _countryCode.value = vpnService!!.countryCode.ifEmpty { null }
                 _country.value = vpnService!!.country.ifEmpty { null }
@@ -246,6 +272,7 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun clearState() {
+        _connectRequested.value = false
         _isRunning.value = false
         _currentIp.value = null
         _countryCode.value = null
@@ -264,6 +291,7 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
     fun startVpn(context: Context, profileName: String) {
         Log.d("KiloProxyVM", "startVpn called for profile: $profileName")
         viewModelScope.launch {
+            _connectRequested.value = true
             _errorMessage.value = null
             // Reset session totals so a different profile's connection does not
             // inherit the previous profile's last-known transfer counts.
@@ -291,6 +319,7 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
     fun stopVpn(context: Context) {
         Log.d("KiloProxyVM", "stopVpn called")
         viewModelScope.launch {
+            _connectRequested.value = false
             if (bound && vpnService != null) {
                 try {
                     vpnService!!.stop()
@@ -308,6 +337,11 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
 
     fun clearError() {
         _errorMessage.value = null
+    }
+
+    /** Cancel a connect request that has not produced a running tunnel yet. */
+    fun cancelConnect() {
+        _connectRequested.value = false
     }
 
     fun onConnectTimeout() {
@@ -349,7 +383,9 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
             startVpn(context, profileName)
             return null
         }
-        // Store pending even if permission needed
+        // Permission flow: keep the button on "Connecting…" while the system
+        // dialog is up; startVpn() fires once the user grants it.
+        _connectRequested.value = true
         _pendingProfile.value = profileName
         return intent
     }

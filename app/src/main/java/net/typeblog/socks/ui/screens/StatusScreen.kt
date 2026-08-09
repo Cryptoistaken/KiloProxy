@@ -76,24 +76,20 @@ fun StatusScreen(
     val sentBytes by viewModel.sentBytes.collectAsState()
     val errorMessage by viewModel.errorMessage.collectAsState()
     val proxyVerified by viewModel.proxyVerified.collectAsState()
+    val isConnecting by viewModel.isConnecting.collectAsState()
 
     var selectedProfile by remember { mutableStateOf<String?>(null) }
     var menuExpanded by remember { mutableStateOf(false) }
-    var isConnecting by remember { mutableStateOf(false) }
 
     val isActuallyConnected = isRunning && connectedSince > 0L && proxyVerified
-
-    LaunchedEffect(isRunning, connectedSince, proxyVerified) {
-        if (isRunning && connectedSince > 0L && proxyVerified) {
-            isConnecting = false
-        }
-    }
 
     LaunchedEffect(errorMessage) {
         val message = errorMessage
         if (message != null) {
             Toast.makeText(context, message, Toast.LENGTH_LONG).show()
-            isConnecting = false
+            // A failure ends any in-flight connect request so the button is
+            // never left stuck on a disabled "Connecting…" state.
+            viewModel.cancelConnect()
         }
     }
 
@@ -101,7 +97,6 @@ fun StatusScreen(
         if (isConnecting) {
             delay(20000)
             viewModel.onConnectTimeout()
-            isConnecting = false
         }
     }
 
@@ -132,7 +127,7 @@ fun StatusScreen(
         if (result.resultCode == android.app.Activity.RESULT_OK) {
             viewModel.onVpnPermissionResult(context)
         } else {
-            isConnecting = false
+            viewModel.cancelConnect()
         }
     }
 
@@ -287,7 +282,6 @@ fun StatusScreen(
                         ) {
                             notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
                         }
-                        isConnecting = true
                         viewModel.clearError()
                         val intent = viewModel.prepareAndStartVpn(context, targetProfile)
                         if (intent != null) {
