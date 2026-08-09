@@ -44,3 +44,6 @@ superproxy_screen*.xml
 # Tooling / demo files
 .playwright-mcp/
 floating-bubble-demo.html
+
+# Downloaded Android docs cache (offline reference)
+.androiddocs/
