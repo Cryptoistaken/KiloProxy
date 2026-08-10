@@ -22,23 +22,19 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.lifecycle.viewmodel.compose.viewModel
 import net.typeblog.socks.R
-import net.typeblog.socks.ui.screens.CountriesScreen
-import net.typeblog.socks.ui.screens.DebugLogsScreen
-import net.typeblog.socks.ui.screens.NetShieldScreen
 import net.typeblog.socks.ui.screens.ProxiesScreen
+import net.typeblog.socks.ui.screens.StatusScreen
 import net.typeblog.socks.ui.screens.SettingsScreen
 import net.typeblog.socks.ui.screens.SplitTunnelingScreen
-import net.typeblog.socks.ui.screens.StatusScreen
+import net.typeblog.socks.ui.screens.DebugLogsScreen
 import net.typeblog.socks.ui.viewmodel.VpnViewModel
 
 sealed class Screen(val route: String) {
-    data object Home : Screen("home")
-    data object Countries : Screen("countries")
     data object Profiles : Screen("profiles")
+    data object Connect : Screen("connect")
     data object Settings : Screen("settings")
     data object SplitTunneling : Screen("split_tunneling")
     data object DebugLogs : Screen("debug_logs")
-    data object NetShield : Screen("netshield")
 }
 
 private data class BottomNavItem(
@@ -49,9 +45,8 @@ private data class BottomNavItem(
 )
 
 private val bottomNavRoutes = listOf(
-    Screen.Home.route,
-    Screen.Countries.route,
     Screen.Profiles.route,
+    Screen.Connect.route,
     Screen.Settings.route
 ).toSet()
 
@@ -64,9 +59,8 @@ fun AppNavigation() {
     val vpnViewModel: VpnViewModel = viewModel()
 
     val bottomNavItems = listOf(
-        BottomNavItem(Screen.Home, painterResource(R.drawable.ic_proton_house), painterResource(R.drawable.ic_proton_house_filled), "Home"),
-        BottomNavItem(Screen.Countries, painterResource(R.drawable.ic_proton_earth), painterResource(R.drawable.ic_proton_earth_filled), "Countries"),
         BottomNavItem(Screen.Profiles, painterResource(R.drawable.ic_proton_window_terminal), painterResource(R.drawable.ic_proton_window_terminal_filled), "Profiles"),
+        BottomNavItem(Screen.Connect, painterResource(R.drawable.ic_proton_house), painterResource(R.drawable.ic_proton_house_filled), "Connect"),
         BottomNavItem(Screen.Settings, painterResource(R.drawable.ic_proton_cog_wheel), painterResource(R.drawable.ic_proton_cog_wheel_filled), "Settings")
     )
 
@@ -120,17 +114,14 @@ fun AppNavigation() {
     ) { innerPadding ->
         NavHost(
             navController = navController,
-            startDestination = Screen.Home.route,
+            startDestination = Screen.Connect.route,
             modifier = Modifier.padding(innerPadding)
         ) {
-            composable(Screen.Home.route) {
-                StatusScreen(viewModel = vpnViewModel)
-            }
-            composable(Screen.Countries.route) {
-                CountriesScreen(viewModel = vpnViewModel)
-            }
             composable(Screen.Profiles.route) {
                 ProxiesScreen(viewModel = vpnViewModel)
+            }
+            composable(Screen.Connect.route) {
+                StatusScreen(viewModel = vpnViewModel)
             }
             composable(Screen.Settings.route) {
                 SettingsScreen(
@@ -139,9 +130,6 @@ fun AppNavigation() {
                     },
                     onNavigateToDebugLogs = {
                         navController.navigate(Screen.DebugLogs.route)
-                    },
-                    onNavigateToNetShield = {
-                        navController.navigate(Screen.NetShield.route)
                     }
                 )
             }
@@ -155,13 +143,6 @@ fun AppNavigation() {
             }
             composable(Screen.DebugLogs.route) {
                 DebugLogsScreen(
-                    onNavigateBack = {
-                        navController.popBackStack()
-                    }
-                )
-            }
-            composable(Screen.NetShield.route) {
-                NetShieldScreen(
                     onNavigateBack = {
                         navController.popBackStack()
                     }

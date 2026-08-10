@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
@@ -45,14 +46,12 @@ import net.typeblog.socks.R
 import net.typeblog.socks.ui.components.SettingsItem
 import net.typeblog.socks.ui.components.ThemePickerDialog
 import net.typeblog.socks.util.Constants.PREF_FLOATING_CONTROL
-import net.typeblog.socks.util.Constants.PREF_NETSHIELD_MODE
 import net.typeblog.socks.util.Constants.PREF_THEME_MODE
 
 @Composable
 fun SettingsScreen(
     onNavigateToSplitTunneling: () -> Unit,
     onNavigateToDebugLogs: () -> Unit,
-    onNavigateToNetShield: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -64,20 +63,11 @@ fun SettingsScreen(
     var floatingControl by remember {
         mutableStateOf(prefs.getBoolean(PREF_FLOATING_CONTROL, false))
     }
-    val netShieldMode by remember {
-        mutableStateOf(prefs.getString(PREF_NETSHIELD_MODE, "off") ?: "off")
-    }
     var showThemeDialog by remember { mutableStateOf(false) }
 
     val themeLabel = when (themeMode) {
         "dark" -> "Dark"
         else -> "Light"
-    }
-
-    val netShieldLabel = when (netShieldMode) {
-        "standard" -> "Standard"
-        "strict" -> "Strict"
-        else -> "Off"
     }
 
     fun saveString(key: String, value: String) {
@@ -181,43 +171,30 @@ fun SettingsScreen(
             )
         }
 
+        // ═══ Appearance ═══
         item {
-            SectionTitle(text = "Features")
-            SettingsGroup {
-                SettingsItem(
-                    icon = painterResource(R.drawable.lucide_eye_off),
-                    label = "NetShield",
-                    description = "Blocks ads, trackers and malware",
-                    value = netShieldLabel,
-                    iconTint = MaterialTheme.colorScheme.primary,
-                    onClick = onNavigateToNetShield
-                )
-                RowDivider()
-                SettingsItem(
-                    icon = painterResource(R.drawable.lucide_arrows_right_left),
-                    label = "Split tunneling",
-                    description = "Choose which apps use the VPN",
-                    iconTint = MaterialTheme.colorScheme.primary,
-                    onClick = onNavigateToSplitTunneling
-                )
-            }
-        }
-
-        item {
-            SectionTitle(text = "General")
+            SectionTitle(text = "Appearance")
             SettingsGroup {
                 SettingsItem(
                     icon = painterResource(R.drawable.lucide_palette),
-                    label = "Theme",
+                    label = "Theme Mode",
                     value = themeLabel,
                     iconTint = MaterialTheme.colorScheme.primary,
                     onClick = { showThemeDialog = true }
                 )
                 RowDivider()
+            }
+        }
+
+        // ═══ Controls ═══
+        item {
+            SectionTitle(text = "Controls")
+
+            SettingsGroup {
                 SettingsItem(
                     icon = painterResource(R.drawable.lucide_hand),
-                    label = "Floating bubble",
-                    description = "Quick access to the VPN from anywhere",
+                    label = "Floating Control Bubble",
+                    description = "Draggable connect/disconnect button over other apps",
                     iconTint = MaterialTheme.colorScheme.primary,
                     trailing = {
                         Switch(
@@ -254,27 +231,36 @@ fun SettingsScreen(
             }
         }
 
+        // ═══ Split Tunneling ═══
+        item {
+            SectionTitle(text = "Split Tunneling")
+            SettingsGroup {
+                SettingsItem(
+                    icon = painterResource(R.drawable.lucide_arrows_right_left),
+                    label = "Configure apps",
+                    description = "Choose which apps route through the VPN or bypass it",
+                    value = null,
+                    iconTint = MaterialTheme.colorScheme.primary,
+                    onClick = onNavigateToSplitTunneling
+                )
+            }
+        }
+
+        // ═══ Support ═══
         item {
             SectionTitle(text = "Support")
             SettingsGroup {
                 SettingsItem(
                     icon = painterResource(R.drawable.lucide_settings),
-                    label = "Debug logs",
-                    description = "View and share logs for troubleshooting",
+                    label = "Debug Logs",
+                    description = "View and share app logs for troubleshooting",
                     iconTint = MaterialTheme.colorScheme.primary,
                     onClick = onNavigateToDebugLogs
-                )
-                RowDivider()
-                SettingsItem(
-                    icon = painterResource(R.drawable.lucide_send),
-                    label = "Support",
-                    description = "Get help with KiloProxy",
-                    iconTint = MaterialTheme.colorScheme.primary,
-                    showChevron = false
                 )
             }
         }
 
+        // ═══ About ═══
         item {
             SectionTitle(text = "About")
             SettingsGroup {
@@ -284,21 +270,20 @@ fun SettingsScreen(
                         .padding(horizontal = 14.dp, vertical = 14.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = "KiloProxy",
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "KiloProxy",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "Version ${BuildConfig.VERSION_NAME}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
-                RowDivider()
-                SettingsItem(
-                    icon = painterResource(R.drawable.lucide_server),
-                    label = "Version",
-                    value = "v${BuildConfig.VERSION_NAME}",
-                    iconTint = MaterialTheme.colorScheme.primary,
-                    showChevron = false
-                )
             }
         }
 

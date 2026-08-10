@@ -24,17 +24,15 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import net.typeblog.socks.R
 
 /**
- * Reusable settings row styled like a Proton VPN settings row.
+ * Reusable settings row matching the KiloProxy design mockup.
  *
- * Layout: transparent row (parent group Surface shows through) | 36dp icon box, 20dp icon,
- * 10dp rounded, brand-tinted 12% bg | label + desc (column) | value | trailing
- * Height: 56dp minimum with 16dp horizontal / 10dp vertical padding. Clickable rows without
- * their own trailing content get a subtle chevron by default so tappability reads at a glance.
+ * Layout: icon (32dp box, brand-tinted bg, 9dp rounded) | label + desc (column) | value | trailing
+ * Height: 48dp minimum with 14dp horizontal padding. Clickable rows without their
+ * own trailing content get a subtle chevron by default so tappability reads at a glance.
  */
 @Composable
 fun SettingsItem(
@@ -55,20 +53,21 @@ fun SettingsItem(
                 if (onClick != null) Modifier.clickable(onClick = onClick)
                 else Modifier
             ),
-        color = Color.Transparent
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        tonalElevation = 0.dp
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(min = 56.dp)
-                .padding(horizontal = 16.dp, vertical = 10.dp),
+                .heightIn(min = 48.dp)
+                .padding(horizontal = 14.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Icon box — 36dp square, brand-tinted bg, 10dp rounded
+            // Icon box — 32dp square, brand-tinted bg, 9dp rounded
             Box(
                 modifier = Modifier
-                    .size(36.dp)
-                    .clip(RoundedCornerShape(10.dp))
+                    .size(32.dp)
+                    .clip(RoundedCornerShape(9.dp))
                     .background(
                         (iconTint ?: MaterialTheme.colorScheme.primary).copy(alpha = 0.12f)
                     ),
@@ -77,7 +76,7 @@ fun SettingsItem(
                 Icon(
                     painter = icon,
                     contentDescription = null,
-                    modifier = Modifier.size(20.dp),
+                    modifier = Modifier.size(17.dp),
                     tint = iconTint ?: MaterialTheme.colorScheme.primary
                 )
             }
@@ -88,8 +87,7 @@ fun SettingsItem(
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = label,
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.SemiBold,
+                    style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 if (description != null) {
@@ -121,7 +119,7 @@ fun SettingsItem(
                     contentDescription = null,
                     modifier = Modifier
                         .padding(start = 2.dp)
-                        .size(20.dp),
+                        .size(18.dp),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                 )
             }
