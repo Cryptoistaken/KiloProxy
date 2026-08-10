@@ -40,6 +40,7 @@ sealed class Screen(val route: String) {
 private data class BottomNavItem(
     val screen: Screen,
     val icon: Painter,
+    val selectedIcon: Painter,
     val label: String
 )
 
@@ -58,9 +59,9 @@ fun AppNavigation() {
     val vpnViewModel: VpnViewModel = viewModel()
 
     val bottomNavItems = listOf(
-        BottomNavItem(Screen.Profiles, painterResource(R.drawable.lucide_server), "Profiles"),
-        BottomNavItem(Screen.Connect, painterResource(R.drawable.lucide_send), "Connect"),
-        BottomNavItem(Screen.Settings, painterResource(R.drawable.lucide_settings), "Settings")
+        BottomNavItem(Screen.Profiles, painterResource(R.drawable.ic_proton_window_terminal), painterResource(R.drawable.ic_proton_window_terminal_filled), "Profiles"),
+        BottomNavItem(Screen.Connect, painterResource(R.drawable.ic_proton_house), painterResource(R.drawable.ic_proton_house_filled), "Connect"),
+        BottomNavItem(Screen.Settings, painterResource(R.drawable.ic_proton_cog_wheel), painterResource(R.drawable.ic_proton_cog_wheel_filled), "Settings")
     )
 
     Scaffold(
@@ -88,7 +89,7 @@ fun AppNavigation() {
                             },
                             icon = {
                                 Icon(
-                                    painter = item.icon,
+                                    painter = if (selected) item.selectedIcon else item.icon,
                                     contentDescription = item.label
                                 )
                             },
