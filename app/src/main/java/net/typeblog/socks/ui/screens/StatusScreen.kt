@@ -227,12 +227,12 @@ fun StatusScreen(
                         .getString(Constants.PREF_SELECTED_COUNTRY, null)
                 }
                 if (code == null || code.isBlank()) {
-                    code = try {
-                        val pm = ProfileManager.getInstance(context)
-                        val p = if (activeProfileName != null) pm.getProfile(activeProfileName!!) else pm.getDefault()
-                        val username = p.getUsername()
+                    val pm = ProfileManager.getInstance(context)
+                    val p = if (activeProfileName != null) pm.getProfile(activeProfileName!!) else pm.getDefault()
+                    val username = p?.getUsername()
+                    if (p != null && username != null) {
                         ProxyProviders.parseCountry(username, ProxyProviders.detectType(p.getServer(), username))
-                    } catch (_: Exception) {
+                    } else {
                         null
                     }
                 }
