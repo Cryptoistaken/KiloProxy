@@ -130,7 +130,14 @@ fun AppNavigation() {
                 StatusScreen(viewModel = vpnViewModel)
             }
             composable(Screen.Countries.route) {
-                CountriesScreen(viewModel = vpnViewModel)
+                CountriesScreen(
+                    viewModel = vpnViewModel,
+                    onConnected = {
+                        navController.navigate(Screen.Connect.route) {
+                            popUpTo(Screen.Countries.route) { inclusive = false }
+                        }
+                    }
+                )
             }
             composable(Screen.Settings.route) {
                 SettingsScreen(

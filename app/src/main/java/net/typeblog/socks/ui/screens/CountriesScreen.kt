@@ -54,7 +54,11 @@ import net.typeblog.socks.util.Utility
  * switch) and starts the VPN through [VpnViewModel].
  */
 @Composable
-fun CountriesScreen(viewModel: VpnViewModel, modifier: Modifier = Modifier) {
+fun CountriesScreen(
+    viewModel: VpnViewModel,
+    onConnected: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val isRunning by viewModel.isRunning.collectAsState()
@@ -98,6 +102,7 @@ fun CountriesScreen(viewModel: VpnViewModel, modifier: Modifier = Modifier) {
     ) { result ->
         if (result.resultCode == android.app.Activity.RESULT_OK) {
             viewModel.onVpnPermissionResult(context)
+            onConnected()
         } else {
             viewModel.cancelConnect()
         }
@@ -108,6 +113,8 @@ fun CountriesScreen(viewModel: VpnViewModel, modifier: Modifier = Modifier) {
         val intent = viewModel.prepareAndStartVpn(context, name)
         if (intent != null) {
             vpnPermissionLauncher.launch(intent)
+        } else {
+            onConnected()
         }
     }
 

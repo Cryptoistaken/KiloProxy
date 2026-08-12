@@ -186,17 +186,9 @@ fun SettingsScreen(
                         else R.drawable.feature_netshield_off
                     ),
                     label = "NetShield",
-                    description = if (netShieldEnabled) "On" else "Off",
-                    onClick = onNavigateToNetShield,
-                    trailing = {
-                        Switch(
-                            checked = netShieldEnabled,
-                            onCheckedChange = { enabled ->
-                                netShieldEnabled = enabled
-                                saveBoolean(PREF_NETSHIELD_ENABLED, enabled)
-                            }
-                        )
-                    }
+                    description = "Block ads, trackers & malware",
+                    value = if (netShieldEnabled) "On" else "Off",
+                    onClick = onNavigateToNetShield
                 )
                 SettingsItem(
                     icon = painterResource(

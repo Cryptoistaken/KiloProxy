@@ -76,17 +76,6 @@ fun DebugLogsScreen(onNavigateBack: () -> Unit) {
                 },
                 actions = {
                     IconButton(onClick = {
-                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                        val clip = ClipData.newPlainText("KiloProxy Logs", logs.value)
-                        clipboard.setPrimaryClip(clip)
-                        Toast.makeText(context, "Logs copied to clipboard", Toast.LENGTH_SHORT).show()
-                    }) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_proton_code),
-                            contentDescription = "Copy logs"
-                        )
-                    }
-                    IconButton(onClick = {
                         scope.launch(Dispatchers.IO) {
                             val currentLogs = LogCollector.collectLogs(context)
                             LogCollector.shareLogs(context, currentLogs)
@@ -167,7 +156,9 @@ fun DebugLogsScreen(onNavigateBack: () -> Unit) {
                         clipboard.setPrimaryClip(clip)
                         Toast.makeText(context, "Logs copied", Toast.LENGTH_SHORT).show()
                     },
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
                     shape = RoundedCornerShape(16.dp),
                     color = MaterialTheme.colorScheme.secondary
                 ) {
@@ -189,40 +180,6 @@ fun DebugLogsScreen(onNavigateBack: () -> Unit) {
                             text = "Copy Logs",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSecondary
-                        )
-                    }
-                }
-
-                // Share button
-                Surface(
-                    onClick = {
-                        scope.launch(Dispatchers.IO) {
-                            val currentLogs = LogCollector.collectLogs(context)
-                            LogCollector.shareLogs(context, currentLogs)
-                        }
-                    },
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(16.dp),
-                    color = MaterialTheme.colorScheme.primary
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(14.dp),
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            painter = painterResource(R.drawable.lucide_send),
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp),
-                            tint = MaterialTheme.colorScheme.onPrimary
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "Share Logs",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onPrimary
                         )
                     }
                 }

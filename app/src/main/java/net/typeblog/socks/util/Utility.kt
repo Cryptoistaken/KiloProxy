@@ -213,10 +213,11 @@ object Utility {
                 ProxyProviders.detectType(server ?: "", user ?: "")
             )?.uppercase()
 
-        // Cloud-safe country -> AdGuard upstream (family variant blocks adult
-        // content). Unsupported/unknown country -> NetShield is NOT supported:
-        // plain DNS, no filtering, no fallback lists.
-        return if (!cc.isNullOrEmpty() && cc !in NETSHIELD_UNSUPPORTED_COUNTRIES) {
+        // Only countries where the AdGuard cloud upstream is legally blocked
+        // (CN/RU/IR) disable NetShield. Every other country — including custom
+        // profiles without a zone (unknown country) — gets the AdGuard
+        // upstream (family variant blocks adult content).
+        return if (cc == null || cc !in NETSHIELD_UNSUPPORTED_COUNTRIES) {
             NetshieldPolicy(if (adult) ADGUARD_DNS_FAMILY else ADGUARD_DNS)
         } else {
             NetshieldPolicy(null)

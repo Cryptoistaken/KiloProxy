@@ -11,25 +11,47 @@ import java.util.Locale
 object LogCollector {
 
     fun collectLogs(context: Context): String {
-        val pid = android.os.Process.myPid()
-        val process = Runtime.getRuntime().exec(
-            arrayOf("logcat", "-d", "-v", "time", "-t", "2000", "--pid=$pid")
-        )
-        val output = process.inputStream.bufferedReader().readText()
-        process.waitFor()
-
         val header = buildString {
             appendLine("=== KiloProxy Debug Logs ===")
             appendLine("Date: ${SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date())}")
             appendLine("Package: ${context.packageName}")
-            appendLine("PID: $pid")
             appendLine("Android: ${android.os.Build.VERSION.RELEASE} (API ${android.os.Build.VERSION.SDK_INT})")
             appendLine("Device: ${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}")
             appendLine("============================")
             appendLine()
         }
 
+        // The VPN engine (SocksVpnService) runs in the ":vpn" process, so
+        // capture every process of this package — not just the UI process.
+        val pids = appProcessPids(context)
+        val output = buildString {
+            for ((i, pid) in pids.withIndex()) {
+                if (i > 0) appendLine("--- process $pid ---")
+                append(runLogcat(pid))
+            }
+        }
+
         return header + output
+    }
+
+    private fun appProcessPids(context: Context): List<Int> {
+        val mine = android.os.Process.myPid()
+        val am = context.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
+        val siblings = am.runningAppProcesses
+            ?.filter { it.pkgList.any { p -> p == context.packageName } }
+            ?.map { it.pid }
+            ?.filter { it != mine }
+            ?: emptyList()
+        return listOf(mine) + siblings
+    }
+
+    private fun runLogcat(pid: Int): String {
+        val process = Runtime.getRuntime().exec(
+            arrayOf("logcat", "-d", "-v", "time", "-t", "2000", "--pid=$pid")
+        )
+        val output = process.inputStream.bufferedReader().readText()
+        process.waitFor()
+        return output
     }
 
     fun shareLogs(context: Context, logs: String) {
