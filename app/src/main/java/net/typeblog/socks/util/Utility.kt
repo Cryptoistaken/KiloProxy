@@ -55,6 +55,19 @@ data class IpInfo(
 object Utility {
     private val TAG = Utility::class.java.simpleName
 
+    // NetShield cloud upstreams — AdGuard public DNS (filtering resolvers).
+    const val ADGUARD_DNS = "94.140.14.14"
+    const val ADGUARD_DNS_FAMILY = "94.140.14.15"
+
+    // Countries where AdGuard public DNS is known to be blocked or heavily
+    // throttled; there the local exclude lists are used instead of the cloud.
+    val NETSHIELD_CLOUD_BLOCKED_COUNTRIES = setOf("CN", "RU", "BY", "IR", "TM", "KP")
+
+    data class NetshieldPolicy(
+        val upstream: String?,
+        val exclusions: List<String>
+    )
+
     @JvmStatic
     fun extractFile(context: Context) {
         // No longer needed: we run libpdnsd.so and libtun2socks.so directly from nativeLibraryDir
@@ -157,14 +170,14 @@ object Utility {
     }
 
     @JvmStatic
-    fun makePdnsdConf(context: Context, dns: String, port: Int, excludeList: List<String> = emptyList()) {
+    fun makePdnsdConf(context: Context, dns: String, port: Int, excludeList: List<String> = emptyList(), upstream: String? = null) {
         val dir = context.filesDir.absolutePath
         val exclude = if (excludeList.isEmpty()) {
             ""
         } else {
             "exclude = \"${join(excludeList, "\", \"")}\";"
         }
-        val conf = String.format(context.getString(net.typeblog.socks.R.string.pdnsd_conf), dir, dir, dns, port, exclude)
+        val conf = String.format(context.getString(net.typeblog.socks.R.string.pdnsd_conf), dir, dir, upstream ?: dns, port, exclude)
 
         val f = File("$dir/pdnsd.conf")
 
@@ -206,17 +219,34 @@ object Utility {
     }
 
     @JvmStatic
-    fun netshieldExclusions(context: Context): List<String> {
+    fun netshieldPolicy(context: Context, server: String?, user: String?, realCountry: String? = null): NetshieldPolicy {
         val prefs = PreferenceManager.getDefaultSharedPreferences(context)
-        if (!prefs.getBoolean(PREF_NETSHIELD_ENABLED, false)) return emptyList()
+        if (!prefs.getBoolean(PREF_NETSHIELD_ENABLED, false)) return NetshieldPolicy(null, emptyList())
+        val adult = prefs.getBoolean(PREF_NETSHIELD_BLOCK_ADULT, false)
 
+        val cc = realCountry?.uppercase()
+            ?: ProxyProviders.parseCountry(
+                user ?: "",
+                ProxyProviders.detectType(server ?: "", user ?: "")
+            )?.uppercase()
+
+        // Known/assumed-cloud-safe country -> AdGuard upstream, no local lists.
+        // Unknown or blocked country -> local exclude lists (works everywhere).
+        return if (!cc.isNullOrEmpty() && cc !in NETSHIELD_CLOUD_BLOCKED_COUNTRIES) {
+            NetshieldPolicy(if (adult) ADGUARD_DNS_FAMILY else ADGUARD_DNS, emptyList())
+        } else {
+            NetshieldPolicy(null, netshieldLocalLists(context, adult))
+        }
+    }
+
+    private fun netshieldLocalLists(context: Context, adult: Boolean): List<String> {
         val result = LinkedHashSet<String>()
         try {
             context.assets.open("netshield_blocklist.txt").use { result.addAll(parseBlocklist(it.bufferedReader().use { r -> r.readText() })) }
         } catch (e: Exception) {
             Log.w(TAG, "Failed to read netshield_blocklist.txt", e)
         }
-        if (prefs.getBoolean(PREF_NETSHIELD_BLOCK_ADULT, false)) {
+        if (adult) {
             try {
                 context.assets.open("netshield_adult.txt").use { result.addAll(parseBlocklist(it.bufferedReader().use { r -> r.readText() })) }
             } catch (e: Exception) {

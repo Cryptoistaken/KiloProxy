@@ -127,6 +127,12 @@ class SocksVpnService : VpnService() {
     private var mProfileName: String? = null
     private var mTun2socksProcess: java.lang.Process? = null
     private var mPdnsdProcess: java.lang.Process? = null
+    @Volatile
+    private var mDns: String? = null
+    @Volatile
+    private var mDnsPort: Int = 53
+    @Volatile
+    private var mNetshieldPolicy: Utility.NetshieldPolicy? = null
     private var mResolvedServer: String? = null
     private var mServer: String? = null
     private var mPort: Int = 0
@@ -223,6 +229,7 @@ class SocksVpnService : VpnService() {
                             mIpInfo = info
                             mProxyVerified = true
                             mIpCheckFailures = 0
+                            reconcileNetshield()
                             updateNotification()
                             mIpCheckHandler.postDelayed(this, IP_CHECK_INTERVAL)
                         }
@@ -327,6 +334,8 @@ class SocksVpnService : VpnService() {
         mPort = port
         mUsername = username
         mPassword = passwd
+        mDns = dns
+        mDnsPort = dnsPort
         val route = intent.getStringExtra(INTENT_ROUTE)
         val dns = intent.getStringExtra(INTENT_DNS)
         val dnsPort = intent.getIntExtra(INTENT_DNS_PORT, 53)
@@ -459,6 +468,9 @@ class SocksVpnService : VpnService() {
         mPort = 0
         mUsername = null
         mPassword = null
+        mDns = null
+        mDnsPort = 53
+        mNetshieldPolicy = null
         mCurrentIp = null
         mCountryCode = null
         mIpInfo = null
@@ -636,26 +648,18 @@ class SocksVpnService : VpnService() {
         val dir = filesDir.absolutePath
         Thread {
             try {
-                Utility.makePdnsdConf(this, dns ?: "8.8.8.8", dnsPort, Utility.netshieldExclusions(this))
+                // NetShield policy: AdGuard cloud upstream where reachable,
+                // local exclude lists in blocked/unknown countries.
+                val netshield = Utility.netshieldPolicy(this, server, user)
+                mNetshieldPolicy = netshield
+                Utility.makePdnsdConf(this, dns ?: "8.8.8.8", dnsPort, netshield.exclusions, netshield.upstream)
 
                 // Launch pdnsd non-blocking: no waitFor() (pdnsd.conf sets
                 // daemon=on so it forks into the background). It only needs to be
                 // running by the time the tunnel carries the first DNS query. Keep
                 // the Process reference so stopMe() can destroy it.
-                try {
-                    val pdnsdPb = ProcessBuilder(
-                        "$libDir/libpdnsd.so",
-                        "-c",
-                        "$dir/pdnsd.conf"
-                    )
-                    pdnsdPb.redirectErrorStream(true)
-                    val pdnsd = pdnsdPb.start()
-                    mPdnsdProcess = pdnsd
-                    consumeProcessOutput(pdnsd)
-                    Log.d(TAG, "pdnsd started non-blocking")
-                } catch (e: Exception) {
-                    Log.e(TAG, "Failed to start pdnsd process", e)
-                    runOnMainThread { stopMe("pdnsd_start_failed:${e.message}") }
+                if (!launchPdnsd(dir, libDir)) {
+                    runOnMainThread { stopMe("pdnsd_start_failed") }
                     return@Thread
                 }
 
@@ -792,6 +796,58 @@ class SocksVpnService : VpnService() {
             } catch (_: Exception) {
             }
         }.apply { isDaemon = true }.start()
+    }
+
+    private fun launchPdnsd(dir: String, libDir: String): Boolean {
+        return try {
+            val pdnsdPb = ProcessBuilder(
+                "$libDir/libpdnsd.so",
+                "-c",
+                "$dir/pdnsd.conf"
+            )
+            pdnsdPb.redirectErrorStream(true)
+            val pdnsd = pdnsdPb.start()
+            mPdnsdProcess = pdnsd
+            consumeProcessOutput(pdnsd)
+            Log.d(TAG, "pdnsd started non-blocking")
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to start pdnsd process", e)
+            false
+        }
+    }
+
+    /**
+     * Re-evaluates the NetShield upstream once the real exit country is known
+     * (ip-api check) and applies a new pdnsd config + restart when the policy
+     * changed (e.g. residential rotation moved the exit to/from a blocked
+     * country). Runs on the main thread; pdnsd config write + restart are fast.
+     */
+    private fun reconcileNetshield() {
+        if (!mRunning) return
+        val applied = mNetshieldPolicy ?: return
+        if (applied.upstream == null && applied.exclusions.isEmpty()) return
+        val server = mServer
+        if (server.isNullOrEmpty()) return
+
+        val policy = Utility.netshieldPolicy(this, server, mUsername, mCountryCode)
+        if (policy == applied) return
+
+        mNetshieldPolicy = policy
+        val dir = filesDir.absolutePath
+        val libDir = applicationInfo.nativeLibraryDir
+        Utility.makePdnsdConf(this, mDns ?: "8.8.8.8", mDnsPort, policy.exclusions, policy.upstream)
+        try {
+            mPdnsdProcess?.destroy()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error destroying pdnsd for reconcile: ${e.message}")
+        }
+        mPdnsdProcess = null
+        if (launchPdnsd(dir, libDir)) {
+            Log.d(TAG, "NetShield policy reconciled: upstream=${policy.upstream} exclusions=${policy.exclusions.size}")
+        } else {
+            Log.e(TAG, "pdnsd restart failed during NetShield reconcile")
+        }
     }
 
     private fun postStartOnMain() {
