@@ -120,7 +120,7 @@ fun CountriesScreen(viewModel: VpnViewModel, modifier: Modifier = Modifier) {
             val profile = pm.getDefault()
             val username = profile.getUsername()
             val type = ProxyProviders.detectType(profile.getServer(), username)
-            val newUsername: String? = when (type) {
+            val newUsername = when (type) {
                 ProxyProviders.TYPE_OWL -> {
                     // Preserve sticky suffix if present; rebuild only the country zone.
                     val match = Regex("^(.+?)_custom_zone_[a-zA-Z]{2}(_st__city_sid_\\d+_time_\\d+)?$")
