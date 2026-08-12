@@ -10,21 +10,17 @@ import android.os.Build
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -49,7 +45,6 @@ import net.typeblog.socks.util.Constants.PREF_ADV_PER_APP
 import net.typeblog.socks.util.Constants.PREF_FLOATING_CONTROL
 import net.typeblog.socks.util.Constants.PREF_THEME_MODE
 import net.typeblog.socks.util.Constants.PREF_NETSHIELD_ENABLED
-import net.typeblog.socks.util.Constants.PREF_NETSHIELD_BLOCK_ADULT
 
 @Composable
 fun SettingsScreen(
@@ -169,8 +164,7 @@ fun SettingsScreen(
     LazyColumn(
         modifier = modifier
             .fillMaxSize()
-            .padding(horizontal = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(20.dp)
+            .padding(horizontal = 16.dp)
     ) {
         item {
             Text(
@@ -187,10 +181,12 @@ fun SettingsScreen(
             SectionTitle(text = "Features")
             SettingsGroup {
                 SettingsItem(
-                    icon = painterResource(R.drawable.ic_netshield),
+                    icon = painterResource(
+                        if (netShieldEnabled) R.drawable.feature_netshield_on
+                        else R.drawable.feature_netshield_off
+                    ),
                     label = "NetShield",
-                    description = "Blocks ads, malware, and trackers",
-                    iconTint = MaterialTheme.colorScheme.primary,
+                    description = if (netShieldEnabled) "On" else "Off",
                     onClick = onNavigateToNetShield,
                     trailing = {
                         Switch(
@@ -202,7 +198,6 @@ fun SettingsScreen(
                         )
                     }
                 )
-                RowDivider()
             }
         }
 
@@ -213,11 +208,9 @@ fun SettingsScreen(
                 SettingsItem(
                     icon = painterResource(R.drawable.ic_proton_circle_half_filled),
                     label = "Theme Mode",
-                    value = themeLabel,
-                    iconTint = MaterialTheme.colorScheme.primary,
+                    description = themeLabel,
                     onClick = { showThemeDialog = true }
                 )
-                RowDivider()
             }
         }
 
@@ -230,7 +223,6 @@ fun SettingsScreen(
                     icon = painterResource(R.drawable.ic_proton_mobile),
                     label = "Floating Control Bubble",
                     description = "Draggable connect/disconnect button over other apps",
-                    iconTint = MaterialTheme.colorScheme.primary,
                     trailing = {
                         Switch(
                             checked = floatingControl,
@@ -272,14 +264,14 @@ fun SettingsScreen(
 
             SettingsGroup {
                 SettingsItem(
-                    icon = painterResource(R.drawable.ic_split_tunneling),
+                    icon = painterResource(
+                        if (splitEnabled) R.drawable.feature_splittunneling_on
+                        else R.drawable.feature_splittunneling_off
+                    ),
                     label = "Enable split tunneling",
-                    description = "Route selected apps through the VPN or bypass them",
-                    value = if (splitEnabled) "On" else "Off",
-                    iconTint = MaterialTheme.colorScheme.primary,
+                    description = if (splitEnabled) "On" else "Off",
                     onClick = onNavigateToSplitTunneling
                 )
-                RowDivider()
             }
         }
 
@@ -291,7 +283,6 @@ fun SettingsScreen(
                     icon = painterResource(R.drawable.ic_proton_code),
                     label = "Debug Logs",
                     description = "View and share app logs for troubleshooting",
-                    iconTint = MaterialTheme.colorScheme.primary,
                     onClick = onNavigateToDebugLogs
                 )
             }
@@ -304,20 +295,21 @@ fun SettingsScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 14.dp, vertical = 14.dp),
+                        .heightIn(min = 56.dp)
+                        .padding(horizontal = 16.dp, vertical = 16.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = "KiloProxy",
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.SemiBold,
+                            style = MaterialTheme.typography.bodyLarge,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
                             text = "Version ${BuildConfig.VERSION_NAME}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 6.dp)
                         )
                     }
                 }
@@ -339,23 +331,16 @@ private fun RowDivider() {
 private fun SectionTitle(text: String) {
     Text(
         text = text,
-        style = MaterialTheme.typography.labelSmall,
-        fontWeight = FontWeight.SemiBold,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(start = 2.dp, bottom = 8.dp)
+        style = MaterialTheme.typography.bodyMedium,
+        fontWeight = FontWeight.Medium,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.padding(top = 24.dp, bottom = 8.dp)
     )
 }
 
 @Composable
 private fun SettingsGroup(content: @Composable () -> Unit) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
-    ) {
-        Column(modifier = Modifier.fillMaxWidth()) {
-            content()
-        }
+    Column(modifier = Modifier.fillMaxWidth()) {
+        content()
     }
 }
