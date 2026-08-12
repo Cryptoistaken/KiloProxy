@@ -67,21 +67,25 @@ fun ConnectionCard(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 28.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .padding(horizontal = 24.dp, vertical = 24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(0.dp)
         ) {
+            // Status label — centered, prominent.
             Text(
                 text = if (isConnected) "Protected" else "Unprotected",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface
+                color = MaterialTheme.colorScheme.onSurface,
+                textAlign = TextAlign.Center
             )
 
             // Country row — only when a country can be parsed from the profile.
             if (countryName != null) {
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(16.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Surface(
@@ -100,10 +104,10 @@ fun ConnectionCard(
                             )
                         }
                     }
-                    Spacer(modifier = Modifier.width(16.dp))
+                    Spacer(modifier = Modifier.width(12.dp))
                     Text(
                         text = countryName,
-                        fontSize = 18.sp,
+                        fontSize = 16.sp,
                         fontWeight = FontWeight.Medium,
                         color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 1,
@@ -114,10 +118,10 @@ fun ConnectionCard(
             }
 
             // Host name — ALWAYS shown so the layout never shifts on connect.
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = serverName,
-                fontSize = 13.sp,
+                fontSize = 12.sp,
                 fontFamily = GeistMonoFonts.Family,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
@@ -126,7 +130,7 @@ fun ConnectionCard(
                 textAlign = TextAlign.Center
             )
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(24.dp))
 
             val buttonColor = when {
                 isConnecting -> MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
@@ -139,7 +143,7 @@ fun ConnectionCard(
             Surface(
                 onClick = { if (isConnected) onStopClick() else onStartClick() },
                 enabled = !isConnecting,
-                shape = RoundedCornerShape(8.dp),
+                shape = RoundedCornerShape(12.dp),
                 color = buttonColor,
                 contentColor = buttonContentColor,
                 modifier = Modifier.fillMaxWidth()
@@ -173,7 +177,7 @@ fun ConnectionCard(
             }
 
             // Timer/status line — always rendered (same height) so nothing shifts.
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(12.dp))
             val elapsed by produceState(initialValue = 0L, isConnected, connectedSince) {
                 while (true) {
                     value = System.currentTimeMillis() - connectedSince
@@ -192,7 +196,7 @@ fun ConnectionCard(
                     isConnected -> "Connected"
                     else -> "Tap to connect"
                 },
-                fontSize = 13.sp,
+                fontSize = 12.sp,
                 fontFamily = GeistMonoFonts.Family,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
