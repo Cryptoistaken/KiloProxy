@@ -21,7 +21,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Radio
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
@@ -264,7 +264,7 @@ fun SplitTunnelingScreen(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
-                            Radio(
+                            RadioButton(
                                 selected = !bypassMode,
                                 onClick = {
                                     bypassMode = false
@@ -301,7 +301,7 @@ fun SplitTunnelingScreen(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
-                            Radio(
+                            RadioButton(
                                 selected = bypassMode,
                                 onClick = {
                                     bypassMode = true
