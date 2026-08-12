@@ -56,9 +56,13 @@ object Utility {
     private val TAG = Utility::class.java.simpleName
 
     // NetShield cloud upstreams — AdGuard public DNS (filtering resolvers).
-    const val ADGUARD_DNS = "94.140.14.14"
-    const val ADGUARD_DNS_FAMILY = "94.140.14.15"
+const val ADGUARD_DNS = "94.140.14.14"
 
+    // AdGuard's Family variant no longer blocks adult content (public policy
+    // change since 2021), so the "Block adult content" tier uses CleanBrowsing
+    // Family Filter, which still enforces it. Verified over TCP/53 (pdnsd uses
+    // tcp-only): pornhub.com -> no records (blocked); google.com resolves fine.
+    const val ADGUARD_DNS_FAMILY = "185.228.168.168"
     // Countries where AdGuard public DNS is documented as blocked or heavily
     // unreliable (China: GFW/SAN interference; Russia: RKN collateral bans
     // historically took out AdGuard DNS for direct users; Iran: same as CN).

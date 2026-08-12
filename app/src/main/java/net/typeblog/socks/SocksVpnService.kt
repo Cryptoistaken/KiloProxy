@@ -8,6 +8,7 @@ import android.content.Context
 import android.content.Context.RECEIVER_EXPORTED
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.SharedPreferences
 import android.content.pm.ServiceInfo
 import android.net.VpnService
 import android.net.VpnService.Builder
@@ -40,6 +41,8 @@ import net.typeblog.socks.util.Constants.INTENT_SERVER
 import net.typeblog.socks.util.Constants.INTENT_UDP_GW
 import net.typeblog.socks.util.Constants.INTENT_USERNAME
 import net.typeblog.socks.util.Constants.PREF_AUTO_STOP
+import net.typeblog.socks.util.Constants.PREF_NETSHIELD_BLOCK_ADULT
+import net.typeblog.socks.util.Constants.PREF_NETSHIELD_ENABLED
 import net.typeblog.socks.util.IpInfo
 import net.typeblog.socks.util.Routes
 import net.typeblog.socks.util.SocksTester
@@ -298,6 +301,23 @@ class SocksVpnService : VpnService() {
         }
     }
 
+    // Live NetShield toggles: flipping NetShield / Block adult content while
+    // the tunnel is up re-evaluates the DNS upstream and restarts pdnsd.
+    private var mNetshieldPrefsListener: SharedPreferences.OnSharedPreferenceChangeListener? =
+        null
+
+    private fun registerNetshieldPrefsListener() {
+        if (mNetshieldPrefsListener != null) return
+        val prefs = PreferenceManager.getDefaultSharedPreferences(this)
+        mNetshieldPrefsListener =
+            SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+                if (key == PREF_NETSHIELD_ENABLED || key == PREF_NETSHIELD_BLOCK_ADULT) {
+                    if (mRunning) reconcileNetshield()
+                }
+            }
+        prefs.registerOnSharedPreferenceChangeListener(mNetshieldPrefsListener)
+    }
+
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
@@ -348,6 +368,8 @@ class SocksVpnService : VpnService() {
         Log.d(TAG, "onStartCommand: profile=$mProfileName server=$server:$port user=$username route=$route dns=$dns:$dnsPort perApp=$perApp ipv6=$ipv6 udpgw=$udpgw")
 
         createNotificationChannel()
+
+        registerNetshieldPrefsListener()
 
         showNotification()
 
@@ -411,6 +433,15 @@ class SocksVpnService : VpnService() {
 
     override fun onDestroy() {
         Log.d(TAG, "onDestroy called")
+        if (mNetshieldPrefsListener != null) {
+            try {
+                PreferenceManager.getDefaultSharedPreferences(this)
+                    .unregisterOnSharedPreferenceChangeListener(mNetshieldPrefsListener)
+            } catch (e: Exception) {
+                Log.w(TAG, "unregister netshield prefs listener failed: ${e.message}")
+            }
+            mNetshieldPrefsListener = null
+        }
         super.onDestroy()
         stopMe("on_destroy")
     }
@@ -648,10 +679,12 @@ class SocksVpnService : VpnService() {
         val dir = filesDir.absolutePath
         Thread {
             try {
-                // NetShield policy: AdGuard cloud upstream where supported,
-                // plain DNS in unsupported countries (no filtering at all).
+                // NetShield policy: ad-blocking cloud upstream where supported
+                // (CleanBrowsing Family 185.228.168.168 when "Block adult
+                // content" is on), plain DNS in unsupported countries.
                 val netshield = Utility.netshieldPolicy(this, server, user)
                 mNetshieldPolicy = netshield
+                Log.d(TAG, "NetShield upstream: ${netshield.upstream ?: "plain DNS"}")
                 Utility.makePdnsdConf(this, dns ?: "8.8.8.8", dnsPort, netshield.upstream)
 
                 // Launch pdnsd non-blocking: no waitFor() (pdnsd.conf sets
@@ -825,13 +858,11 @@ class SocksVpnService : VpnService() {
      */
     private fun reconcileNetshield() {
         if (!mRunning) return
-        val applied = mNetshieldPolicy ?: return
-        if (applied.upstream == null) return
         val server = mServer
         if (server.isNullOrEmpty()) return
 
         val policy = Utility.netshieldPolicy(this, server, mUsername, mCountryCode)
-        if (policy == applied) return
+        if (policy == mNetshieldPolicy) return
 
         mNetshieldPolicy = policy
         val dir = filesDir.absolutePath
