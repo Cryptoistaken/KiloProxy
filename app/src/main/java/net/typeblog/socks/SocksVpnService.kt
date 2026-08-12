@@ -149,6 +149,8 @@ class SocksVpnService : VpnService() {
     private var mConnectedSince: Long = 0L
     private var mError: String? = null
     private var mIpCheckFailures = 0
+    private var mTunnelUp = false
+    private var mPendingIpInfo: IpInfo? = null
     private val mIpCheckHandler = Handler(Looper.getMainLooper())
 
     // Last notification content actually issued, so the retry loop can skip
@@ -227,14 +229,12 @@ class SocksVpnService : VpnService() {
                     val info = Utility.checkPublicIp(server, port, username, password)
                     if (info != null) {
                         runOnMainThread {
-                            mCurrentIp = info.ip
-                            mCountryCode = info.countryCode
-                            mIpInfo = info
-                            mProxyVerified = true
-                            mIpCheckFailures = 0
-                            reconcileNetshield()
-                            updateNotification()
-                            mIpCheckHandler.postDelayed(this, IP_CHECK_INTERVAL)
+                            if (!mTunnelUp) {
+                                mPendingIpInfo = info
+                            } else {
+                                applyIpInfo(info)
+                                mIpCheckHandler.postDelayed(this, IP_CHECK_INTERVAL)
+                            }
                         }
                     } else {
                         // Public-IP lookup failed; this may simply mean ip-api.com is
@@ -243,6 +243,13 @@ class SocksVpnService : VpnService() {
                         // counts as a dead proxy and may tear down the VPN.
                         val probe = SocksTester.probeProxy(server, port, username, password)
                         runOnMainThread {
+                            if (!mTunnelUp) {
+                                // Tunnel still spawning — quiet fast retry; the
+                                // failure counter/probe path is only valid once the
+                                // tunnel is actually up.
+                                mIpCheckHandler.postDelayed(this, IP_INFO_RETRY)
+                                return@runOnMainThread
+                            }
                             if (probe == SocksTester.ProxyProbe.OK) {
                                 // Proxy itself is healthy — do not count the lookup
                                 // failure, do not stop. The ip-api lookup may simply
@@ -277,7 +284,13 @@ class SocksVpnService : VpnService() {
                 } catch (e: Exception) {
                     Log.e(TAG, "IP check failed", e)
                     runOnMainThread {
-                        mIpCheckHandler.postDelayed(this, IP_CHECK_RETRY)
+                        if (!mTunnelUp) {
+                            // Same rule as the failure branch: no failure counting
+                            // while the tunnel is still spawning.
+                            mIpCheckHandler.postDelayed(this, IP_INFO_RETRY)
+                        } else {
+                            mIpCheckHandler.postDelayed(this, IP_CHECK_RETRY)
+                        }
                     }
                 }
             }.start()
@@ -518,6 +531,8 @@ class SocksVpnService : VpnService() {
         mBaseTx = 0L
 
         mIpCheckHandler.removeCallbacks(mIpCheckRunnable)
+        mTunnelUp = false
+        mPendingIpInfo = null
         mStatsHandler.removeCallbacks(mStatsRunnable)
 
         try {
@@ -675,6 +690,11 @@ class SocksVpnService : VpnService() {
         // so startup does not stall the main thread.
         // Clear any stale failure text from a previous attempt before connecting.
         mError = null
+        // Fire the IP check in parallel with the tunnel spawn below, so the exit
+        // IP/country is already on its way while pdnsd/tun2socks boot. Results
+        // landing before the tunnel is up are buffered (mPendingIpInfo) and shown
+        // the moment the tunnel is ready — never before.
+        mIpCheckHandler.post(mIpCheckRunnable)
         val libDir = applicationInfo.nativeLibraryDir
         val dir = filesDir.absolutePath
         Thread {
@@ -881,6 +901,16 @@ class SocksVpnService : VpnService() {
         }
     }
 
+    private fun applyIpInfo(info: IpInfo) {
+        mCurrentIp = info.ip
+        mCountryCode = info.countryCode
+        mIpInfo = info
+        mProxyVerified = true
+        mIpCheckFailures = 0
+        reconcileNetshield()
+        updateNotification()
+    }
+
     private fun postStartOnMain() {
         if (!mRunning) return
         // FIX #2: connected is marked at tunnel-up, not after the HTTP IP check.
@@ -894,7 +924,18 @@ class SocksVpnService : VpnService() {
         mBaseRx = TrafficStats.getUidRxBytes(Process.myUid()).coerceAtLeast(0L)
         mBaseTx = TrafficStats.getUidTxBytes(Process.myUid()).coerceAtLeast(0L)
         mStatsHandler.post(mStatsRunnable)
-        mIpCheckHandler.post(mIpCheckRunnable)
+        mTunnelUp = true
+        val buffered = mPendingIpInfo
+        mPendingIpInfo = null
+        if (buffered != null) {
+            // The parallel IP check already answered while the tunnel was
+            // spawning — surface it now, exactly as if it had just been
+            // received on a normally-connected tunnel.
+            applyIpInfo(buffered)
+            mIpCheckHandler.postDelayed(mIpCheckRunnable, IP_CHECK_INTERVAL)
+        } else {
+            mIpCheckHandler.post(mIpCheckRunnable)
+        }
 
         val prefs = PreferenceManager.getDefaultSharedPreferences(this)
         if (prefs.getBoolean(PREF_AUTO_STOP, false)) {
