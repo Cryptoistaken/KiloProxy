@@ -51,6 +51,7 @@ import net.typeblog.socks.FloatingControlService
 import net.typeblog.socks.R
 import net.typeblog.socks.ui.components.SettingsItem
 import net.typeblog.socks.ui.components.ThemePickerDialog
+import net.typeblog.socks.ui.components.UpdateDialog
 import net.typeblog.socks.util.Constants.PREF_ADV_PER_APP
 import net.typeblog.socks.util.Constants.PREF_FLOATING_CONTROL
 import net.typeblog.socks.util.Constants.PREF_THEME_MODE
@@ -114,55 +115,7 @@ fun SettingsScreen(
     }
 
     updateInfo?.let { info ->
-        AlertDialog(
-            onDismissRequest = { updateInfo = null },
-            title = { Text(text = "Update available") },
-            text = {
-                Column {
-                    Text(
-                        text = "v${info.tag} · ${"%.1f MB".format(info.sizeBytes / 1048576.0)} — " +
-                            "install over the current version. Profiles and app data are preserved."
-                    )
-                    if (info.body.isNotBlank()) {
-                        Spacer(modifier = Modifier.height(12.dp))
-                        HorizontalDivider(
-                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
-                        )
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Text(
-                            text = context.getString(R.string.whats_new_dialog_title),
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(text = info.body)
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        updateInfo = null
-                        Toast.makeText(context, "Downloading update…", Toast.LENGTH_SHORT).show()
-                        scope.launch {
-                            val err = withContext(Dispatchers.IO) {
-                                UpdateChecker.downloadAndInstall(context, info.apkUrl)
-                            }
-                            if (err != null) {
-                                Toast.makeText(context, err, Toast.LENGTH_LONG).show()
-                            }
-                        }
-                    }
-                ) {
-                    Text(text = "Update")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { updateInfo = null }) {
-                    Text(text = "Later")
-                }
-            }
-        )
+        UpdateDialog(info = info, onDismiss = { updateInfo = null })
     }
 
     var pendingFloatingStart by remember { mutableStateOf(false) }

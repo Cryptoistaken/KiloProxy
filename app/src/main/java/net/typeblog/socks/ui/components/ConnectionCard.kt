@@ -2,11 +2,14 @@ package net.typeblog.socks.ui.components
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -29,14 +32,15 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
+import net.typeblog.socks.util.Countries
 
 /**
  * Hero connection control for the Connect tab.
  *
- * A large pill-shaped Start/Stop button carries the connection state,
- * matching the Cloudflare Turnstile CTA style: flat, fully rounded,
- * orange when idle, red when active. Shows a "Connecting…" state while
- * the VPN is starting and until the proxy IP info has been populated.
+ * ProtonVPN-style connect card: a country row (flag chip + name) followed by a
+ * full-width rounded Connect/Disconnect button, with the connection timer line
+ * rendered directly under the button. Shows a "Connecting…" state while the VPN
+ * is starting and until the proxy IP info has been populated.
  */
 @Composable
 fun ConnectionCard(
@@ -46,8 +50,12 @@ fun ConnectionCard(
     connectedSince: Long = 0L,
     onStartClick: () -> Unit,
     onStopClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    countryCode: String? = null
 ) {
+    val country = countryCode?.let { Countries.fromCode(it) }
+    val countryName = country?.name
+
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
@@ -69,6 +77,42 @@ fun ConnectionCard(
                 color = MaterialTheme.colorScheme.onSurface
             )
 
+            // Country row — only when a country can be parsed from the profile.
+            if (countryName != null) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Surface(
+                        shape = RoundedCornerShape(4.dp),
+                        color = MaterialTheme.colorScheme.surface,
+                        modifier = Modifier.size(width = 30.dp, height = 20.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = country.flag,
+                                fontSize = 18.sp,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Text(
+                        text = countryName,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+
             // Host name — ALWAYS shown so the layout never shifts on connect.
             Spacer(modifier = Modifier.height(4.dp))
             Text(
@@ -82,55 +126,35 @@ fun ConnectionCard(
                 textAlign = TextAlign.Center
             )
 
-            // Timer line — always rendered (empty when idle) so its line height
-            // is permanently reserved; nothing moves when it fills in.
-            val elapsed by produceState(initialValue = 0L, isConnected, connectedSince) {
-                while (true) {
-                    value = System.currentTimeMillis() - connectedSince
-                    delay(1000)
-                }
-            }
-            val totalSeconds = elapsed / 1000
-            val elapsedText =
-                "${(totalSeconds / 3600).toString().padStart(2, '0')}:" +
-                    "${((totalSeconds % 3600) / 60).toString().padStart(2, '0')}:" +
-                    "${(totalSeconds % 60).toString().padStart(2, '0')}"
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = if (isConnected && connectedSince > 0) "Connected $elapsedText" else "",
-                fontSize = 13.sp,
-                fontFamily = GeistMonoFonts.Family,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                modifier = Modifier.fillMaxWidth(),
-                textAlign = TextAlign.Center
-            )
-
             Spacer(modifier = Modifier.height(20.dp))
+
+            val buttonColor = when {
+                isConnecting -> MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
+                isConnected -> MaterialTheme.colorScheme.error
+                else -> MaterialTheme.colorScheme.primary
+            }
+            val buttonContentColor =
+                if (isConnected) MaterialTheme.colorScheme.onError else MaterialTheme.colorScheme.onPrimary
 
             Surface(
                 onClick = { if (isConnected) onStopClick() else onStartClick() },
                 enabled = !isConnecting,
-                shape = RoundedCornerShape(100.dp),
-                color = when {
-                    isConnecting -> MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
-                    isConnected -> MaterialTheme.colorScheme.error
-                    else -> MaterialTheme.colorScheme.primary
-                },
+                shape = RoundedCornerShape(8.dp),
+                color = buttonColor,
+                contentColor = buttonContentColor,
                 modifier = Modifier.fillMaxWidth()
             ) {
-
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 16.dp),
+                        .heightIn(min = 48.dp),
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     if (isConnecting) {
                         CircularProgressIndicator(
                             modifier = Modifier.size(22.dp),
-                            color = MaterialTheme.colorScheme.onPrimary,
+                            color = buttonContentColor,
                             strokeWidth = 2.5.dp
                         )
                         Spacer(modifier = Modifier.width(8.dp))
@@ -143,21 +167,37 @@ fun ConnectionCard(
                         },
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onPrimary
+                        color = buttonContentColor
                     )
                 }
             }
 
+            // Timer/status line — always rendered (same height) so nothing shifts.
             Spacer(modifier = Modifier.height(10.dp))
-
+            val elapsed by produceState(initialValue = 0L, isConnected, connectedSince) {
+                while (true) {
+                    value = System.currentTimeMillis() - connectedSince
+                    delay(1000)
+                }
+            }
+            val totalSeconds = elapsed / 1000
+            val elapsedText =
+                "${(totalSeconds / 3600).toString().padStart(2, '0')}:" +
+                    "${((totalSeconds % 3600) / 60).toString().padStart(2, '0')}:" +
+                    "${(totalSeconds % 60).toString().padStart(2, '0')}"
             Text(
                 text = when {
                     isConnecting -> "Establishing secure connection…"
-                    isConnected -> "Tap to disconnect"
+                    isConnected && connectedSince > 0 -> "Connected $elapsedText"
+                    isConnected -> "Connected"
                     else -> "Tap to connect"
                 },
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                fontSize = 13.sp,
+                fontFamily = GeistMonoFonts.Family,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = TextAlign.Center
             )
         }
     }

@@ -50,6 +50,7 @@ object Constants {
     const val PREF_FLOATING_CONTROL = "floating_control"
     const val PREF_BUBBLE_X = "bubble_x"
     const val PREF_BUBBLE_Y = "bubble_y"
+    const val PREF_SKIPPED_UPDATE_VERSION = "skipped_update_version"
     const val PREF_NETSHIELD_ENABLED = "netshield_enabled"
     const val PREF_NETSHIELD_BLOCK_ADULT = "netshield_block_adult"
     const val PREF_RECENT_COUNTRIES = "recent_countries"

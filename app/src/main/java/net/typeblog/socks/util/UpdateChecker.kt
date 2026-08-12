@@ -92,7 +92,21 @@ object UpdateChecker {
         )
     }
 
-    fun downloadAndInstall(context: Context, url: String): String? {
+    /**
+     * Downloads the APK to cache and launches the package installer.
+     *
+     * [totalBytes] is the expected download size (used to compute progress). When
+     * provided (> 0), [onProgress] is invoked on the calling thread with a
+     * 0f..1f fraction at regular intervals while bytes stream in.
+     * Synchronous, MUST be called from a background thread. Returns an error
+     * message on failure, or null once the installer has been launched.
+     */
+    fun downloadAndInstall(
+        context: Context,
+        url: String,
+        totalBytes: Long = 0L,
+        onProgress: ((Float) -> Unit)? = null
+    ): String? {
         var lastException: Exception? = null
         repeat(MAX_RETRIES) { attempt ->
             var connection: HttpURLConnection? = null
@@ -115,12 +129,22 @@ object UpdateChecker {
                     return "Download failed ($err)"
                 }
 
+                var downloaded = 0L
+                var lastReportedPct = -1
                 connection.inputStream.use { input ->
                     file.outputStream().use { output ->
                         val buffer = ByteArray(BUFFER_SIZE)
                         var read = input.read(buffer)
                         while (read != -1) {
                             output.write(buffer, 0, read)
+                            downloaded += read
+                            if (totalBytes > 0) {
+                                val pct = (downloaded * 100 / totalBytes).toInt()
+                                if (pct != lastReportedPct) {
+                                    lastReportedPct = pct
+                                    onProgress?.invoke((pct / 100f).coerceIn(0f, 1f))
+                                }
+                            }
                             read = input.read(buffer)
                         }
                     }

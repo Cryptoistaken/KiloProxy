@@ -20,6 +20,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -34,7 +35,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -42,6 +42,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import net.typeblog.socks.R
@@ -53,6 +54,7 @@ fun DebugLogsScreen(onNavigateBack: () -> Unit) {
     val context = LocalContext.current
     val logs = remember { mutableStateOf("Loading logs...") }
     val scope = rememberCoroutineScope()
+    val copied = remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         withContext(Dispatchers.IO) {
@@ -149,39 +151,34 @@ fun DebugLogsScreen(onNavigateBack: () -> Unit) {
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 // Copy button
-                Surface(
+                Button(
                     onClick = {
                         val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                         val clip = ClipData.newPlainText("KiloProxy Logs", logs.value)
                         clipboard.setPrimaryClip(clip)
+                        copied.value = true
                         Toast.makeText(context, "Logs copied", Toast.LENGTH_SHORT).show()
+                        scope.launch {
+                            delay(1600)
+                            copied.value = false
+                        }
                     },
+                    enabled = logs.value.isNotBlank(),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .weight(1f),
-                    shape = RoundedCornerShape(16.dp),
-                    color = MaterialTheme.colorScheme.secondary
+                        .weight(1f)
+                        .height(52.dp),
+                    shape = RoundedCornerShape(14.dp)
                 ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(14.dp),
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            painter = painterResource(R.drawable.lucide_check),
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp),
-                            tint = MaterialTheme.colorScheme.onSecondary
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "Copy Logs",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSecondary
-                        )
-                    }
+                    Icon(
+                        painter = painterResource(
+                            if (copied.value) R.drawable.lucide_check else R.drawable.lucide_copy
+                        ),
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(text = if (copied.value) "Copied!" else "Copy Logs")
                 }
             }
         }

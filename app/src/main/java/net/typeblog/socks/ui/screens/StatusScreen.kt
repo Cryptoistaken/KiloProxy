@@ -51,6 +51,7 @@ import net.typeblog.socks.ui.components.ConnectionStatusCard
 import net.typeblog.socks.ui.components.DataUsageCard
 import net.typeblog.socks.ui.viewmodel.VpnViewModel
 import net.typeblog.socks.util.ProfileManager
+import net.typeblog.socks.util.ProxyProviders
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -134,6 +135,26 @@ fun StatusScreen(
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { }
+
+    // Country code for the card's target profile, using the same derivation as
+    // FloatingControlService.onBubbleCountrySelected (username/type/parseCountry).
+    val cardCountryCode = remember(selectedProfile, activeProfileName, profiles) {
+        val target = selectedProfile ?: activeProfileName ?: profiles.firstOrNull()
+        if (target == null) {
+            null
+        } else {
+            try {
+                val pm = ProfileManager.getInstance(context)
+                val p = pm.getProfile(target) ?: return@remember null
+                val username = p.getUsername()
+                val type = ProxyProviders.detectType(p.getServer(), username)
+                val code = ProxyProviders.parseCountry(username, type)
+                if (code.isNullOrBlank()) null else code
+            } catch (_: Exception) {
+                null
+            }
+        }
+    }
 
     val serverName = remember(activeProfileName, profiles) {
         if (activeProfileName != null) {
@@ -292,7 +313,8 @@ fun StatusScreen(
                 onStopClick = {
                     viewModel.stopVpn(context)
                 },
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                countryCode = cardCountryCode
             )
 
             errorMessage?.let { message ->
