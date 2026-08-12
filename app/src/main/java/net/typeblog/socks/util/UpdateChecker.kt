@@ -109,7 +109,7 @@ object UpdateChecker {
                     val err = "HTTP ${connection.responseCode}"
                     connection.disconnect()
                     if (attempt < MAX_RETRIES - 1) {
-                        Thread.sleep(1000 * (attempt + 1))
+                        Thread.sleep(1000L * (attempt + 1))
                         return@repeat
                     }
                     return "Download failed ($err)"
@@ -137,7 +137,7 @@ object UpdateChecker {
                 lastException = e
                 connection?.disconnect()
                 if (attempt < MAX_RETRIES - 1) {
-                    Thread.sleep(1000 * (attempt + 1))
+                    Thread.sleep(1000L * (attempt + 1))
                 }
             }
         }
