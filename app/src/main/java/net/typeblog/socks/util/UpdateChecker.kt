@@ -2,6 +2,9 @@ package net.typeblog.socks.util
 
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
+import android.os.Build
+import android.provider.Settings
 import android.util.Log
 import androidx.core.content.FileProvider
 import net.typeblog.socks.BuildConfig
@@ -186,6 +189,20 @@ object UpdateChecker {
                 val intent = Intent(Intent.ACTION_VIEW).apply {
                     setDataAndType(uri, "application/vnd.android.package-archive")
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !context.packageManager.canRequestPackageInstalls()) {
+                    Log.w(TAG, "downloadAndInstall() -> canRequestPackageInstalls() = false, routing to unknown-app-sources settings")
+                    val settingsIntent = Intent(
+                        Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                        Uri.parse("package:${context.packageName}")
+                    ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    try {
+                        context.startActivity(settingsIntent)
+                    } catch (e: Exception) {
+                        Log.e(TAG, "downloadAndInstall() -> settings launch threw: ${e::class.simpleName}: ${e.message}", e)
+                        return "Please allow 'Install unknown apps' for KiloProxy in Settings"
+                    }
+                    return "Please allow 'Install unknown apps' and try again"
                 }
                 try {
                     context.startActivity(intent)
