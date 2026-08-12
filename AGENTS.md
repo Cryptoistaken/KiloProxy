@@ -7,7 +7,7 @@
 - On success: proceed with download/install per below.
 
 ## Download & Install
-- Always download and install the **`app-arm64-v8a-release.apk`** from the `app-release` artifact of the successful run.
+- Always download and install the **`app-arm64-v8a-release.apk`** (now named with the app version, e.g. `app-arm64-v8a-release-v1.2.177.apk`) from the `app-release` artifact of the successful run.
 - Fresh-download to a clean directory before installing (stale APKs caused version/signature mismatch before).
 - Since the persistent release keystore (GitHub secrets `RELEASE_KEYSTORE_*`) was introduced, every build is signed with the SAME key and `versionCode` increases monotonically (CI `GITHUB_RUN_NUMBER` + 100). Updates are install-overs and PRESERVE all app data — never uninstall just to update.
 
