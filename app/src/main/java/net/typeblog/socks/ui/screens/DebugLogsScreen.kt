@@ -79,6 +79,17 @@ fun DebugLogsScreen(onNavigateBack: () -> Unit) {
                 actions = {
                     IconButton(onClick = {
                         scope.launch(Dispatchers.IO) {
+                            logs.value = LogCollector.collectLogs(context)
+                            Toast.makeText(context, "Logs refreshed", Toast.LENGTH_SHORT).show()
+                        }
+                    }) {
+                        Icon(
+                            painter = painterResource(R.drawable.lucide_rotate_cw),
+                            contentDescription = "Refresh logs"
+                        )
+                    }
+                    IconButton(onClick = {
+                        scope.launch(Dispatchers.IO) {
                             val currentLogs = LogCollector.collectLogs(context)
                             LogCollector.shareLogs(context, currentLogs)
                         }
