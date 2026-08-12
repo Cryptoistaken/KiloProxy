@@ -59,13 +59,14 @@ object Utility {
     const val ADGUARD_DNS = "94.140.14.14"
     const val ADGUARD_DNS_FAMILY = "94.140.14.15"
 
-    // Countries where AdGuard public DNS is known to be blocked or heavily
-    // throttled; there the local exclude lists are used instead of the cloud.
-    val NETSHIELD_CLOUD_BLOCKED_COUNTRIES = setOf("CN", "RU", "BY", "IR", "TM", "KP")
+    // Countries where AdGuard public DNS is documented as blocked or heavily
+    // unreliable (China: GFW/SAN interference; Russia: RKN collateral bans
+    // historically took out AdGuard DNS for direct users; Iran: same as CN).
+    // NetShield is simply unavailable there — plain DNS is used, no fallback.
+    val NETSHIELD_UNSUPPORTED_COUNTRIES = setOf("CN", "RU", "IR")
 
     data class NetshieldPolicy(
-        val upstream: String?,
-        val exclusions: List<String>
+        val upstream: String?
     )
 
     @JvmStatic
@@ -170,14 +171,9 @@ object Utility {
     }
 
     @JvmStatic
-    fun makePdnsdConf(context: Context, dns: String, port: Int, excludeList: List<String> = emptyList(), upstream: String? = null) {
+    fun makePdnsdConf(context: Context, dns: String, port: Int, upstream: String? = null) {
         val dir = context.filesDir.absolutePath
-        val exclude = if (excludeList.isEmpty()) {
-            ""
-        } else {
-            "exclude = \"${join(excludeList, "\", \"")}\";"
-        }
-        val conf = String.format(context.getString(net.typeblog.socks.R.string.pdnsd_conf), dir, dir, upstream ?: dns, port, exclude)
+        val conf = String.format(context.getString(net.typeblog.socks.R.string.pdnsd_conf), dir, dir, upstream ?: dns, port)
 
         val f = File("$dir/pdnsd.conf")
 
@@ -206,22 +202,9 @@ object Utility {
     }
 
     @JvmStatic
-    fun parseBlocklist(raw: String): List<String> {
-        val domain = Regex("^([a-z0-9]([a-z0-9-]*[a-z0-9])?\\.)+[a-z]{2,}$")
-        val result = LinkedHashSet<String>()
-        for (line in raw.lineSequence()) {
-            val l = line.trim().lowercase()
-            if (l.isEmpty() || l.startsWith("#") || l.startsWith("!")) continue
-            if (!domain.matches(l)) continue
-            result.add(l)
-        }
-        return result.toList()
-    }
-
-    @JvmStatic
     fun netshieldPolicy(context: Context, server: String?, user: String?, realCountry: String? = null): NetshieldPolicy {
         val prefs = PreferenceManager.getDefaultSharedPreferences(context)
-        if (!prefs.getBoolean(PREF_NETSHIELD_ENABLED, false)) return NetshieldPolicy(null, emptyList())
+        if (!prefs.getBoolean(PREF_NETSHIELD_ENABLED, false)) return NetshieldPolicy(null)
         val adult = prefs.getBoolean(PREF_NETSHIELD_BLOCK_ADULT, false)
 
         val cc = realCountry?.uppercase()
@@ -230,30 +213,14 @@ object Utility {
                 ProxyProviders.detectType(server ?: "", user ?: "")
             )?.uppercase()
 
-        // Known/assumed-cloud-safe country -> AdGuard upstream, no local lists.
-        // Unknown or blocked country -> local exclude lists (works everywhere).
-        return if (!cc.isNullOrEmpty() && cc !in NETSHIELD_CLOUD_BLOCKED_COUNTRIES) {
-            NetshieldPolicy(if (adult) ADGUARD_DNS_FAMILY else ADGUARD_DNS, emptyList())
+        // Cloud-safe country -> AdGuard upstream (family variant blocks adult
+        // content). Unsupported/unknown country -> NetShield is NOT supported:
+        // plain DNS, no filtering, no fallback lists.
+        return if (!cc.isNullOrEmpty() && cc !in NETSHIELD_UNSUPPORTED_COUNTRIES) {
+            NetshieldPolicy(if (adult) ADGUARD_DNS_FAMILY else ADGUARD_DNS)
         } else {
-            NetshieldPolicy(null, netshieldLocalLists(context, adult))
+            NetshieldPolicy(null)
         }
-    }
-
-    private fun netshieldLocalLists(context: Context, adult: Boolean): List<String> {
-        val result = LinkedHashSet<String>()
-        try {
-            context.assets.open("netshield_blocklist.txt").use { result.addAll(parseBlocklist(it.bufferedReader().use { r -> r.readText() })) }
-        } catch (e: Exception) {
-            Log.w(TAG, "Failed to read netshield_blocklist.txt", e)
-        }
-        if (adult) {
-            try {
-                context.assets.open("netshield_adult.txt").use { result.addAll(parseBlocklist(it.bufferedReader().use { r -> r.readText() })) }
-            } catch (e: Exception) {
-                Log.w(TAG, "Failed to read netshield_adult.txt", e)
-            }
-        }
-        return result.toList()
     }
 
     @JvmStatic

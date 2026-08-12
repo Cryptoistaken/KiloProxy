@@ -19,7 +19,6 @@ server {
 	ip = %s;
 	port = %d;
 	uptest = none;
-	%s
 }
 
 rr {

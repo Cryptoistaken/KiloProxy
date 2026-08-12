@@ -334,11 +334,11 @@ class SocksVpnService : VpnService() {
         mPort = port
         mUsername = username
         mPassword = passwd
-        mDns = dns
-        mDnsPort = dnsPort
         val route = intent.getStringExtra(INTENT_ROUTE)
         val dns = intent.getStringExtra(INTENT_DNS)
         val dnsPort = intent.getIntExtra(INTENT_DNS_PORT, 53)
+        mDns = dns
+        mDnsPort = dnsPort
         val perApp = intent.getBooleanExtra(INTENT_PER_APP, false)
         val appBypass = intent.getBooleanExtra(INTENT_APP_BYPASS, false)
         val appList = intent.getStringArrayExtra(INTENT_APP_LIST)
@@ -648,11 +648,11 @@ class SocksVpnService : VpnService() {
         val dir = filesDir.absolutePath
         Thread {
             try {
-                // NetShield policy: AdGuard cloud upstream where reachable,
-                // local exclude lists in blocked/unknown countries.
+                // NetShield policy: AdGuard cloud upstream where supported,
+                // plain DNS in unsupported countries (no filtering at all).
                 val netshield = Utility.netshieldPolicy(this, server, user)
                 mNetshieldPolicy = netshield
-                Utility.makePdnsdConf(this, dns ?: "8.8.8.8", dnsPort, netshield.exclusions, netshield.upstream)
+                Utility.makePdnsdConf(this, dns ?: "8.8.8.8", dnsPort, netshield.upstream)
 
                 // Launch pdnsd non-blocking: no waitFor() (pdnsd.conf sets
                 // daemon=on so it forks into the background). It only needs to be
@@ -826,7 +826,7 @@ class SocksVpnService : VpnService() {
     private fun reconcileNetshield() {
         if (!mRunning) return
         val applied = mNetshieldPolicy ?: return
-        if (applied.upstream == null && applied.exclusions.isEmpty()) return
+        if (applied.upstream == null) return
         val server = mServer
         if (server.isNullOrEmpty()) return
 
@@ -836,7 +836,7 @@ class SocksVpnService : VpnService() {
         mNetshieldPolicy = policy
         val dir = filesDir.absolutePath
         val libDir = applicationInfo.nativeLibraryDir
-        Utility.makePdnsdConf(this, mDns ?: "8.8.8.8", mDnsPort, policy.exclusions, policy.upstream)
+        Utility.makePdnsdConf(this, mDns ?: "8.8.8.8", mDnsPort, policy.upstream)
         try {
             mPdnsdProcess?.destroy()
         } catch (e: Exception) {
@@ -844,7 +844,7 @@ class SocksVpnService : VpnService() {
         }
         mPdnsdProcess = null
         if (launchPdnsd(dir, libDir)) {
-            Log.d(TAG, "NetShield policy reconciled: upstream=${policy.upstream} exclusions=${policy.exclusions.size}")
+            Log.d(TAG, "NetShield policy reconciled: upstream=${policy.upstream}")
         } else {
             Log.e(TAG, "pdnsd restart failed during NetShield reconcile")
         }

@@ -183,7 +183,7 @@ Notes on the merged notification/dot pass:
 - `networkSecurityConfig="@xml/network_security_config"`
 
 ### Resources — `app/src/main/res/`
-- `assets/` — NetShield blocklists: `netshield_blocklist.txt` (HaGeZi light, ~40k) + `netshield_adult.txt` (HaGeZi NSFW, ~108k), bare domains, read by `Utility.netshieldExclusions`
+- `assets/` — (empty; NetShield blocklists were removed — NetShield is now cloud-only)
 - `layout/` — `main.xml`, `app_item.xml`, `bubble_menu.xml` (bubble popup panel), `bubble_country_row.xml`, `notification_action.xml` (RemoteViews layout for the notification Connect/Disconnect pill)
 - `drawable/` — lucide_* icons, menu_panel_bg, search_input_bg, signal_dot, logo_*, launcher, notification_pill (pill button background)
 - `font/` — Geist family TTFs (bold/medium/mono/pixel etc.)
