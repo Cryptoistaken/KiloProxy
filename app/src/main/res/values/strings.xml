@@ -57,4 +57,9 @@
     <string name="connectivity_check_sum">Automatically test connection when saving credentials</string>
     <string name="auto_stop">Auto Stop</string>
     <string name="auto_stop_sum">Stop VPN automatically when screen turns off</string>
+
+    <string name="settings_whats_new">What\'s new in this version</string>
+    <string name="whats_new_dialog_title">What\'s new</string>
+    <string name="whats_new_loading">Loading…</string>
+    <string name="whats_new_error">Couldn\'t load release notes</string>
 </resources>

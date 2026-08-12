@@ -20,7 +20,8 @@ object UpdateChecker {
         val versionCode: Int,
         val tag: String,
         val apkUrl: String,
-        val sizeBytes: Long
+        val sizeBytes: Long,
+        val body: String
     )
 
     private const val UPDATE_URL =
@@ -30,6 +31,17 @@ object UpdateChecker {
     private const val BUFFER_SIZE = 8192
 
     fun check(): UpdateInfo? {
+        val info = fetchLatestNotes() ?: return null
+        if (info.versionCode <= BuildConfig.VERSION_CODE) return null
+        return info
+    }
+
+    /**
+     * Fetches the latest release without the version gate — used to display
+     * the release notes ("What's new") regardless of the installed version.
+     * Synchronous, MUST be called from a background thread.
+     */
+    fun fetchLatestNotes(): UpdateInfo? {
         var connection: HttpURLConnection? = null
         return try {
             connection = URL(UPDATE_URL).openConnection() as HttpURLConnection
@@ -37,40 +49,44 @@ object UpdateChecker {
             connection.readTimeout = TIMEOUT_MILLIS
             connection.setRequestProperty("User-Agent", USER_AGENT)
 
-            val body = connection.inputStream
-                .bufferedReader(Charsets.UTF_8)
-                .use { it.readText() }
-            val json = JSONObject(body)
-
-            // Tags are pushed as v<versionCode> — anything else is not for us.
-            val tag = json.optString("tag_name")
-            if (!tag.matches(Regex("""^v(\d+)$"""))) return null
-
-            val versionCode = tag.drop(1).toIntOrNull() ?: return null
-            if (versionCode <= BuildConfig.VERSION_CODE) return null
-
-            val assets = json.optJSONArray("assets") ?: return null
-            if (assets.length() == 0) return null
-
-            // Prefer the arm64 build (device ABI), fall back to the first asset.
-            val arm64Asset = (0 until assets.length())
-                .map { assets.getJSONObject(it) }
-                .firstOrNull { it.optString("name").contains("arm64") }
-            val asset = arm64Asset ?: assets.getJSONObject(0)
-            val apkUrl = asset.optString("browser_download_url")
-            if (apkUrl.isEmpty()) return null
-
-            UpdateInfo(
-                versionCode = versionCode,
-                tag = tag,
-                apkUrl = apkUrl,
-                sizeBytes = asset.optLong("size")
+            val json = JSONObject(
+                connection.inputStream
+                    .bufferedReader(Charsets.UTF_8)
+                    .use { it.readText() }
             )
+            parseRelease(json)
         } catch (e: Exception) {
             null
         } finally {
             connection?.disconnect()
         }
+    }
+
+    private fun parseRelease(json: JSONObject): UpdateInfo? {
+        // Tags are pushed as v<versionCode> — anything else is not for us.
+        val tag = json.optString("tag_name")
+        if (!tag.matches(Regex("""^v(\d+)$"""))) return null
+
+        val versionCode = tag.drop(1).toIntOrNull() ?: return null
+
+        val assets = json.optJSONArray("assets") ?: return null
+        if (assets.length() == 0) return null
+
+        // Prefer the arm64 build (device ABI), fall back to the first asset.
+        val arm64Asset = (0 until assets.length())
+            .map { assets.getJSONObject(it) }
+            .firstOrNull { it.optString("name").contains("arm64") }
+        val asset = arm64Asset ?: assets.getJSONObject(0)
+        val apkUrl = asset.optString("browser_download_url")
+        if (apkUrl.isEmpty()) return null
+
+        return UpdateInfo(
+            versionCode = versionCode,
+            tag = tag,
+            apkUrl = apkUrl,
+            sizeBytes = asset.optLong("size"),
+            body = json.optString("body")
+        )
     }
 
     fun downloadAndInstall(context: Context, url: String): String? {

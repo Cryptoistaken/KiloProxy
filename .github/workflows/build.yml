@@ -8,6 +8,9 @@ on:
     branches: [ "master" ]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -86,4 +89,5 @@ jobs:
           body: |
             KiloProxy build v${{ steps.vc.outputs.code }} (CI run ${{ github.run_number }}).
             Install over the previous version — app data and profiles are preserved.
+          generate_release_notes: true
           files: app/build/outputs/apk/release/*.apk

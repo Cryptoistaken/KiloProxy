@@ -32,7 +32,9 @@ android {
         minSdk 21
         targetSdk 36
         versionCode baseVersionCode
-        versionName "1.2.1"
+        // Human-readable build number follows the CI counter (run + 100) so
+        // the About screen shows which build is installed (e.g. 1.2.160).
+        versionName "1.2.${baseVersionCode}"
 
         ndkVersion = "27.0.12077973"
 

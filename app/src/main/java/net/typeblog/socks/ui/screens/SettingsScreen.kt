@@ -19,8 +19,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
@@ -79,6 +82,9 @@ fun SettingsScreen(
     var showThemeDialog by remember { mutableStateOf(false) }
     var checkingUpdates by remember { mutableStateOf(false) }
     var updateInfo by remember { mutableStateOf<UpdateChecker.UpdateInfo?>(null) }
+    var whatsNewLoading by remember { mutableStateOf(false) }
+    var whatsNewError by remember { mutableStateOf(false) }
+    var whatsNewInfo by remember { mutableStateOf<UpdateChecker.UpdateInfo?>(null) }
     val scope = rememberCoroutineScope()
 
     val themeLabel = when (themeMode) {
@@ -112,10 +118,26 @@ fun SettingsScreen(
             onDismissRequest = { updateInfo = null },
             title = { Text(text = "Update available") },
             text = {
-                Text(
-                    text = "v${info.tag} · ${"%.1f MB".format(info.sizeBytes / 1048576.0)} — " +
-                        "install over the current version. Profiles and app data are preserved."
-                )
+                Column {
+                    Text(
+                        text = "v${info.tag} · ${"%.1f MB".format(info.sizeBytes / 1048576.0)} — " +
+                            "install over the current version. Profiles and app data are preserved."
+                    )
+                    if (info.body.isNotBlank()) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        HorizontalDivider(
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = context.getString(R.string.whats_new_dialog_title),
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(text = info.body)
+                    }
+                }
             },
             confirmButton = {
                 TextButton(
@@ -143,6 +165,47 @@ fun SettingsScreen(
     }
 
     var pendingFloatingStart by remember { mutableStateOf(false) }
+
+    if (whatsNewLoading) {
+        AlertDialog(
+            onDismissRequest = {},
+            title = { Text(text = context.getString(R.string.whats_new_dialog_title)) },
+            text = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Text(text = context.getString(R.string.whats_new_loading))
+                }
+            },
+            confirmButton = {}
+        )
+    }
+
+    if (whatsNewError) {
+        AlertDialog(
+            onDismissRequest = { whatsNewError = false },
+            title = { Text(text = context.getString(R.string.whats_new_dialog_title)) },
+            text = { Text(text = context.getString(R.string.whats_new_error)) },
+            confirmButton = {
+                TextButton(onClick = { whatsNewError = false }) {
+                    Text(text = "OK")
+                }
+            }
+        )
+    }
+
+    whatsNewInfo?.let { info ->
+        AlertDialog(
+            onDismissRequest = { whatsNewInfo = null },
+            title = { Text(text = info.tag) },
+            text = { Text(text = info.body.ifBlank { context.getString(R.string.whats_new_error) }) },
+            confirmButton = {
+                TextButton(onClick = { whatsNewInfo = null }) {
+                    Text(text = "OK")
+                }
+            }
+        )
+    }
 
     fun canDrawOverlays(context: Context): Boolean =
         Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.canDrawOverlays(context)
@@ -326,6 +389,29 @@ fun SettingsScreen(
                     label = "Debug Logs",
                     description = "View and share app logs for troubleshooting",
                     onClick = onNavigateToDebugLogs
+                )
+                SettingsItem(
+                    icon = painterResource(R.drawable.ic_proton_earth),
+                    label = context.getString(R.string.settings_whats_new),
+                    description = "Release notes for the latest version",
+                    onClick = {
+                        if (!whatsNewLoading) {
+                            scope.launch {
+                                whatsNewLoading = true
+                                whatsNewError = false
+                                whatsNewInfo = null
+                                val info = withContext(Dispatchers.IO) {
+                                    UpdateChecker.fetchLatestNotes()
+                                }
+                                whatsNewLoading = false
+                                if (info == null) {
+                                    whatsNewError = true
+                                } else {
+                                    whatsNewInfo = info
+                                }
+                            }
+                        }
+                    }
                 )
             }
         }

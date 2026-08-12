@@ -57,4 +57,9 @@
     <string name="connectivity_check_sum">Автоматически проверять соединение при сохранении данных</string>
     <string name="auto_stop">Автоостановка</string>
     <string name="auto_stop_sum">Автоматически останавливать VPN при выключении экрана</string>
+
+    <string name="settings_whats_new">Что нового в этой версии</string>
+    <string name="whats_new_dialog_title">Что нового</string>
+    <string name="whats_new_loading">Загрузка…</string>
+    <string name="whats_new_error">Не удалось загрузить список изменений</string>
 </resources>
