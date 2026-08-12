@@ -416,7 +416,7 @@ fun SettingsScreen(
                 )
                 SettingsItem(
                     icon = painterResource(R.drawable.lucide_send),
-                    label = context.getString(R.string.settings_support),
+                    label = context.getString(R.string.settings_report_issue),
                     description = "Chat with us on Telegram",
                     onClick = {
                         context.startActivity(
