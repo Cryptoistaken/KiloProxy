@@ -46,8 +46,11 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.compose.ui.graphics.toArgb
 import androidx.core.app.NotificationCompat
+import androidx.preference.PreferenceManager
 import net.typeblog.socks.util.Constants.ACTION_START_VPN
 import net.typeblog.socks.util.Constants.ACTION_STOP_VPN
+import net.typeblog.socks.util.Constants.PREF_BUBBLE_X
+import net.typeblog.socks.util.Constants.PREF_BUBBLE_Y
 import net.typeblog.socks.util.ProfileManager
 import net.typeblog.socks.util.ProxyProviders
 import net.typeblog.socks.util.Utility
@@ -203,6 +206,7 @@ class FloatingControlService : Service() {
         windowManager = displayContext.getSystemService(Context.WINDOW_SERVICE) as WindowManager
         bubbleView = createBubbleView()
         params = buildLayoutParams()
+        restoreBubblePosition()
         flagPillView = createFlagPillView()
         flagPillParams = buildFlagPillLayoutParams()
         addBubbleToWindow()
@@ -256,6 +260,7 @@ class FloatingControlService : Service() {
             } catch (e: Exception) {
                 Log.e(TAG, "updateViewLayout failed during re-clamp", e)
             }
+            persistBubblePosition()
         }
         updateFlagPillPosition()
     }
@@ -278,6 +283,7 @@ class FloatingControlService : Service() {
         }
         longPressHandler.removeCallbacks(longPressRunnable)
         menuOverlay?.hide()
+        persistBubblePosition()
         removeFlagPillFromWindow()
         removeBubbleFromWindow()
         super.onDestroy()
@@ -520,6 +526,33 @@ class FloatingControlService : Service() {
         }
     }
 
+    /**
+     * Loads the last saved bubble position (persisted across re-enables and app
+     * restarts) and clamps it into the current drag bounds so the bubble is never
+     * restored off-screen on a differently-sized display.
+     */
+    private fun restoreBubblePosition() {
+        val lp = params ?: return
+        val prefs = PreferenceManager.getDefaultSharedPreferences(this)
+        val savedX = prefs.getInt(PREF_BUBBLE_X, Int.MIN_VALUE)
+        val savedY = prefs.getInt(PREF_BUBBLE_Y, Int.MIN_VALUE)
+        if (savedX == Int.MIN_VALUE || savedY == Int.MIN_VALUE) return
+        val bounds = currentDragBounds()
+        val maxX = (bounds.right - bubbleWindowSizePx).coerceAtLeast(bounds.left)
+        val maxY = (bounds.bottom - bubbleWindowSizePx).coerceAtLeast(bounds.top)
+        lp.x = savedX.coerceIn(bounds.left, maxX)
+        lp.y = savedY.coerceIn(bounds.top, maxY)
+    }
+
+    private fun persistBubblePosition() {
+        val lp = params ?: return
+        PreferenceManager.getDefaultSharedPreferences(this)
+            .edit()
+            .putInt(PREF_BUBBLE_X, lp.x)
+            .putInt(PREF_BUBBLE_Y, lp.y)
+            .apply()
+    }
+
     private fun currentSystemBarInsets(): Rect {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             try {
@@ -630,7 +663,11 @@ class FloatingControlService : Service() {
                         v.performClick()
                         handleTap()
                     }
+                    val wasDragging = dragging
                     dragging = false
+                    if (wasDragging) {
+                        persistBubblePosition()
+                    }
                 }
                 MotionEvent.ACTION_CANCEL -> {
                     longPressHandler.removeCallbacks(longPressRunnable)
