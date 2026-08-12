@@ -65,8 +65,25 @@ jobs:
           KILO_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
           KILO_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
 
+      - name: Compute version code
+        id: vc
+        run: echo "code=$(( ${{ github.run_number }} + 100 ))" >> "$GITHUB_OUTPUT"
+
       - name: Upload APK
         uses: actions/upload-artifact@v7
         with:
           name: app-release
           path: app/build/outputs/apk/release/*.apk
+
+      # Publish only on real branch pushes (not PRs, not tag-triggered runs —
+      # tag pushes would create a new tag each run and loop releases).
+      - name: Publish GitHub Release (v${{ steps.vc.outputs.code }})
+        if: github.ref_type == 'branch' && github.event_name == 'push'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.vc.outputs.code }}
+          name: v${{ steps.vc.outputs.code }}
+          body: |
+            KiloProxy build v${{ steps.vc.outputs.code }} (CI run ${{ github.run_number }}).
+            Install over the previous version — app data and profiles are preserved.
+          files: app/build/outputs/apk/release/*.apk

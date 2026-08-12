@@ -8,6 +8,7 @@ import android.net.Uri
 import android.net.VpnService
 import android.os.Build
 import android.provider.Settings
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
@@ -19,14 +20,17 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -36,6 +40,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.preference.PreferenceManager
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import net.typeblog.socks.BuildConfig
 import net.typeblog.socks.FloatingControlService
 import net.typeblog.socks.R
@@ -45,6 +52,7 @@ import net.typeblog.socks.util.Constants.PREF_ADV_PER_APP
 import net.typeblog.socks.util.Constants.PREF_FLOATING_CONTROL
 import net.typeblog.socks.util.Constants.PREF_THEME_MODE
 import net.typeblog.socks.util.Constants.PREF_NETSHIELD_ENABLED
+import net.typeblog.socks.util.UpdateChecker
 
 @Composable
 fun SettingsScreen(
@@ -69,6 +77,9 @@ fun SettingsScreen(
         mutableStateOf(prefs.getBoolean(PREF_ADV_PER_APP, false))
     }
     var showThemeDialog by remember { mutableStateOf(false) }
+    var checkingUpdates by remember { mutableStateOf(false) }
+    var updateInfo by remember { mutableStateOf<UpdateChecker.UpdateInfo?>(null) }
+    val scope = rememberCoroutineScope()
 
     val themeLabel = when (themeMode) {
         "dark" -> "Dark"
@@ -93,6 +104,41 @@ fun SettingsScreen(
                 showThemeDialog = false
             },
             onDismiss = { showThemeDialog = false }
+        )
+    }
+
+    updateInfo?.let { info ->
+        AlertDialog(
+            onDismissRequest = { updateInfo = null },
+            title = { Text(text = "Update available") },
+            text = {
+                Text(
+                    text = "v${info.tag} · ${"%.1f MB".format(info.sizeBytes / 1048576.0)} — " +
+                        "install over the current version. Profiles and app data are preserved."
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        updateInfo = null
+                        scope.launch {
+                            val err = withContext(Dispatchers.IO) {
+                                UpdateChecker.downloadAndInstall(context, info.apkUrl)
+                            }
+                            if (err != null) {
+                                Toast.makeText(context, err, Toast.LENGTH_LONG).show()
+                            }
+                        }
+                    }
+                ) {
+                    Text(text = "Update")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { updateInfo = null }) {
+                    Text(text = "Later")
+                }
+            }
         )
     }
 
@@ -255,6 +301,26 @@ fun SettingsScreen(
         item {
             SectionTitle(text = "Support")
             SettingsGroup {
+                SettingsItem(
+                    icon = painterResource(R.drawable.ic_proton_arrow_out_square),
+                    label = "Updates",
+                    description = "Download and install the latest version",
+                    onClick = {
+                        if (!checkingUpdates) {
+                            scope.launch {
+                                checkingUpdates = true
+                                Toast.makeText(context, "Checking for updates…", Toast.LENGTH_SHORT).show()
+                                val info = withContext(Dispatchers.IO) { UpdateChecker.check() }
+                                checkingUpdates = false
+                                if (info == null) {
+                                    Toast.makeText(context, "You're up to date", Toast.LENGTH_SHORT).show()
+                                } else {
+                                    updateInfo = info
+                                }
+                            }
+                        }
+                    }
+                )
                 SettingsItem(
                     icon = painterResource(R.drawable.ic_proton_code),
                     label = "Debug Logs",
