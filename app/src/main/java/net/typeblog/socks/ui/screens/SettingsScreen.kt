@@ -413,6 +413,16 @@ fun SettingsScreen(
                         }
                     }
                 )
+                SettingsItem(
+                    icon = painterResource(R.drawable.lucide_send),
+                    label = context.getString(R.string.settings_support),
+                    description = "Chat with us on Telegram",
+                    onClick = {
+                        context.startActivity(
+                            Intent(Intent.ACTION_VIEW, Uri.parse("https://t.me/Cryptoistaken"))
+                        )
+                    }
+                )
             }
         }
 

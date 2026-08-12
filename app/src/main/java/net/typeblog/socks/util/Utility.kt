@@ -38,6 +38,9 @@ import java.net.NetworkInterface
 import java.net.PasswordAuthentication
 import java.net.Proxy
 import java.net.URL
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicReference
 import org.json.JSONObject
 
 data class IpInfo(
@@ -279,15 +282,78 @@ const val ADGUARD_DNS = "94.140.14.14"
 
     @JvmStatic
     fun checkPublicIp(server: String?, port: Int, username: String?, password: String?): IpInfo? {
+        val winner = AtomicReference<IpInfo?>(null)
+        val latch = CountDownLatch(1)
+        val providers = listOf(
+            "http://ip-api.com/json/?fields=status,query,country,countryCode,regionName,city,isp,org,as,timezone" to { obj: JSONObject ->
+                if (obj.optString("status") != "success") {
+                    null
+                } else {
+                    IpInfo(
+                        ip = obj.getString("query"),
+                        countryCode = obj.getString("countryCode"),
+                        country = obj.optString("country"),
+                        regionName = obj.optString("regionName"),
+                        city = obj.optString("city"),
+                        isp = obj.optString("isp"),
+                        org = obj.optString("org"),
+                        asName = obj.optString("as"),
+                        timezone = obj.optString("timezone")
+                    )
+                }
+            },
+            "https://ipapi.co/json/" to { obj: JSONObject ->
+                val ip = obj.optString("ip")
+                if (ip.isEmpty()) {
+                    null
+                } else {
+                    IpInfo(
+                        ip = ip,
+                        countryCode = obj.optString("country_code", obj.optString("countryCode")),
+                        country = obj.optString("country_name", obj.optString("country")),
+                        regionName = obj.optString("region"),
+                        city = obj.optString("city"),
+                        isp = obj.optString("org"),
+                        org = obj.optString("org"),
+                        asName = obj.optString("asn"),
+                        timezone = obj.optString("timezone")
+                    )
+                }
+            }
+        )
+        // Race both providers; first non-null success wins (returns faster)
+        providers.forEach { (url, parse) ->
+            Thread {
+                try {
+                    val info = fetchPublicIp(url, parse, server, port, username, password)
+                    if (info != null && winner.compareAndSet(null, info)) {
+                        latch.countDown()
+                    }
+                } catch (_: Exception) {
+                }
+            }.start()
+        }
+        latch.await(10, TimeUnit.SECONDS)
+        return winner.get()
+    }
+
+    private fun fetchPublicIp(
+        url: String,
+        parse: (JSONObject) -> IpInfo?,
+        server: String?,
+        port: Int,
+        username: String?,
+        password: String?
+    ): IpInfo? {
+        var conn: HttpURLConnection? = null
         return try {
-            val url = URL("http://ip-api.com/json/?fields=status,query,country,countryCode,regionName,city,isp,org,as,timezone")
-            var conn: HttpURLConnection
+            val u = URL(url)
             if (server.isNullOrEmpty()) {
-                conn = url.openConnection() as HttpURLConnection
+                conn = u.openConnection() as HttpURLConnection
             } else {
                 val addr = InetSocketAddress(server, port)
                 val proxy = Proxy(Proxy.Type.SOCKS, addr)
-                conn = url.openConnection(proxy) as HttpURLConnection
+                conn = u.openConnection(proxy) as HttpURLConnection
                 if (!username.isNullOrEmpty()) {
                     val user = username
                     val pass = password ?: ""
@@ -308,22 +374,12 @@ const val ADGUARD_DNS = "94.140.14.14"
                 line = reader.readLine()
             }
             reader.close()
-            conn.disconnect()
-            val obj = JSONObject(sb.toString())
-            if (obj.optString("status") != "success") return null
-            IpInfo(
-                ip = obj.getString("query"),
-                countryCode = obj.getString("countryCode"),
-                country = obj.optString("country"),
-                regionName = obj.optString("regionName"),
-                city = obj.optString("city"),
-                isp = obj.optString("isp"),
-                org = obj.optString("org"),
-                asName = obj.optString("as"),
-                timezone = obj.optString("timezone")
-            )
+            parse(JSONObject(sb.toString()))
         } catch (e: Exception) {
+            Log.d("Utility", "checkPublicIp($url) failed: ${e.message}")
             null
+        } finally {
+            conn?.disconnect()
         }
     }
 

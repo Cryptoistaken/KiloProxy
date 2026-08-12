@@ -186,5 +186,5 @@ Notes on the merged notification/dot pass:
 - `drawable/` — lucide_* icons, menu_panel_bg, search_input_bg, signal_dot, logo_*, launcher, notification_pill (pill button background)
 - `font/` — Geist family TTFs (bold/medium/mono/pixel etc.)
 - `mipmap-*/` — legacy + adaptive launcher icons
-- `values/` — strings.xml (+`values-ru/strings.xml`), arrays.xml, styles.xml, pdnsd.xml, ruroute.xml, simpleroute.xml, ic_launcher_background
+- `values/` — strings.xml, arrays.xml, styles.xml, pdnsd.xml, ruroute.xml, simpleroute.xml, ic_launcher_background
 - `xml/` — network_security_config.xml (cleartext/trust config), file_paths.xml (FileProvider), settings.xml (preference screen XML)
