@@ -106,7 +106,6 @@ git reset --hard 397d4b0
 | Path | Purpose |
 |---|---|
 | `AGENTS.md` | This file — agent rules, build/install flow, snapshots, filesystem map |
-| `DesignPlan.md` | UI redesign plan (referenced by UI work) |
 | `build.gradle` | Root Gradle build (plugins: android.application, Kotlin compose) |
 | `settings.gradle` / `gradle.properties` / `gradle/wrapper/gradle-wrapper.properties` | Gradle config (Gradle 9.4.1, AGP 9.2.1, Kotlin 2.2.10, Java 17) |
 | `.github/workflows/build.yml` | **ONLY** build entry point (CI GitHub Actions; never build locally) |
