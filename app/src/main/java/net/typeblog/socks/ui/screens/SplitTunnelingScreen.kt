@@ -2,6 +2,7 @@ package net.typeblog.socks.ui.screens
 
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -14,16 +15,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Radio
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
@@ -112,7 +110,6 @@ fun SplitTunnelingScreen(
     // Master split-tunneling switch and allow/disallow mode
     var splitEnabled by remember { mutableStateOf(prefs.getBoolean(PREF_ADV_PER_APP, false)) }
     var bypassMode by remember { mutableStateOf(prefs.getBoolean(PREF_ADV_APP_BYPASS, false)) }
-    var modeMenuExpanded by remember { mutableStateOf(false) }
 
     // Real installed launcher apps, loaded asynchronously
     var installedApps by remember { mutableStateOf<List<InstalledApp>>(emptyList()) }
@@ -228,47 +225,91 @@ fun SplitTunnelingScreen(
             }
 
             if (splitEnabled) {
-                // ── Allow vs disallow mode selector ──
-                ExposedDropdownMenuBox(
-                    expanded = modeMenuExpanded,
-                    onExpandedChange = { modeMenuExpanded = !modeMenuExpanded }
+                // ── Mode selector ──
+                Text(
+                    text = "Mode",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 18.dp, vertical = 4.dp)
+                )
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainerLow
                 ) {
-                    OutlinedTextField(
-                        value = if (bypassMode) "Bypass selected apps" else "Route selected apps through VPN",
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text("Mode") },
-                        trailingIcon = {
-                            ExposedDropdownMenuDefaults.TrailingIcon(expanded = modeMenuExpanded)
-                        },
-                        shape = RoundedCornerShape(10.dp),
-                        modifier = Modifier
-                            .menuAnchor(MenuAnchorType.PrimaryNotEditable, enabled = true)
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 4.dp)
-                    )
-                    ExposedDropdownMenu(
-                        expanded = modeMenuExpanded,
-                        onDismissRequest = { modeMenuExpanded = false }
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text("Route selected apps through VPN") },
-                            onClick = {
-                                bypassMode = false
-                                modeMenuExpanded = false
-                                prefs.edit().putBoolean(PREF_ADV_APP_BYPASS, false).apply()
-                                scheduleRestart()
+                    Column {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    bypassMode = false
+                                    prefs.edit().putBoolean(PREF_ADV_APP_BYPASS, false).apply()
+                                    scheduleRestart()
+                                }
+                                .padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Route selected apps through VPN",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "Only the selected apps use the VPN connection",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
                             }
+                            Radio(
+                                selected = !bypassMode,
+                                onClick = {
+                                    bypassMode = false
+                                    prefs.edit().putBoolean(PREF_ADV_APP_BYPASS, false).apply()
+                                    scheduleRestart()
+                                }
+                            )
+                        }
+                        HorizontalDivider(
+                            thickness = 0.5.dp,
+                            color = MaterialTheme.colorScheme.outlineVariant
                         )
-                        DropdownMenuItem(
-                            text = { Text("Bypass selected apps") },
-                            onClick = {
-                                bypassMode = true
-                                modeMenuExpanded = false
-                                prefs.edit().putBoolean(PREF_ADV_APP_BYPASS, true).apply()
-                                scheduleRestart()
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    bypassMode = true
+                                    prefs.edit().putBoolean(PREF_ADV_APP_BYPASS, true).apply()
+                                    scheduleRestart()
+                                }
+                                .padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Bypass selected apps",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "Selected apps use the normal internet connection",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
                             }
-                        )
+                            Radio(
+                                selected = bypassMode,
+                                onClick = {
+                                    bypassMode = true
+                                    prefs.edit().putBoolean(PREF_ADV_APP_BYPASS, true).apply()
+                                    scheduleRestart()
+                                }
+                            )
+                        }
                     }
                 }
             }

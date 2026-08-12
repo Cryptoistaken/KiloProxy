@@ -45,12 +45,16 @@ import net.typeblog.socks.FloatingControlService
 import net.typeblog.socks.R
 import net.typeblog.socks.ui.components.SettingsItem
 import net.typeblog.socks.ui.components.ThemePickerDialog
+import net.typeblog.socks.util.Constants.PREF_ADV_PER_APP
 import net.typeblog.socks.util.Constants.PREF_FLOATING_CONTROL
 import net.typeblog.socks.util.Constants.PREF_THEME_MODE
+import net.typeblog.socks.util.Constants.PREF_NETSHIELD_ENABLED
+import net.typeblog.socks.util.Constants.PREF_NETSHIELD_BLOCK_ADULT
 
 @Composable
 fun SettingsScreen(
     onNavigateToSplitTunneling: () -> Unit,
+    onNavigateToNetShield: () -> Unit,
     onNavigateToDebugLogs: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -63,10 +67,17 @@ fun SettingsScreen(
     var floatingControl by remember {
         mutableStateOf(prefs.getBoolean(PREF_FLOATING_CONTROL, false))
     }
+    var netShieldEnabled by remember {
+        mutableStateOf(prefs.getBoolean(PREF_NETSHIELD_ENABLED, false))
+    }
+    var splitEnabled by remember {
+        mutableStateOf(prefs.getBoolean(PREF_ADV_PER_APP, false))
+    }
     var showThemeDialog by remember { mutableStateOf(false) }
 
     val themeLabel = when (themeMode) {
         "dark" -> "Dark"
+        "system" -> "Device theme"
         else -> "Light"
     }
 
@@ -171,12 +182,36 @@ fun SettingsScreen(
             )
         }
 
+        // ═══ Features ═══
+        item {
+            SectionTitle(text = "Features")
+            SettingsGroup {
+                SettingsItem(
+                    icon = painterResource(R.drawable.ic_netshield),
+                    label = "NetShield",
+                    description = "Blocks ads, malware, and trackers",
+                    iconTint = MaterialTheme.colorScheme.primary,
+                    onClick = onNavigateToNetShield,
+                    trailing = {
+                        Switch(
+                            checked = netShieldEnabled,
+                            onCheckedChange = { enabled ->
+                                netShieldEnabled = enabled
+                                saveBoolean(PREF_NETSHIELD_ENABLED, enabled)
+                            }
+                        )
+                    }
+                )
+                RowDivider()
+            }
+        }
+
         // ═══ Appearance ═══
         item {
             SectionTitle(text = "Appearance")
             SettingsGroup {
                 SettingsItem(
-                    icon = painterResource(R.drawable.lucide_palette),
+                    icon = painterResource(R.drawable.ic_proton_circle_half_filled),
                     label = "Theme Mode",
                     value = themeLabel,
                     iconTint = MaterialTheme.colorScheme.primary,
@@ -192,7 +227,7 @@ fun SettingsScreen(
 
             SettingsGroup {
                 SettingsItem(
-                    icon = painterResource(R.drawable.lucide_hand),
+                    icon = painterResource(R.drawable.ic_proton_mobile),
                     label = "Floating Control Bubble",
                     description = "Draggable connect/disconnect button over other apps",
                     iconTint = MaterialTheme.colorScheme.primary,
@@ -234,15 +269,17 @@ fun SettingsScreen(
         // ═══ Split Tunneling ═══
         item {
             SectionTitle(text = "Split Tunneling")
+
             SettingsGroup {
                 SettingsItem(
-                    icon = painterResource(R.drawable.lucide_arrows_right_left),
-                    label = "Configure apps",
-                    description = "Choose which apps route through the VPN or bypass it",
-                    value = null,
+                    icon = painterResource(R.drawable.ic_split_tunneling),
+                    label = "Enable split tunneling",
+                    description = "Route selected apps through the VPN or bypass them",
+                    value = if (splitEnabled) "On" else "Off",
                     iconTint = MaterialTheme.colorScheme.primary,
                     onClick = onNavigateToSplitTunneling
                 )
+                RowDivider()
             }
         }
 
@@ -251,7 +288,7 @@ fun SettingsScreen(
             SectionTitle(text = "Support")
             SettingsGroup {
                 SettingsItem(
-                    icon = painterResource(R.drawable.lucide_settings),
+                    icon = painterResource(R.drawable.ic_proton_code),
                     label = "Debug Logs",
                     description = "View and share app logs for troubleshooting",
                     iconTint = MaterialTheme.colorScheme.primary,

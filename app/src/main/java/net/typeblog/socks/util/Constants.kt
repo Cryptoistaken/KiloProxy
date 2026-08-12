@@ -48,6 +48,8 @@ object Constants {
     const val INTENT_CONNECTED_SINCE = INTENT_PREFIX + "CONNSINCE"
 
     const val PREF_FLOATING_CONTROL = "floating_control"
+    const val PREF_NETSHIELD_ENABLED = "netshield_enabled"
+    const val PREF_NETSHIELD_BLOCK_ADULT = "netshield_block_adult"
     const val PREF_RECENT_COUNTRIES = "recent_countries"
     const val ACTION_STOP_VPN = "net.typeblog.socks.STOP_VPN"
     const val ACTION_START_VPN = "net.typeblog.socks.START_VPN"

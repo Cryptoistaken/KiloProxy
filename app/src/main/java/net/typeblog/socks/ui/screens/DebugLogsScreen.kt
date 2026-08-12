@@ -5,18 +5,17 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.os.Build
 import android.widget.Toast
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
@@ -83,7 +82,7 @@ fun DebugLogsScreen(onNavigateBack: () -> Unit) {
                         Toast.makeText(context, "Logs copied to clipboard", Toast.LENGTH_SHORT).show()
                     }) {
                         Icon(
-                            painter = painterResource(R.drawable.lucide_check),
+                            painter = painterResource(R.drawable.ic_proton_code),
                             contentDescription = "Copy logs"
                         )
                     }
@@ -94,7 +93,7 @@ fun DebugLogsScreen(onNavigateBack: () -> Unit) {
                         }
                     }) {
                         Icon(
-                            painter = painterResource(R.drawable.lucide_send),
+                            painter = painterResource(R.drawable.ic_proton_arrow_out_square),
                             contentDescription = "Share logs"
                         )
                     }
@@ -111,32 +110,30 @@ fun DebugLogsScreen(onNavigateBack: () -> Unit) {
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .padding(horizontal = 16.dp)
         ) {
             // Device info card
             Surface(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                color = MaterialTheme.colorScheme.surfaceContainerLow,
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                shape = RoundedCornerShape(16.dp),
+                color = MaterialTheme.colorScheme.surfaceContainerLow
             ) {
-                Column(modifier = Modifier.padding(12.dp)) {
+                Column(modifier = Modifier.padding(16.dp)) {
                     InfoRow("Device", "${Build.MANUFACTURER} ${Build.MODEL}")
                     InfoRow("Android", "${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})")
                     InfoRow("Package", context.packageName)
                 }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
-
             // Log viewer — selectable/copyable
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .weight(1f),
-                shape = RoundedCornerShape(12.dp),
-                color = MaterialTheme.colorScheme.surfaceContainerLow,
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                    .weight(1f)
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                shape = RoundedCornerShape(16.dp),
+                color = MaterialTheme.colorScheme.surfaceContainerLow
             ) {
                 SelectionContainer {
                     Text(
@@ -157,7 +154,9 @@ fun DebugLogsScreen(onNavigateBack: () -> Unit) {
 
             // Action buttons
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 // Copy button
@@ -169,7 +168,7 @@ fun DebugLogsScreen(onNavigateBack: () -> Unit) {
                         Toast.makeText(context, "Logs copied", Toast.LENGTH_SHORT).show()
                     },
                     modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(16.dp),
                     color = MaterialTheme.colorScheme.secondary
                 ) {
                     Row(
@@ -203,7 +202,7 @@ fun DebugLogsScreen(onNavigateBack: () -> Unit) {
                         }
                     },
                     modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(16.dp),
                     color = MaterialTheme.colorScheme.primary
                 ) {
                     Row(
@@ -228,8 +227,6 @@ fun DebugLogsScreen(onNavigateBack: () -> Unit) {
                     }
                 }
             }
-
-            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 }
