@@ -42,7 +42,6 @@ import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ProgressBar
-import android.widget.RemoteViews
 import android.widget.TextView
 import android.widget.Toast
 import androidx.compose.ui.graphics.toArgb
@@ -755,27 +754,16 @@ class FloatingControlService : Service() {
         val buttonText = if (isConnected) "Disconnect" else "Connect"
         val buttonPending = if (isConnected) stopPending else connectPending
 
-        val collapsed = RemoteViews(packageName, R.layout.notification_action).apply {
-            setTextViewText(R.id.notify_button, buttonText)
-            setTextViewText(R.id.notify_text, text)
-            setInt(R.id.notify_button, "setBackgroundResource", R.drawable.notification_pill)
-            setOnClickPendingIntent(R.id.notify_button, buttonPending)
-        }
-        val expanded = RemoteViews(packageName, R.layout.notification_action).apply {
-            setTextViewText(R.id.notify_button, buttonText)
-            setTextViewText(R.id.notify_text, text)
-            setInt(R.id.notify_button, "setBackgroundResource", R.drawable.notification_pill)
-            setOnClickPendingIntent(R.id.notify_button, buttonPending)
-        }
-
+        // Standard notification (no custom RemoteViews): the custom-content
+        // layout rendered as an EMPTY notification row on some devices
+        // (SystemUI shows only the app label + time). Title/text/action always
+        // render in the standard template.
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(title)
             .setContentText(text)
             .setSmallIcon(R.drawable.ic_launcher)
             .setOngoing(true)
-            .setCustomContentView(collapsed)
-            .setCustomBigContentView(expanded)
-            .setStyle(NotificationCompat.DecoratedCustomViewStyle())
+            .addAction(0, buttonText, buttonPending)
             .build()
     }
 
