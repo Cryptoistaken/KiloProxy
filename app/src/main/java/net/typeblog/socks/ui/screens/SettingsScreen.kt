@@ -176,7 +176,7 @@ fun SettingsScreen(
             )
         }
 
-        // ═══ Features ═══
+        // ═══ Features (NetShield, Split tunneling — mirrors ProtonVPN Features group) ═══
         item {
             SectionTitle(text = "Features")
             SettingsGroup {
@@ -198,12 +198,21 @@ fun SettingsScreen(
                         )
                     }
                 )
+                SettingsItem(
+                    icon = painterResource(
+                        if (splitEnabled) R.drawable.feature_splittunneling_on
+                        else R.drawable.feature_splittunneling_off
+                    ),
+                    label = "Enable split tunneling",
+                    description = if (splitEnabled) "On" else "Off",
+                    onClick = onNavigateToSplitTunneling
+                )
             }
         }
 
-        // ═══ Appearance ═══
+        // ═══ General (Theme, Floating Control Bubble — mirrors ProtonVPN General group) ═══
         item {
-            SectionTitle(text = "Appearance")
+            SectionTitle(text = "General")
             SettingsGroup {
                 SettingsItem(
                     icon = painterResource(R.drawable.ic_proton_circle_half_filled),
@@ -211,14 +220,6 @@ fun SettingsScreen(
                     description = themeLabel,
                     onClick = { showThemeDialog = true }
                 )
-            }
-        }
-
-        // ═══ Controls ═══
-        item {
-            SectionTitle(text = "Controls")
-
-            SettingsGroup {
                 SettingsItem(
                     icon = painterResource(R.drawable.ic_proton_mobile),
                     label = "Floating Control Bubble",
@@ -254,23 +255,6 @@ fun SettingsScreen(
                             }
                         )
                     }
-                )
-            }
-        }
-
-        // ═══ Split Tunneling ═══
-        item {
-            SectionTitle(text = "Split Tunneling")
-
-            SettingsGroup {
-                SettingsItem(
-                    icon = painterResource(
-                        if (splitEnabled) R.drawable.feature_splittunneling_on
-                        else R.drawable.feature_splittunneling_off
-                    ),
-                    label = "Enable split tunneling",
-                    description = if (splitEnabled) "On" else "Off",
-                    onClick = onNavigateToSplitTunneling
                 )
             }
         }
