@@ -319,9 +319,49 @@ const val ADGUARD_DNS = "94.140.14.14"
                         timezone = obj.optString("timezone")
                     )
                 }
+            },
+            "http://ipwho.is/" to { obj: JSONObject ->
+                val ip = obj.optString("ip")
+                if (ip.isEmpty() || obj.optString("success") == "false") {
+                    null
+                } else {
+                    val conn = obj.optJSONObject("connection")
+                    val tz = obj.optJSONObject("timezone")
+                    val asn = conn?.optString("asn", "") ?: ""
+                    IpInfo(
+                        ip = ip,
+                        countryCode = obj.optString("country_code"),
+                        country = obj.optString("country"),
+                        regionName = obj.optString("region"),
+                        city = obj.optString("city"),
+                        isp = conn?.optString("isp", "") ?: "",
+                        org = conn?.optString("org", "") ?: "",
+                        asName = if (asn.isEmpty() || asn.startsWith("AS")) asn else "AS$asn",
+                        timezone = tz?.optString("id", "") ?: ""
+                    )
+                }
+            },
+            "https://free.freeipapi.com/api/json" to { obj: JSONObject ->
+                val ip = obj.optString("ipAddress")
+                if (ip.isEmpty()) {
+                    null
+                } else {
+                    val asn = obj.optString("asn")
+                    IpInfo(
+                        ip = ip,
+                        countryCode = obj.optString("countryCode"),
+                        country = obj.optString("countryName"),
+                        regionName = obj.optString("regionName"),
+                        city = obj.optString("cityName"),
+                        isp = obj.optString("asnOrganization"),
+                        org = obj.optString("asnOrganization"),
+                        asName = if (asn.isEmpty() || asn.startsWith("AS")) asn else "AS$asn",
+                        timezone = obj.optJSONArray("timeZones")?.optString(0, "") ?: ""
+                    )
+                }
             }
         )
-        // Race both providers; first non-null success wins (returns faster)
+        // Race all providers; first non-null success wins (returns faster)
         providers.forEach { (url, parse) ->
             Thread {
                 try {
