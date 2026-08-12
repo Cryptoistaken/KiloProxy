@@ -69,42 +69,42 @@ fun ConnectionCard(
                 color = MaterialTheme.colorScheme.onSurface
             )
 
-            if (serverName.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = serverName,
-                    fontSize = 13.sp,
-                    fontFamily = GeistMonoFonts.Family,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.fillMaxWidth(),
-                    textAlign = TextAlign.Center
-                )
-            }
+            // Host name — ALWAYS shown so the layout never shifts on connect.
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = serverName,
+                fontSize = 13.sp,
+                fontFamily = GeistMonoFonts.Family,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = TextAlign.Center
+            )
 
-            if (isConnected && connectedSince > 0) {
-                val elapsed by produceState(initialValue = 0L, isConnected, connectedSince) {
-                    while (true) {
-                        value = System.currentTimeMillis() - connectedSince
-                        delay(1000)
-                    }
+            // Timer line — always rendered (empty when idle) so its line height
+            // is permanently reserved; nothing moves when it fills in.
+            val elapsed by produceState(initialValue = 0L, isConnected, connectedSince) {
+                while (true) {
+                    value = System.currentTimeMillis() - connectedSince
+                    delay(1000)
                 }
-                val totalSeconds = elapsed / 1000
-                val elapsedText =
-                    "${(totalSeconds / 3600).toString().padStart(2, '0')}:" +
-                        "${((totalSeconds % 3600) / 60).toString().padStart(2, '0')}:" +
-                        "${(totalSeconds % 60).toString().padStart(2, '0')}"
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "Connected $elapsedText",
-                    fontSize = 13.sp,
-                    fontFamily = GeistMonoFonts.Family,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.fillMaxWidth(),
-                    textAlign = TextAlign.Center
-                )
             }
+            val totalSeconds = elapsed / 1000
+            val elapsedText =
+                "${(totalSeconds / 3600).toString().padStart(2, '0')}:" +
+                    "${((totalSeconds % 3600) / 60).toString().padStart(2, '0')}:" +
+                    "${(totalSeconds % 60).toString().padStart(2, '0')}"
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = if (isConnected && connectedSince > 0) "Connected $elapsedText" else "",
+                fontSize = 13.sp,
+                fontFamily = GeistMonoFonts.Family,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = TextAlign.Center
+            )
 
             Spacer(modifier = Modifier.height(20.dp))
 
