@@ -404,8 +404,8 @@ const val ADGUARD_DNS = "94.140.14.14"
                     })
                 }
             }
-            conn.connectTimeout = 5000
-            conn.readTimeout = 5000
+            conn.connectTimeout = 3000
+            conn.readTimeout = 3000
             val reader = BufferedReader(InputStreamReader(conn.inputStream))
             val sb = StringBuilder()
             var line = reader.readLine()
