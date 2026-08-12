@@ -28,6 +28,9 @@ object UpdateChecker {
         "https://api.github.com/repos/Cryptoistaken/KiloProxy/releases/latest"
     private const val USER_AGENT = "KiloProxy-Updater"
     private const val TIMEOUT_MILLIS = 8000
+    private const val DOWNLOAD_CONNECT_TIMEOUT = 30_000
+    private const val DOWNLOAD_READ_TIMEOUT = 300_000
+    private const val MAX_RETRIES = 2
     private const val BUFFER_SIZE = 8192
 
     fun check(): UpdateInfo? {
@@ -90,42 +93,54 @@ object UpdateChecker {
     }
 
     fun downloadAndInstall(context: Context, url: String): String? {
-        var connection: HttpURLConnection? = null
-        return try {
-            val file = File(context.cacheDir, "update.apk")
-            if (file.exists()) file.delete()
+        var lastException: Exception? = null
+        repeat(MAX_RETRIES) { attempt ->
+            var connection: HttpURLConnection? = null
+            try {
+                val file = File(context.cacheDir, "update.apk")
+                if (file.exists()) file.delete()
 
-            connection = URL(url).openConnection() as HttpURLConnection
-            connection.connectTimeout = TIMEOUT_MILLIS
-            connection.readTimeout = TIMEOUT_MILLIS
-            connection.setRequestProperty("User-Agent", USER_AGENT)
+                connection = URL(url).openConnection() as HttpURLConnection
+                connection.connectTimeout = DOWNLOAD_CONNECT_TIMEOUT
+                connection.readTimeout = DOWNLOAD_READ_TIMEOUT
+                connection.setRequestProperty("User-Agent", USER_AGENT)
 
-            if (connection.responseCode != HttpURLConnection.HTTP_OK) {
-                return "Download failed (HTTP ${connection.responseCode})"
-            }
+                if (connection.responseCode != HttpURLConnection.HTTP_OK) {
+                    val err = "HTTP ${connection.responseCode}"
+                    connection.disconnect()
+                    if (attempt < MAX_RETRIES - 1) {
+                        Thread.sleep(1000 * (attempt + 1))
+                        return@repeat
+                    }
+                    return "Download failed ($err)"
+                }
 
-            connection.inputStream.use { input ->
-                file.outputStream().use { output ->
-                    val buffer = ByteArray(BUFFER_SIZE)
-                    var read = input.read(buffer)
-                    while (read != -1) {
-                        output.write(buffer, 0, read)
-                        read = input.read(buffer)
+                connection.inputStream.use { input ->
+                    file.outputStream().use { output ->
+                        val buffer = ByteArray(BUFFER_SIZE)
+                        var read = input.read(buffer)
+                        while (read != -1) {
+                            output.write(buffer, 0, read)
+                            read = input.read(buffer)
+                        }
                     }
                 }
-            }
 
-            val uri = FileProvider.getUriForFile(context, "${context.packageName}.provider", file)
-            val intent = Intent(Intent.ACTION_VIEW).apply {
-                setDataAndType(uri, "application/vnd.android.package-archive")
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                val uri = FileProvider.getUriForFile(context, "${context.packageName}.provider", file)
+                val intent = Intent(Intent.ACTION_VIEW).apply {
+                    setDataAndType(uri, "application/vnd.android.package-archive")
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }
+                context.startActivity(intent)
+                return null
+            } catch (e: Exception) {
+                lastException = e
+                connection?.disconnect()
+                if (attempt < MAX_RETRIES - 1) {
+                    Thread.sleep(1000 * (attempt + 1))
+                }
             }
-            context.startActivity(intent)
-            null
-        } catch (e: Exception) {
-            e.message ?: "Update failed"
-        } finally {
-            connection?.disconnect()
         }
+        return lastException?.message ?: "Update failed"
     }
 }

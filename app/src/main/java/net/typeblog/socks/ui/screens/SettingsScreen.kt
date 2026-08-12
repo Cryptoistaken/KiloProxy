@@ -143,6 +143,7 @@ fun SettingsScreen(
                 TextButton(
                     onClick = {
                         updateInfo = null
+                        Toast.makeText(context, "Downloading update…", Toast.LENGTH_SHORT).show()
                         scope.launch {
                             val err = withContext(Dispatchers.IO) {
                                 UpdateChecker.downloadAndInstall(context, info.apkUrl)
