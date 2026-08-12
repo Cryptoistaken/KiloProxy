@@ -89,7 +89,7 @@ fun NetShieldScreen(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, top = 24.dp),
+                    .padding(start = 16.dp, end = 16.dp, top = 24.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
