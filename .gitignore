@@ -12,7 +12,7 @@ local.properties
 # Native build output (copied into jniLibs during build)
 obj/
 libs/
-assets/
+/assets/
 app/src/main/jniLibs/
 
 # Built APKs & artifacts

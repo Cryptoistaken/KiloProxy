@@ -22,6 +22,8 @@ import net.typeblog.socks.util.Constants.INTENT_UDP_GW
 import net.typeblog.socks.util.Constants.PREF_ADV_APP_BYPASS
 import net.typeblog.socks.util.Constants.PREF_ADV_APP_LIST
 import net.typeblog.socks.util.Constants.PREF_ADV_PER_APP
+import net.typeblog.socks.util.Constants.PREF_NETSHIELD_BLOCK_ADULT
+import net.typeblog.socks.util.Constants.PREF_NETSHIELD_ENABLED
 
 import java.io.BufferedReader
 import java.io.File
@@ -155,9 +157,14 @@ object Utility {
     }
 
     @JvmStatic
-    fun makePdnsdConf(context: Context, dns: String, port: Int) {
+    fun makePdnsdConf(context: Context, dns: String, port: Int, excludeList: List<String> = emptyList()) {
         val dir = context.filesDir.absolutePath
-        val conf = String.format(context.getString(net.typeblog.socks.R.string.pdnsd_conf), dir, dir, dns, port)
+        val exclude = if (excludeList.isEmpty()) {
+            ""
+        } else {
+            "exclude = \"${join(excludeList, "\", \"")}\";"
+        }
+        val conf = String.format(context.getString(net.typeblog.socks.R.string.pdnsd_conf), dir, dir, dns, port, exclude)
 
         val f = File("$dir/pdnsd.conf")
 
@@ -183,6 +190,40 @@ object Utility {
                 // ignore
             }
         }
+    }
+
+    @JvmStatic
+    fun parseBlocklist(raw: String): List<String> {
+        val domain = Regex("^([a-z0-9]([a-z0-9-]*[a-z0-9])?\\.)+[a-z]{2,}$")
+        val result = LinkedHashSet<String>()
+        for (line in raw.lineSequence()) {
+            val l = line.trim().lowercase()
+            if (l.isEmpty() || l.startsWith("#") || l.startsWith("!")) continue
+            if (!domain.matches(l)) continue
+            result.add(l)
+        }
+        return result.toList()
+    }
+
+    @JvmStatic
+    fun netshieldExclusions(context: Context): List<String> {
+        val prefs = PreferenceManager.getDefaultSharedPreferences(context)
+        if (!prefs.getBoolean(PREF_NETSHIELD_ENABLED, false)) return emptyList()
+
+        val result = LinkedHashSet<String>()
+        try {
+            context.assets.open("netshield_blocklist.txt").use { result.addAll(parseBlocklist(it.bufferedReader().use { r -> r.readText() })) }
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to read netshield_blocklist.txt", e)
+        }
+        if (prefs.getBoolean(PREF_NETSHIELD_BLOCK_ADULT, false)) {
+            try {
+                context.assets.open("netshield_adult.txt").use { result.addAll(parseBlocklist(it.bufferedReader().use { r -> r.readText() })) }
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to read netshield_adult.txt", e)
+            }
+        }
+        return result.toList()
     }
 
     @JvmStatic

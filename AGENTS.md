@@ -78,6 +78,8 @@ git revert <commit-hash>                  # undo a specific commit
 | Tag | Commit | Date | Description |
 |---|---|---|---|
 | `pre-ui-redesign` | `397d4b0` | 2026-08-07 | Engine intact, CI passing, floating bubble fixed. Use this to restore before any UI redesign work. |
+| `pre-proton-settings` | (pre-proton-settings commit) | 2026-08-12 | Working state before ProtonVPN-style settings redesign (UI only). |
+| `pre-netshield` | (pushed) | 2026-08-12 | Before NetShield Phase 1 (pdnsd exclude-list DNS blocking). |
 
 > **One-time (do before the notification/dot pass):** tag the current commit as `pre-notif-and-dot-fixes` before this UI pass starts — `git tag -a pre-notif-and-dot-fixes -m "Before notification/dot fixes"` then `git push origin pre-notif-and-dot-fixes`. Add it to the table above once created.
 
@@ -181,6 +183,7 @@ Notes on the merged notification/dot pass:
 - `networkSecurityConfig="@xml/network_security_config"`
 
 ### Resources — `app/src/main/res/`
+- `assets/` — NetShield blocklists: `netshield_blocklist.txt` (HaGeZi light, ~40k) + `netshield_adult.txt` (HaGeZi NSFW, ~108k), bare domains, read by `Utility.netshieldExclusions`
 - `layout/` — `main.xml`, `app_item.xml`, `bubble_menu.xml` (bubble popup panel), `bubble_country_row.xml`, `notification_action.xml` (RemoteViews layout for the notification Connect/Disconnect pill)
 - `drawable/` — lucide_* icons, menu_panel_bg, search_input_bg, signal_dot, logo_*, launcher, notification_pill (pill button background)
 - `font/` — Geist family TTFs (bold/medium/mono/pixel etc.)

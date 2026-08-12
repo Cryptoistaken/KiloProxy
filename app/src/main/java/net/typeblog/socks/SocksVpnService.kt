@@ -636,7 +636,7 @@ class SocksVpnService : VpnService() {
         val dir = filesDir.absolutePath
         Thread {
             try {
-                Utility.makePdnsdConf(this, dns ?: "8.8.8.8", dnsPort)
+                Utility.makePdnsdConf(this, dns ?: "8.8.8.8", dnsPort, Utility.netshieldExclusions(this))
 
                 // Launch pdnsd non-blocking: no waitFor() (pdnsd.conf sets
                 // daemon=on so it forks into the background). It only needs to be
