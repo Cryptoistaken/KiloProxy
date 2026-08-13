@@ -112,7 +112,10 @@ fun ConnectionCard(
                         color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f)
+                        // No weight(1f): a weight fills the whole row and defeats
+                        // Arrangement.Center — cap the width instead so the
+                        // flag + name group truly centers in the card.
+                        modifier = Modifier.widthIn(max = 200.dp)
                     )
                 }
             }

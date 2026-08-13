@@ -460,7 +460,11 @@ class FloatingControlService : Service() {
                 } catch (e: Exception) {
                     ""
                 }
-                val lastOctet = ip.substringAfterLast('.')
+                val lastOctet = when {
+                    ip.contains('.') -> ip.substringAfterLast('.')
+                    ip.contains(':') -> ip.substringAfterLast(':').takeLast(4)
+                    else -> ""
+                }
                 text.text = if (lastOctet.isNotEmpty()) {
                     "$flag $countryCode $lastOctet"
                 } else {
