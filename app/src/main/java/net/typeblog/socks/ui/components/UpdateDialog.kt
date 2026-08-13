@@ -1,6 +1,12 @@
 package net.typeblog.socks.ui.components
 
+import android.content.Intent
+import android.net.Uri
+import android.os.Build
+import android.provider.Settings
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -43,6 +49,80 @@ fun UpdateDialog(
     val scope = rememberCoroutineScope()
     var downloading by remember { mutableStateOf(false) }
     var downloadProgress by remember { mutableStateOf(0f) }
+    var permissionPending by remember { mutableStateOf(false) }
+
+    fun startDownload() {
+        downloading = true
+        downloadProgress = 0f
+        scope.launch {
+            val err = withContext(Dispatchers.IO) {
+                UpdateChecker.downloadAndInstall(
+                    context, info.apkUrl, info.sizeBytes
+                ) { progress ->
+                    scope.launch { downloadProgress = progress }
+                }
+            }
+            downloading = false
+            onDismiss()
+            if (err != null) {
+                Toast.makeText(context, err, Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
+    val unknownSourceLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { _ ->
+        if (context.packageManager.canRequestPackageInstalls()) {
+            startDownload()
+        } else {
+            Toast.makeText(
+                context,
+                "Please allow 'Install unknown apps' for KiloProxy, then try again",
+                Toast.LENGTH_LONG
+            ).show()
+        }
+    }
+
+    fun launchDownload() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !context.packageManager.canRequestPackageInstalls()) {
+            permissionPending = true
+        } else {
+            startDownload()
+        }
+    }
+
+    if (permissionPending) {
+        AlertDialog(
+            onDismissRequest = { permissionPending = false },
+            title = { Text(text = "Allow installing updates?") },
+            text = {
+                Text(
+                    text = "KiloProxy needs to install the update. " +
+                        "You'll be taken to Settings to allow \"Install unknown apps\" for KiloProxy " +
+                        "— this is required only once."
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    permissionPending = false
+                    unknownSourceLauncher.launch(
+                        Intent(
+                            Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                            Uri.parse("package:${context.packageName}")
+                        )
+                    )
+                }) {
+                    Text(text = "Allow")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { permissionPending = false }) {
+                    Text(text = "Cancel")
+                }
+            }
+        )
+    }
 
     AlertDialog(
         onDismissRequest = { if (!downloading) onDismiss() },
@@ -88,26 +168,7 @@ fun UpdateDialog(
         },
         confirmButton = {
             if (!downloading) {
-                TextButton(
-                    onClick = {
-                        downloading = true
-                        downloadProgress = 0f
-                        scope.launch {
-                            val err = withContext(Dispatchers.IO) {
-                                UpdateChecker.downloadAndInstall(
-                                    context, info.apkUrl, info.sizeBytes
-                                ) { progress ->
-                                    scope.launch { downloadProgress = progress }
-                                }
-                            }
-                            downloading = false
-                            onDismiss()
-                            if (err != null) {
-                                Toast.makeText(context, err, Toast.LENGTH_LONG).show()
-                            }
-                        }
-                    }
-                ) {
+                TextButton(onClick = { launchDownload() }) {
                     Text(text = "Update")
                 }
             }
