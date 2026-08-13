@@ -156,16 +156,13 @@ fun StatusScreen(
         }
     }
 
-    val serverName = remember(activeProfileName, profiles) {
-        if (activeProfileName != null) {
-            try {
-                val pm = ProfileManager.getInstance(context)
-                val p = pm.getProfile(activeProfileName!!)
-                if (p != null) "${p.getServer()}:${p.getPort()}" else ""
-            } catch (_: Exception) {
-                ""
-            }
-        } else {
+    val serverName = remember(selectedProfile, activeProfileName, profiles) {
+        val target = selectedProfile ?: activeProfileName ?: profiles.firstOrNull()
+        if (target == null) "" else try {
+            val pm = ProfileManager.getInstance(context)
+            val p = pm.getProfile(target)
+            if (p != null) "${p.getServer()}:${p.getPort()}" else ""
+        } catch (_: Exception) {
             ""
         }
     }
