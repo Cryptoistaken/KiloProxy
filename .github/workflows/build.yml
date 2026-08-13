@@ -20,6 +20,8 @@ jobs:
         run: git config --global init.defaultBranch master
 
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       - name: Set up JDK 17
         uses: actions/setup-java@v5
@@ -92,6 +94,27 @@ jobs:
           name: app-release
           path: app/build/outputs/apk/release/*.apk
 
+      # Build a plain-text changelog from commits since the last release tag —
+      # no hardcoded boilerplate, no GitHub diff URLs.
+      - name: Generate changelog
+        id: changelog
+        run: |
+          PREV=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || true)
+          if [ -n "$PREV" ]; then
+            LOG=$(git log --oneline --no-merges "$PREV..HEAD")
+          else
+            LOG=$(git log --oneline --no-merges -20)
+          fi
+          {
+            echo "KiloProxy build v${{ steps.vc.outputs.code }}"
+            echo ""
+            echo "What's new in this version:"
+            echo ""
+            echo "$LOG" | sed 's/^/- /'
+          } > changelog.md
+          echo "Changelog:"
+          cat changelog.md
+
       # Publish only on real branch pushes (not PRs, not tag-triggered runs —
       # tag pushes would create a new tag each run and loop releases).
       - name: Publish GitHub Release (v${{ steps.vc.outputs.code }})
@@ -100,8 +123,5 @@ jobs:
         with:
           tag_name: v${{ steps.vc.outputs.code }}
           name: v${{ steps.vc.outputs.code }}
-          body: |
-            KiloProxy build v${{ steps.vc.outputs.code }} (CI run ${{ github.run_number }}).
-            Install over the previous version — app data and profiles are preserved.
-          generate_release_notes: true
+          body_path: changelog.md
           files: app/build/outputs/apk/release/*.apk
