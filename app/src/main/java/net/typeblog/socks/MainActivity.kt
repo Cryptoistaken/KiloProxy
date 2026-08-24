@@ -87,11 +87,11 @@ class MainActivity : ComponentActivity() {
                 app.registerActivityLifecycleCallbacks(cb)
                 onDispose { app.unregisterActivityLifecycleCallbacks(cb) }
             }
-            // Background: once every 10s while logged in
+            // Background: sync every 3s while logged in for fast post-buy delivery
             LaunchedEffect(isLoggedIn) {
                 if (!isLoggedIn) return@LaunchedEffect
                 while (true) {
-                    delay(10000)
+                    delay(3000)
                     withContext(Dispatchers.IO) { syncKiloProxyProxies(context) }
                 }
             }

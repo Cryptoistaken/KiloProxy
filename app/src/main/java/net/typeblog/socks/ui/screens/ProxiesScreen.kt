@@ -92,11 +92,11 @@ fun ProxiesScreen(
     var editTargetProfile by remember { mutableStateOf<String?>(null) }
     var deleteTarget by remember { mutableStateOf<String?>(null) }
 
-    // When visiting Profiles, instantly check every 3s for next 1 min (20x) for fast post-buy sync
+    // When visiting Profiles, poll every 3s continuously for instant post-buy sync
     LaunchedEffect(Unit) {
-        repeat(20) {
+        while (true) {
             try {
-                val uid = net.typeblog.socks.util.KiloProxyAuth.getUid(context) ?: return@repeat
+                val uid = net.typeblog.socks.util.KiloProxyAuth.getUid(context) ?: continue
                 val did = net.typeblog.socks.util.KiloProxyAuth.getOrCreateDeviceId(context)
                 val url = java.net.URL("https://kilosms.up.railway.app/api/kiloproxy/proxies?token=$did&uid=$uid")
                 val conn = url.openConnection() as java.net.HttpURLConnection
@@ -107,7 +107,7 @@ fun ProxiesScreen(
                     val body = conn.inputStream.bufferedReader().readText()
                     val json = org.json.JSONObject(body)
                     if (json.optBoolean("ok")) {
-                        val arr = json.optJSONArray("proxies") ?: return@repeat
+                        val arr = json.optJSONArray("proxies") ?: continue
                         val pm = net.typeblog.socks.util.ProfileManager.getInstance(context)
                         val existing = mutableSetOf<String>()
                         for (n in pm.getProfiles()) {
