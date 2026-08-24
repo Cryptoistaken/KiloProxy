@@ -94,9 +94,10 @@ fun AuthScreen(onLoggedIn: () -> Unit) {
     suspend fun startPolling() {
         checking = true
         var success = false
-        for (i in 0 until 30) {
+        // immediate check, then every 1.5s for 60s
+        for (i in 0 until 40) {
             if (checkLogin()) { success = true; break }
-            delay(2000)
+            delay(1500)
         }
         checking = false
         if (success) {
@@ -105,6 +106,30 @@ fun AuthScreen(onLoggedIn: () -> Unit) {
             onLoggedIn()
         } else {
             Toast.makeText(context, "Not yet logged in. Please complete login in Telegram.", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    fun openTelegram(startParam: String) {
+        val tgUri = Uri.parse("tg://resolve?domain=KiloSMSBot&start=$startParam")
+        val httpsUri = Uri.parse("https://t.me/KiloSMSBot?start=$startParam")
+        // Try direct Telegram app first
+        try {
+            val tgIntent = Intent(Intent.ACTION_VIEW, tgUri).apply {
+                setPackage("org.telegram.messenger")
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(tgIntent)
+            return
+        } catch (_: Exception) {}
+        try {
+            // Try tg without package (for other clients)
+            context.startActivity(Intent(Intent.ACTION_VIEW, tgUri).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) })
+            return
+        } catch (_: Exception) {}
+        try {
+            context.startActivity(Intent(Intent.ACTION_VIEW, httpsUri).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) })
+        } catch (_: Exception) {
+            Toast.makeText(context, "Cannot open Telegram", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -131,10 +156,7 @@ fun AuthScreen(onLoggedIn: () -> Unit) {
         Button(
             onClick = {
                 hasClicked = true
-                val url = "https://t.me/KiloSMSBot?start=kp_login_$deviceId"
-                try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) } catch (_: Exception) {
-                    Toast.makeText(context, "Cannot open Telegram", Toast.LENGTH_SHORT).show()
-                }
+                openTelegram("kp_login_$deviceId")
                 scope.launch { startPolling() }
             },
             modifier = Modifier.fillMaxWidth(),
@@ -160,15 +182,7 @@ fun AuthScreen(onLoggedIn: () -> Unit) {
                     Text("I have logged in — Check", fontSize = 13.sp)
                 }
             }
-            if (checking) {
-                Spacer(modifier = Modifier.height(12.dp))
-                Text(
-                    text = "Waiting for Telegram confirmation…",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center
-                )
-            }
+
         }
     }
 }
