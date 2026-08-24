@@ -87,14 +87,15 @@ class MainActivity : ComponentActivity() {
                 app.registerActivityLifecycleCallbacks(cb)
                 onDispose { app.unregisterActivityLifecycleCallbacks(cb) }
             }
-            // Instant sync: poll every 10s while logged in (so buy appears in ~10s, not 2min)
+            // Background: once every 10s while logged in
             LaunchedEffect(isLoggedIn) {
                 if (!isLoggedIn) return@LaunchedEffect
                 while (true) {
-                    kotlinx.coroutines.delay(10000)
+                    delay(10000)
                     withContext(Dispatchers.IO) { syncKiloProxyProxies(context) }
                 }
             }
+
 
             KiloProxyTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {

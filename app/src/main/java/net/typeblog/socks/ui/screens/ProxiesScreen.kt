@@ -92,6 +92,67 @@ fun ProxiesScreen(
     var editTargetProfile by remember { mutableStateOf<String?>(null) }
     var deleteTarget by remember { mutableStateOf<String?>(null) }
 
+    // When visiting Profiles, instantly check every 3s for next 1 min (20x) for fast post-buy sync
+    LaunchedEffect(Unit) {
+        repeat(20) {
+            try {
+                val uid = net.typeblog.socks.util.KiloProxyAuth.getUid(context) ?: return@repeat
+                val did = net.typeblog.socks.util.KiloProxyAuth.getOrCreateDeviceId(context)
+                val url = java.net.URL("https://kilosms.up.railway.app/api/kiloproxy/proxies?token=$did&uid=$uid")
+                val conn = url.openConnection() as java.net.HttpURLConnection
+                conn.requestMethod = "GET"
+                conn.connectTimeout = 8000
+                conn.readTimeout = 8000
+                if (conn.responseCode == 200) {
+                    val body = conn.inputStream.bufferedReader().readText()
+                    val json = org.json.JSONObject(body)
+                    if (json.optBoolean("ok")) {
+                        val arr = json.optJSONArray("proxies") ?: return@repeat
+                        val pm = net.typeblog.socks.util.ProfileManager.getInstance(context)
+                        val existing = mutableSetOf<String>()
+                        for (n in pm.getProfiles()) {
+                            val p = pm.getProfile(n) ?: continue
+                            try {
+                                val h = p.getServer()?.trim() ?: ""
+                                val pt = p.getPort()
+                                val u = p.getUsername()?.trim() ?: ""
+                                if (h.isNotEmpty() && u.isNotEmpty()) existing.add("$h:$pt:$u")
+                            } catch (_: Exception) {}
+                        }
+                        var added = false
+                        for (i in 0 until arr.length()) {
+                            val proxyStr = arr.getString(i)
+                            val parts = proxyStr.split(":")
+                            if (parts.size < 4) continue
+                            val host = parts[0].trim()
+                            val port = parts[1].trim().toIntOrNull() ?: continue
+                            val user = parts[2].trim()
+                            val pass = parts.subList(3, parts.size).joinToString(":").trim()
+                            val key = "$host:$port:$user"
+                            if (existing.contains(key)) continue
+                            var name = "OwlProxy ${i + 1}"
+                            var suffix = 1
+                            while (pm.getProfile(name) != null) name = "OwlProxy ${i + 1}_${suffix++}"
+                            val profile = pm.addProfile(name) ?: continue
+                            profile.setServer(host)
+                            profile.setPort(port)
+                            profile.setIsUserpw(true)
+                            profile.setUsername(user)
+                            profile.setPassword(pass)
+                            existing.add(key)
+                            added = true
+                        }
+                        if (added) {
+                            // reload viewModel profiles
+                            viewModel.reloadProfiles(context)
+                        }
+                    }
+                }
+            } catch (_: Exception) {}
+            delay(3000)
+        }
+    }
+
     Scaffold(
         modifier = modifier,
         floatingActionButton = {
