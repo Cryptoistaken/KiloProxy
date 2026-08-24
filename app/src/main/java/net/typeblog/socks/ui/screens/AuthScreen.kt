@@ -3,6 +3,7 @@ package net.typeblog.socks.ui.screens
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -10,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -25,6 +27,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -33,6 +36,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import net.typeblog.socks.R
 import net.typeblog.socks.util.KiloProxyAuth
 import org.json.JSONObject
 import java.net.HttpURLConnection
@@ -43,6 +47,7 @@ fun AuthScreen(onLoggedIn: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var checking by remember { mutableStateOf(false) }
+    var hasClicked by remember { mutableStateOf(false) }
     var deviceId by remember { mutableStateOf(KiloProxyAuth.getOrCreateDeviceId(context)) }
 
     suspend fun checkLogin(): Boolean = withContext(Dispatchers.IO) {
@@ -86,6 +91,23 @@ fun AuthScreen(onLoggedIn: () -> Unit) {
         } catch (_: Exception) {}
     }
 
+    suspend fun startPolling() {
+        checking = true
+        var success = false
+        for (i in 0 until 30) {
+            if (checkLogin()) { success = true; break }
+            delay(2000)
+        }
+        checking = false
+        if (success) {
+            trackLogin()
+            Toast.makeText(context, "Login successful", Toast.LENGTH_SHORT).show()
+            onLoggedIn()
+        } else {
+            Toast.makeText(context, "Not yet logged in. Please complete login in Telegram.", Toast.LENGTH_LONG).show()
+        }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -93,78 +115,60 @@ fun AuthScreen(onLoggedIn: () -> Unit) {
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        Image(
+            painter = painterResource(id = R.mipmap.ic_launcher),
+            contentDescription = "KiloProxy Logo",
+            modifier = Modifier.size(96.dp)
+        )
+        Spacer(modifier = Modifier.height(16.dp))
         Text(
             text = "KiloProxy",
             style = MaterialTheme.typography.headlineLarge,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.primary
         )
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(
-            text = "Telegram login required to use the app",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center
-        )
-        Spacer(modifier = Modifier.height(24.dp))
-        Text(
-            text = "You must log in with Telegram via @KiloSMSBot and complete the join steps. This links your proxy purchases to your app automatically.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-            lineHeight = 18.sp
-        )
         Spacer(modifier = Modifier.height(32.dp))
         Button(
             onClick = {
+                hasClicked = true
                 val url = "https://t.me/KiloSMSBot?start=kp_login_$deviceId"
                 try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) } catch (_: Exception) {
                     Toast.makeText(context, "Cannot open Telegram", Toast.LENGTH_SHORT).show()
                 }
-            },
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(12.dp)
-        ) {
-            Text("Login with Telegram", fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
-        }
-        Spacer(modifier = Modifier.height(12.dp))
-        OutlinedButton(
-            onClick = {
-                scope.launch {
-                    checking = true
-                    var success = false
-                    repeat(15) {
-                        if (checkLogin()) { success = true; return@repeat }
-                        delay(2000)
-                    }
-                    checking = false
-                    if (success) {
-                        trackLogin()
-                        Toast.makeText(context, "Login successful", Toast.LENGTH_SHORT).show()
-                        onLoggedIn()
-                    } else {
-                        Toast.makeText(context, "Not yet logged in. Please tap Login with Telegram and complete in bot.", Toast.LENGTH_LONG).show()
-                    }
-                }
+                scope.launch { startPolling() }
             },
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(12.dp),
             enabled = !checking
         ) {
+            Text("Login with Telegram", fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+        }
+        if (hasClicked) {
+            Spacer(modifier = Modifier.height(12.dp))
+            OutlinedButton(
+                onClick = {
+                    scope.launch { startPolling() }
+                },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                enabled = !checking
+            ) {
+                if (checking) {
+                    CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                    Text("  Checking...", fontSize = 13.sp)
+                } else {
+                    Text("I have logged in — Check", fontSize = 13.sp)
+                }
+            }
             if (checking) {
-                CircularProgressIndicator(modifier = Modifier.height(16.dp), strokeWidth = 2.dp)
-                Text("  Checking...", fontSize = 13.sp)
-            } else {
-                Text("I have logged in  Check", fontSize = 13.sp)
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = "Waiting for Telegram confirmation…",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center
+                )
             }
         }
-        Spacer(modifier = Modifier.height(16.dp))
-        Text(
-            text = "Proxies bought via @KiloSMSBot will be auto-added to your app. No import needed. We track only the host for analytics, not your full proxy.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-            lineHeight = 16.sp
-        )
     }
 }
