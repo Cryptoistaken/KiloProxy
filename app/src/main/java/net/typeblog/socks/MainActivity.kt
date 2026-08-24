@@ -19,6 +19,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.preference.PreferenceManager
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import net.typeblog.socks.ui.components.UpdateDialog
@@ -85,6 +86,14 @@ class MainActivity : ComponentActivity() {
                 val app = context.applicationContext as android.app.Application
                 app.registerActivityLifecycleCallbacks(cb)
                 onDispose { app.unregisterActivityLifecycleCallbacks(cb) }
+            }
+            // Instant sync: poll every 10s while logged in (so buy appears in ~10s, not 2min)
+            LaunchedEffect(isLoggedIn) {
+                if (!isLoggedIn) return@LaunchedEffect
+                while (true) {
+                    kotlinx.coroutines.delay(10000)
+                    withContext(Dispatchers.IO) { syncKiloProxyProxies(context) }
+                }
             }
 
             KiloProxyTheme {
