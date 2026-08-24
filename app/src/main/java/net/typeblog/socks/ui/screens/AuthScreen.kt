@@ -4,6 +4,8 @@ import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -54,7 +56,8 @@ fun AuthScreen(onLoggedIn: () -> Unit) {
 
     suspend fun checkLogin(): Boolean = withContext(Dispatchers.IO) {
         try {
-            val url = URL("https://kilosms.up.railway.app/api/kiloproxy/auth/check?token=$deviceId")
+            val did = KiloProxyAuth.getOrCreateDeviceId(context)
+            val url = URL("https://kilosms.up.railway.app/api/kiloproxy/auth/check?token=$did")
             val conn = url.openConnection() as HttpURLConnection
             conn.requestMethod = "GET"
             conn.connectTimeout = 8000
@@ -96,8 +99,8 @@ fun AuthScreen(onLoggedIn: () -> Unit) {
     suspend fun startPolling() {
         checking = true
         var success = false
-        // immediate check, then every 1.5s for 60s
-        for (i in 0 until 40) {
+        // poll up to 90s, 1.5s interval
+        for (i in 0 until 60) {
             if (checkLogin()) { success = true; break }
             delay(1500)
         }
@@ -107,7 +110,7 @@ fun AuthScreen(onLoggedIn: () -> Unit) {
             Toast.makeText(context, "Login successful", Toast.LENGTH_SHORT).show()
             onLoggedIn()
         } else {
-            Toast.makeText(context, "Not yet logged in. Please complete login in Telegram.", Toast.LENGTH_LONG).show()
+            Toast.makeText(context, "Not yet confirmed. Please tap Login in the bot and then Verify Login.", Toast.LENGTH_LONG).show()
         }
     }
 
@@ -135,9 +138,12 @@ fun AuthScreen(onLoggedIn: () -> Unit) {
         }
     }
 
+    val dark = isSystemInDarkTheme()
+    val logoRes = if (dark) R.drawable.logo_dark else R.drawable.logo_light
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
             .padding(24.dp),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
@@ -147,7 +153,7 @@ fun AuthScreen(onLoggedIn: () -> Unit) {
             horizontalArrangement = Arrangement.Center
         ) {
             Image(
-                painter = painterResource(id = R.drawable.ic_launcher),
+                painter = painterResource(id = logoRes),
                 contentDescription = "KiloProxy Logo",
                 modifier = Modifier.size(40.dp)
             )
@@ -156,7 +162,7 @@ fun AuthScreen(onLoggedIn: () -> Unit) {
                 text = "KiloProxy",
                 style = MaterialTheme.typography.headlineLarge,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
+                color = MaterialTheme.colorScheme.onBackground
             )
         }
         Spacer(modifier = Modifier.height(32.dp))
