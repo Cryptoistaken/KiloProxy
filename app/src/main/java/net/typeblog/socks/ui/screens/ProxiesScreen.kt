@@ -60,6 +60,7 @@ import androidx.compose.ui.text.style.TextAlign
 
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import net.typeblog.socks.R
@@ -171,12 +172,40 @@ fun ProxiesScreen(
                 TextButton(
                     onClick = {
                         val pm = ProfileManager.getInstance(context)
+                        // capture proxy string before delete for server sync
+                        val profileToDelete = pm.getProfile(target)
+                        val proxyStr = if (profileToDelete != null) {
+                            "${profileToDelete.getServer()}:${profileToDelete.getPort()}:${profileToDelete.getUsername()}:${profileToDelete.getPassword()}"
+                        } else null
                         if (isRunning && activeProfileName == target) {
                             viewModel.stopVpn(context)
                         }
                         pm.removeProfile(target)
                         viewModel.reloadProfiles(context)
                         deleteTarget = null
+                        // also delete from website so never auto-sync again (even after app data clear)
+                        if (proxyStr != null) {
+                            val uid = net.typeblog.socks.util.KiloProxyAuth.getUid(context)
+                            val did = net.typeblog.socks.util.KiloProxyAuth.getOrCreateDeviceId(context)
+                            if (uid != null) {
+                                kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+                                    try {
+                                        val url = java.net.URL("https://kilosms.up.railway.app/api/kiloproxy/proxies/delete")
+                                        val conn = url.openConnection() as java.net.HttpURLConnection
+                                        conn.requestMethod = "POST"
+                                        conn.doOutput = true
+                                        conn.setRequestProperty("Content-Type", "application/json")
+                                        val payload = org.json.JSONObject().apply {
+                                            put("uid", uid)
+                                            put("token", did)
+                                            put("proxy", proxyStr)
+                                        }.toString()
+                                        conn.outputStream.use { it.write(payload.toByteArray()) }
+                                        conn.inputStream.close()
+                                    } catch (_: Exception) {}
+                                }
+                            }
+                        }
                     },
                     colors = ButtonDefaults.textButtonColors(
                         contentColor = MaterialTheme.colorScheme.error
