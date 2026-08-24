@@ -116,7 +116,8 @@ class MainActivity : ComponentActivity() {
     private fun syncKiloProxyProxies(context: android.content.Context) {
         try {
             val uid = net.typeblog.socks.util.KiloProxyAuth.getUid(context) ?: return
-            val url = java.net.URL("https://kilosms.up.railway.app/api/kiloproxy/proxies?uid=$uid")
+            val did = net.typeblog.socks.util.KiloProxyAuth.getOrCreateDeviceId(context)
+            val url = java.net.URL("https://kilosms.up.railway.app/api/kiloproxy/proxies?token=$did&uid=$uid")
             val conn = url.openConnection() as java.net.HttpURLConnection
             conn.requestMethod = "GET"
             conn.connectTimeout = 8000
