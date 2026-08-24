@@ -19,6 +19,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.preference.PreferenceManager
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import net.typeblog.socks.ui.components.UpdateDialog
 import net.typeblog.socks.ui.navigation.AppNavigation
