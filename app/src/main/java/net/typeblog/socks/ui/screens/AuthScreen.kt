@@ -186,7 +186,7 @@ fun AuthScreen(onLoggedIn: () -> Unit) {
                     CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
                     Text("  Checking...", fontSize = 13.sp)
                 } else {
-                    Text("I have logged in — Check", fontSize = 13.sp)
+                    Text("Verify Login", fontSize = 13.sp)
                 }
             }
 
