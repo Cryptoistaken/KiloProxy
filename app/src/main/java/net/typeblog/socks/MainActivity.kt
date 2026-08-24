@@ -87,15 +87,8 @@ class MainActivity : ComponentActivity() {
                 app.registerActivityLifecycleCallbacks(cb)
                 onDispose { app.unregisterActivityLifecycleCallbacks(cb) }
             }
-            // Background: sync every 3s while logged in for fast post-buy delivery
-            LaunchedEffect(isLoggedIn) {
-                if (!isLoggedIn) return@LaunchedEffect
-                while (true) {
-                    delay(3000)
-                    withContext(Dispatchers.IO) { syncKiloProxyProxies(context) }
-                }
-            }
-
+            // No background polling — proxies sync only on the Profiles screen (see ProxiesScreen
+            // focus-gated poll) and on every app resume. Saves resources for many users.
 
             KiloProxyTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {

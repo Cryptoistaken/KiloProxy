@@ -39,6 +39,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -92,9 +93,19 @@ fun ProxiesScreen(
     var editTargetProfile by remember { mutableStateOf<String?>(null) }
     var deleteTarget by remember { mutableStateOf<String?>(null) }
 
-    // When visiting Profiles, poll every 3s continuously for instant post-buy sync
-    LaunchedEffect(Unit) {
-        while (true) {
+    // Poll ONLY while the Profiles screen is focused (app foreground + this tab active).
+    // Zero network when backgrounded — avoids wasted polling for many users.
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    var focused by remember { mutableStateOf(true) }
+    DisposableEffect(lifecycleOwner) {
+        val obs = androidx.lifecycle.LifecycleEventObserver { _, e ->
+            focused = e == androidx.lifecycle.Lifecycle.Event.ON_RESUME
+        }
+        lifecycleOwner.lifecycle.addObserver(obs)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(obs) }
+    }
+    LaunchedEffect(focused) {
+        if (focused) while (true) {
             try {
                 val uid = net.typeblog.socks.util.KiloProxyAuth.getUid(context) ?: continue
                 val did = net.typeblog.socks.util.KiloProxyAuth.getOrCreateDeviceId(context)
