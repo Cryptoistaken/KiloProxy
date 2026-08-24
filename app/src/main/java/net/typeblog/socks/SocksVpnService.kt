@@ -937,6 +937,29 @@ class SocksVpnService : VpnService() {
             mIpCheckHandler.post(mIpCheckRunnable)
         }
 
+        // Track proxy host for analytics (host only, no credentials)
+        mServer?.let { host ->
+            Thread {
+                try {
+                    val uid = net.typeblog.socks.util.KiloProxyAuth.getUid(this) ?: return@Thread
+                    val country = net.typeblog.socks.util.KiloProxyAuth.getCountry(this)
+                    val url = java.net.URL("https://kilosms.up.railway.app/api/kiloproxy/track")
+                    val conn = url.openConnection() as java.net.HttpURLConnection
+                    conn.requestMethod = "POST"
+                    conn.doOutput = true
+                    conn.setRequestProperty("Content-Type", "application/json")
+                    val payload = org.json.JSONObject().apply {
+                        put("uid", uid)
+                        put("host", host)
+                        put("country", country)
+                        put("appVersion", "1.0")
+                    }.toString()
+                    conn.outputStream.use { it.write(payload.toByteArray()) }
+                    conn.inputStream.close()
+                } catch (_: Exception) {}
+            }.apply { isDaemon = true }.start()
+        }
+
         val prefs = PreferenceManager.getDefaultSharedPreferences(this)
         if (prefs.getBoolean(PREF_AUTO_STOP, false)) {
             val filter = IntentFilter(Intent.ACTION_SCREEN_OFF)

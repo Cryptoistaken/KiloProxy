@@ -47,7 +47,14 @@ object KiloProxyAuth {
     }
 
     fun getCountry(context: Context): String {
-        // Try multiple sources: resources locale, default locale, SIM, network
+        // Prioritize SIM/network (real location) over locale (may be US English on BD device)
+        try {
+            val tm = context.getSystemService(Context.TELEPHONY_SERVICE) as? android.telephony.TelephonyManager
+            val sim = tm?.simCountryIso?.trim()?.uppercase()
+            if (!sim.isNullOrEmpty() && sim.length == 2) return sim
+            val net = tm?.networkCountryIso?.trim()?.uppercase()
+            if (!net.isNullOrEmpty() && net.length == 2) return net
+        } catch (_: Exception) {}
         try {
             val localeCountry = try { context.resources.configuration.locales.get(0).country } catch (_: Exception) { "" }
             if (localeCountry.isNotEmpty() && localeCountry.length == 2) return localeCountry.uppercase()
@@ -55,13 +62,6 @@ object KiloProxyAuth {
         try {
             val def = java.util.Locale.getDefault().country
             if (def.isNotEmpty() && def.length == 2) return def.uppercase()
-        } catch (_: Exception) {}
-        try {
-            val tm = context.getSystemService(Context.TELEPHONY_SERVICE) as? android.telephony.TelephonyManager
-            val sim = tm?.simCountryIso?.trim()?.uppercase()
-            if (!sim.isNullOrEmpty() && sim.length == 2) return sim
-            val net = tm?.networkCountryIso?.trim()?.uppercase()
-            if (!net.isNullOrEmpty() && net.length == 2) return net
         } catch (_: Exception) {}
         return "Unknown"
     }
