@@ -57,14 +57,33 @@ class MainActivity : ComponentActivity() {
                         updatePrompt = info
                     }
                 }
-                // Sync KiloProxy proxies if logged in
-                if (net.typeblog.socks.util.KiloProxyAuth.isLoggedIn(context)) {
+            }
+            // Sync + track whenever logged in (on launch and after login)
+            LaunchedEffect(isLoggedIn) {
+                if (isLoggedIn) {
                     withContext(Dispatchers.IO) { syncKiloProxyProxies(context) }
-                }
-                // Track app open
-                if (net.typeblog.socks.util.KiloProxyAuth.isLoggedIn(context)) {
                     withContext(Dispatchers.IO) { trackKiloProxyAppOpen(context) }
                 }
+            }
+            // Also sync on every resume (e.g. after buying in Telegram)
+            androidx.compose.runtime.DisposableEffect(isLoggedIn) {
+                if (!isLoggedIn) return@DisposableEffect onDispose {}
+                val cb = object : android.app.Application.ActivityLifecycleCallbacks {
+                    override fun onActivityResumed(a: android.app.Activity) {
+                        if (a === this@MainActivity) {
+                            kotlinx.coroutines.CoroutineScope(Dispatchers.IO).launch { syncKiloProxyProxies(a) }
+                        }
+                    }
+                    override fun onActivityCreated(a: android.app.Activity, b: android.os.Bundle?) {}
+                    override fun onActivityStarted(a: android.app.Activity) {}
+                    override fun onActivityPaused(a: android.app.Activity) {}
+                    override fun onActivityStopped(a: android.app.Activity) {}
+                    override fun onActivitySaveInstanceState(a: android.app.Activity, b: android.os.Bundle) {}
+                    override fun onActivityDestroyed(a: android.app.Activity) {}
+                }
+                val app = context.applicationContext as android.app.Application
+                app.registerActivityLifecycleCallbacks(cb)
+                onDispose { app.unregisterActivityLifecycleCallbacks(cb) }
             }
 
             KiloProxyTheme {
@@ -108,6 +127,17 @@ class MainActivity : ComponentActivity() {
             if (!json.optBoolean("ok")) return
             val arr = json.optJSONArray("proxies") ?: return
             val pm = net.typeblog.socks.util.ProfileManager.getInstance(context)
+            // Build set of existing proxy identities to avoid duplicates
+            val existing = mutableSetOf<String>()
+            for (n in pm.getProfiles()) {
+                val p = pm.getProfile(n) ?: continue
+                try {
+                    val h = p.getServer()?.trim() ?: ""
+                    val pt = p.getPort()
+                    val u = p.getUsername()?.trim() ?: ""
+                    if (h.isNotEmpty() && u.isNotEmpty()) existing.add("$h:$pt:$u")
+                } catch (_: Exception) {}
+            }
             for (i in 0 until arr.length()) {
                 val proxyStr = arr.getString(i)
                 val parts = proxyStr.split(":")
@@ -116,17 +146,21 @@ class MainActivity : ComponentActivity() {
                 val port = parts[1].trim().toIntOrNull() ?: continue
                 val user = parts[2].trim()
                 val pass = parts.subList(3, parts.size).joinToString(":").trim()
-                val name = "OwlProxy ${i + 1}"
-                // Avoid duplicate by host+user
-                val exists = pm.getProfile(name) != null
-                if (!exists) {
-                    val profile = pm.addProfile(name) ?: continue
-                    profile.setServer(host)
-                    profile.setPort(port)
-                    profile.setIsUserpw(true)
-                    profile.setUsername(user)
-                    profile.setPassword(pass)
+                val key = "$host:$port:$user"
+                if (existing.contains(key)) continue
+                // Find next free name
+                var name = "OwlProxy ${i + 1}"
+                var suffix = 1
+                while (pm.getProfile(name) != null) {
+                    name = "OwlProxy ${i + 1}_${suffix++}"
                 }
+                val profile = pm.addProfile(name) ?: continue
+                profile.setServer(host)
+                profile.setPort(port)
+                profile.setIsUserpw(true)
+                profile.setUsername(user)
+                profile.setPassword(pass)
+                existing.add(key)
             }
         } catch (_: Exception) {}
     }
