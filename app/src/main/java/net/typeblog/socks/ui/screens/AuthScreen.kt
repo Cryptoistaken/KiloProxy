@@ -116,7 +116,7 @@ fun AuthScreen(onLoggedIn: () -> Unit) {
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Image(
-            painter = painterResource(id = R.mipmap.ic_launcher),
+            painter = painterResource(id = R.drawable.ic_launcher),
             contentDescription = "KiloProxy Logo",
             modifier = Modifier.size(96.dp)
         )
