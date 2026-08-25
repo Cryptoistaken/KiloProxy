@@ -127,7 +127,8 @@ fun ProxiesScreen(
                                 val h = p.getServer()?.trim() ?: ""
                                 val pt = p.getPort()
                                 val u = p.getUsername()?.trim() ?: ""
-                                if (h.isNotEmpty() && u.isNotEmpty()) existing.add("$h:$pt:$u")
+                                val pw = try { p.getPassword()?.trim() ?: "" } catch (_: Exception) { "" }
+                                if (h.isNotEmpty() && u.isNotEmpty()) { existing.add("$h:$pt:$u:$pw"); existing.add("$h:$pt:$u") }
                             } catch (_: Exception) {}
                         }
                         var added = false
@@ -139,8 +140,11 @@ fun ProxiesScreen(
                             val port = parts[1].trim().toIntOrNull() ?: continue
                             val user = parts[2].trim()
                             val pass = parts.subList(3, parts.size).joinToString(":").trim()
-                            val key = "$host:$port:$user"
-                            if (existing.contains(key)) continue
+                            val key = "$host:$port:$user:$pass"
+                            val normUser = Regex("^(.*?_custom_zone_[A-Za-z0-9]+)").find(user)?.groupValues?.get(1) ?: user.replace(Regex("_st__.*$"), "").replace(Regex("_sid_.*$"), "").replace(Regex("_time_.*$"), "").replace(Regex("_city.*$"), "")
+                            val normKey = "$host:$port:$normUser:$pass"
+                            val userPassKey = "$normUser:$pass"
+                            if (existing.contains(key) || existing.contains(normKey) || existing.contains(userPassKey)) continue
                             var name = "OwlProxy ${i + 1}"
                             var suffix = 1
                             while (pm.getProfile(name) != null) name = "OwlProxy ${i + 1}_${suffix++}"
@@ -150,7 +154,7 @@ fun ProxiesScreen(
                             profile.setIsUserpw(true)
                             profile.setUsername(user)
                             profile.setPassword(pass)
-                            existing.add(key)
+                            existing.add(key); existing.add(normKey); existing.add(userPassKey)
                             added = true
                         }
                         if (added) {
