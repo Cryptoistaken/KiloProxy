@@ -54,16 +54,11 @@ jobs:
             echo "$RELEASE_KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/ks/kiloproxy-release.jks"
           fi
 
-      # --- Build: arm64-v8a only on push to master; all ABIs on tags ---
+      # --- Build: all ABIs + universal (universal contains all 4 .so sets; OS picks best at runtime) ---
       - name: Build Release APK
         run: |
-          if [ "${{ github.ref_type }}" = "tag" ]; then
-            echo "Tag push — building all ABIs"
-            gradle assembleRelease --warning-mode all
-          else
-            echo "Branch push — building arm64-v8a only"
-            gradle assembleRelease -Pabi=arm64-v8a --warning-mode all
-          fi
+          echo "Building universal + per-ABI APKs (all ABIs)"
+          gradle assembleRelease --warning-mode all
         env:
           ANDROID_NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/27.0.12077973
           KILO_KEYSTORE_FILE: ${{ runner.temp }}/ks/kiloproxy-release.jks
