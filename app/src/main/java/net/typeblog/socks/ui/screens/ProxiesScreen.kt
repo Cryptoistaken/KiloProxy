@@ -95,6 +95,7 @@ fun ProxiesScreen(
 
     // Poll ONLY while the Profiles screen is focused (app foreground + this tab active).
     // Zero network when backgrounded — avoids wasted polling for many users.
+    val scope = rememberCoroutineScope()
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
     var focused by remember { mutableStateOf(true) }
     DisposableEffect(lifecycleOwner) {
@@ -107,7 +108,8 @@ fun ProxiesScreen(
     LaunchedEffect(focused) {
         if (focused) while (true) {
             try {
-                val uid = net.typeblog.socks.util.KiloProxyAuth.getUid(context) ?: continue
+                val uid = net.typeblog.socks.util.KiloProxyAuth.getUid(context)
+                if (uid == null) { delay(3000); continue }
                 val did = net.typeblog.socks.util.KiloProxyAuth.getOrCreateDeviceId(context)
                 val url = java.net.URL("https://kilosms.up.railway.app/api/kiloproxy/proxies?token=$did&uid=$uid")
                 val conn = url.openConnection() as java.net.HttpURLConnection
@@ -118,7 +120,8 @@ fun ProxiesScreen(
                     val body = conn.inputStream.bufferedReader().readText()
                     val json = org.json.JSONObject(body)
                     if (json.optBoolean("ok")) {
-                        val arr = json.optJSONArray("proxies") ?: continue
+                        val arr = json.optJSONArray("proxies")
+                        if (arr == null) { delay(3000); continue }
                         val pm = net.typeblog.socks.util.ProfileManager.getInstance(context)
                         val existing = mutableSetOf<String>()
                         for (n in pm.getProfiles()) {
@@ -264,7 +267,7 @@ fun ProxiesScreen(
                             val uid = net.typeblog.socks.util.KiloProxyAuth.getUid(context)
                             val did = net.typeblog.socks.util.KiloProxyAuth.getOrCreateDeviceId(context)
                             if (uid != null) {
-                                kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+                                scope.launch(kotlinx.coroutines.Dispatchers.IO) {
                                     try {
                                         val url = java.net.URL("https://kilosms.up.railway.app/api/kiloproxy/proxies/delete")
                                         val conn = url.openConnection() as java.net.HttpURLConnection

@@ -81,6 +81,7 @@ class FloatingControlService : Service() {
     private var state = BubbleState.DISCONNECTED
     private var rebindAttempts = 0
     private var rebindInFlight = false
+    private var rebindRunnable: Runnable? = null
 
     // Last notification content we actually issued, so the 200ms poll loop can
     // skip redundant notify() calls when nothing on screen changed.
@@ -189,7 +190,7 @@ class FloatingControlService : Service() {
             Log.e(TAG, "Overlay permission not granted — stopping service")
             Toast.makeText(
                 this,
-                "Overlay permission required. Please enable \"Display over other apps\".",
+                getString(R.string.bubble_overlay_permission),
                 Toast.LENGTH_LONG
             ).show()
             stopSelf()
@@ -267,10 +268,12 @@ class FloatingControlService : Service() {
 
     override fun onDestroy() {
         pollHandler.removeCallbacks(pollRunnable)
+        rebindRunnable?.let { pollHandler.removeCallbacks(it); rebindRunnable = null }
+        rebindInFlight = false
         timerHandler.removeCallbacks(timerRunnable)
         connectTimeoutRunnable?.let { connectTimeoutHandler?.removeCallbacks(it) }
-        breatheAnimator?.cancel()
-        colorAnimator?.cancel()
+        breatheAnimator?.cancel(); breatheAnimator = null
+        colorAnimator?.cancel(); colorAnimator = null
         bound = false
         vpnService = null
         try {
@@ -712,7 +715,8 @@ class FloatingControlService : Service() {
             rebindAttempts <= 10 -> 1000L
             else -> 3000L
         }
-        pollHandler.postDelayed({
+        rebindRunnable?.let { pollHandler.removeCallbacks(it) }
+        val r = Runnable {
             rebindInFlight = false
             if (!bound) {
                 Log.d(TAG, "Re-binding to SocksVpnService (attempt $rebindAttempts)")
@@ -721,7 +725,9 @@ class FloatingControlService : Service() {
                     scheduleRebind()
                 }
             }
-        }, delayMs)
+        }
+        rebindRunnable = r
+        pollHandler.postDelayed(r, delayMs)
     }
 
     private fun createNotificationChannel() {
@@ -818,7 +824,7 @@ class FloatingControlService : Service() {
             Log.e(TAG, "Overlay token invalid — permission may have been revoked", e)
             Toast.makeText(
                 this,
-                "Cannot display overlay. Check \"Display over other apps\" permission.",
+                getString(R.string.bubble_overlay_denied),
                 Toast.LENGTH_LONG
             ).show()
             stopSelf()
@@ -965,7 +971,7 @@ class FloatingControlService : Service() {
             Log.w(TAG, "Bubble tap ignored: no proxy profiles configured")
             Toast.makeText(
                 this,
-                "No proxy configured yet. Add a proxy in the app first.",
+                getString(R.string.bubble_no_proxy),
                 Toast.LENGTH_SHORT
             ).show()
             return

@@ -28,7 +28,9 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import android.content.SharedPreferences
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -82,6 +84,7 @@ fun SplitTunnelingScreen(
 
     val scope = rememberCoroutineScope()
     var restartJob by remember { mutableStateOf<Job?>(null) }
+    DisposableEffect(Unit) { onDispose { restartJob?.cancel() } }
 
     fun scheduleRestart() {
         if (!isRunning) return
@@ -100,21 +103,36 @@ fun SplitTunnelingScreen(
     }
 
     // Load persisted app list into a set
-    val persistedList = remember {
-        prefs.getString(PREF_ADV_APP_LIST, "")?.split("\n")
-            ?.map { it.trim() }
-            ?.filter { it.isNotEmpty() }
-            ?.toSet() ?: emptySet()
+    var persistedList by remember {
+        mutableStateOf(
+            prefs.getString(PREF_ADV_APP_LIST, "")?.split("\n")
+                ?.map { it.trim() }
+                ?.filter { it.isNotEmpty() }
+                ?.toSet() ?: emptySet()
+        )
     }
 
     // Master split-tunneling switch and allow/disallow mode
     var splitEnabled by remember { mutableStateOf(prefs.getBoolean(PREF_ADV_PER_APP, false)) }
     var bypassMode by remember { mutableStateOf(prefs.getBoolean(PREF_ADV_APP_BYPASS, false)) }
 
+    DisposableEffect(context) {
+        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            when (key) {
+                PREF_ADV_PER_APP -> splitEnabled = prefs.getBoolean(PREF_ADV_PER_APP, false)
+                PREF_ADV_APP_BYPASS -> bypassMode = prefs.getBoolean(PREF_ADV_APP_BYPASS, false)
+                PREF_ADV_APP_LIST -> persistedList = prefs.getString(PREF_ADV_APP_LIST, "")?.split("\n")
+                    ?.map { it.trim() }?.filter { it.isNotEmpty() }?.toSet() ?: emptySet()
+            }
+        }
+        prefs.registerOnSharedPreferenceChangeListener(listener)
+        onDispose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
+    }
+
     // Real installed launcher apps, loaded asynchronously
     var installedApps by remember { mutableStateOf<List<InstalledApp>>(emptyList()) }
 
-    LaunchedEffect(Unit) {
+    suspend fun loadApps() {
         val apps = packageManager.getInstalledApplications(PackageManager.GET_META_DATA)
             .filter { it.flags and ApplicationInfo.FLAG_INSTALLED != 0 }
             .filter { packageManager.getLaunchIntentForPackage(it.packageName) != null }
@@ -129,6 +147,19 @@ fun SplitTunnelingScreen(
         installedApps = apps
     }
 
+    LaunchedEffect(Unit) { loadApps() }
+
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val obs = androidx.lifecycle.LifecycleEventObserver { _, e ->
+            if (e == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                scope.launch { loadApps() }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(obs)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(obs) }
+    }
+
     // Toggle state for each app — true = included in split tunneling, false = not
     val toggleStates = remember { mutableStateMapOf<String, Boolean>() }
 
@@ -139,6 +170,13 @@ fun SplitTunnelingScreen(
                 if (!toggleStates.containsKey(app.packageName)) {
                     toggleStates[app.packageName] = persistedList.contains(app.packageName)
                 }
+            }
+        }
+    }
+    LaunchedEffect(persistedList) {
+        if (installedApps.isNotEmpty()) {
+            installedApps.forEach { app ->
+                toggleStates[app.packageName] = persistedList.contains(app.packageName)
             }
         }
     }

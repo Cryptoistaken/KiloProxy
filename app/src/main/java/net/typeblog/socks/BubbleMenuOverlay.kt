@@ -116,7 +116,7 @@ class BubbleMenuOverlay(
             if (shown.contains(code)) null else Countries.fromCode(code)
         }
         if (recentRows.isNotEmpty()) {
-            list.addView(sectionLabel("RECENT"))
+            list.addView(sectionLabel(context.getString(R.string.bubble_section_recent)))
             recentRows.forEach {
                 list.addView(makeRow(it, isConnected = it.code == connectedCode))
                 shown.add(it.code)
@@ -128,7 +128,7 @@ class BubbleMenuOverlay(
             list.addView(separatorView())
         }
         if (allRows.isNotEmpty()) {
-            list.addView(sectionLabel("ALL"))
+            list.addView(sectionLabel(context.getString(R.string.bubble_section_all)))
             allRows.forEach { list.addView(makeRow(it, isConnected = false)) }
         }
 
@@ -167,7 +167,7 @@ class BubbleMenuOverlay(
                     }
                 }
                 if (filtered.isEmpty()) {
-                    list.addView(sectionLabel("NO RESULTS"))
+                    list.addView(sectionLabel(context.getString(R.string.bubble_section_no_results)))
                 } else {
                     var lastWasSection = false
                     val connectedItems = filtered.filter { it.second }
@@ -379,6 +379,7 @@ class BubbleMenuOverlay(
             // Connected: hide dial, show pulsing green dot
             dialView.visibility = View.GONE
             dot.visibility = View.VISIBLE
+            connectedDotAnimator?.cancel()
             connectedDotAnimator = ObjectAnimator.ofPropertyValuesHolder(
                 dot,
                 PropertyValuesHolder.ofFloat("alpha", 0.6f, 1f),
@@ -401,7 +402,7 @@ class BubbleMenuOverlay(
                 onCountrySelected(country.code)
                 hide()
             } else {
-                showMessage("Country switching is not available for this profile")
+                showMessage(context.getString(R.string.bubble_country_switch_unavailable))
             }
         }
         return row

@@ -8,29 +8,28 @@ on:
     branches: [ "master" ]
   workflow_dispatch:
 
-permissions:
-  contents: write
-
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Set git init default branch to master
         run: git config --global init.defaultBranch master
 
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
 
       - name: Set up JDK 17
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
         with:
           java-version: 17
           distribution: 'temurin'
 
       - name: Setup Android SDK
-        uses: android-actions/setup-android@v4
+        uses: android-actions/setup-android@40fd30fb8d7440372e1316f5d1809ec01dcd3699 # v4
 
       # --- Install NDK only if not already pre-installed on runner ---
       - name: Install NDK (skip if present)
@@ -44,13 +43,15 @@ jobs:
           fi
 
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v6
+        uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6
 
       - name: Restore signing keystore
+        env:
+          RELEASE_KEYSTORE_B64: ${{ secrets.RELEASE_KEYSTORE_B64 }}
         run: |
-          if [ -n "${{ secrets.RELEASE_KEYSTORE_B64 }}" ]; then
+          if [ -n "$RELEASE_KEYSTORE_B64" ]; then
             mkdir -p "$RUNNER_TEMP/ks"
-            echo "${{ secrets.RELEASE_KEYSTORE_B64 }}" | base64 -d > "$RUNNER_TEMP/ks/kiloproxy-release.jks"
+            echo "$RELEASE_KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/ks/kiloproxy-release.jks"
           fi
 
       # --- Build: arm64-v8a only on push to master; all ABIs on tags ---
@@ -89,7 +90,7 @@ jobs:
           ls -1
 
       - name: Upload APK
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: app-release
           path: app/build/outputs/apk/release/*.apk
@@ -119,7 +120,7 @@ jobs:
       # tag pushes would create a new tag each run and loop releases).
       - name: Publish GitHub Release (v${{ steps.vc.outputs.code }})
         if: github.ref_type == 'branch' && github.event_name == 'push'
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           tag_name: v${{ steps.vc.outputs.code }}
           name: v${{ steps.vc.outputs.code }}

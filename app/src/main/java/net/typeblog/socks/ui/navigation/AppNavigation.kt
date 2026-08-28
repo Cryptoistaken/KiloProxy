@@ -134,7 +134,7 @@ fun AppNavigation() {
                     viewModel = vpnViewModel,
                     onConnected = {
                         navController.navigate(Screen.Connect.route) {
-                            popUpTo(Screen.Countries.route) { inclusive = false }
+                            popUpTo(Screen.Countries.route) { inclusive = true }
                         }
                     }
                 )

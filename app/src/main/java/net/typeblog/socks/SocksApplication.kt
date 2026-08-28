@@ -8,6 +8,6 @@ class SocksApplication : Application() {
         super.onCreate()
 
         // Ensure default preference values are set before reading
-        PreferenceManager.setDefaultValues(this, R.xml.settings, true)
+        PreferenceManager.setDefaultValues(this, R.xml.settings, false)
     }
 }

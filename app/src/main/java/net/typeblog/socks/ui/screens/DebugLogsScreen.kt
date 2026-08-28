@@ -79,8 +79,11 @@ fun DebugLogsScreen(onNavigateBack: () -> Unit) {
                 actions = {
                     IconButton(onClick = {
                         scope.launch(Dispatchers.IO) {
-                            logs.value = LogCollector.collectLogs(context)
-                            Toast.makeText(context, "Logs refreshed", Toast.LENGTH_SHORT).show()
+                            val fresh = LogCollector.collectLogs(context)
+                            withContext(Dispatchers.Main) {
+                                logs.value = fresh
+                                Toast.makeText(context, "Logs refreshed", Toast.LENGTH_SHORT).show()
+                            }
                         }
                     }) {
                         Icon(

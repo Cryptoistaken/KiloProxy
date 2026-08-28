@@ -107,6 +107,10 @@ object UpdateChecker {
         val asset = arm64Asset ?: assets.getJSONObject(0)
         val apkUrl = asset.optString("browser_download_url")
         if (apkUrl.isEmpty()) return null
+        if (!apkUrl.startsWith("https://")) {
+            Log.w(TAG, "parseRelease() -> non-https apkUrl rejected: $apkUrl")
+            return null
+        }
 
         Log.d(TAG, "parseRelease() -> picked asset '${asset.optString("name")}' (${asset.optLong("size")} bytes) from release $tag")
         return UpdateInfo(
@@ -133,6 +137,7 @@ object UpdateChecker {
         totalBytes: Long = 0L,
         onProgress: ((Float) -> Unit)? = null
     ): String? {
+        if (!url.startsWith("https://")) return "Update URL must use HTTPS"
         var lastException: Exception? = null
         repeat(MAX_RETRIES) { attempt ->
             var connection: HttpURLConnection? = null

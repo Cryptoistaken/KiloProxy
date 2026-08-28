@@ -29,11 +29,14 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import android.content.SharedPreferences
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -80,6 +83,18 @@ fun SettingsScreen(
     var splitEnabled by remember {
         mutableStateOf(prefs.getBoolean(PREF_ADV_PER_APP, false))
     }
+    DisposableEffect(context) {
+        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            when (key) {
+                PREF_THEME_MODE -> themeMode = prefs.getString(PREF_THEME_MODE, "light") ?: "light"
+                PREF_FLOATING_CONTROL -> floatingControl = prefs.getBoolean(PREF_FLOATING_CONTROL, false)
+                PREF_NETSHIELD_ENABLED -> netShieldEnabled = prefs.getBoolean(PREF_NETSHIELD_ENABLED, false)
+                PREF_ADV_PER_APP -> splitEnabled = prefs.getBoolean(PREF_ADV_PER_APP, false)
+            }
+        }
+        prefs.registerOnSharedPreferenceChangeListener(listener)
+        onDispose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
+    }
     var showThemeDialog by remember { mutableStateOf(false) }
     var checkingUpdates by remember { mutableStateOf(false) }
     var updateInfo by remember { mutableStateOf<UpdateChecker.UpdateInfo?>(null) }
@@ -118,7 +133,7 @@ fun SettingsScreen(
         UpdateDialog(info = info, onDismiss = { updateInfo = null })
     }
 
-    var pendingFloatingStart by remember { mutableStateOf(false) }
+    var pendingFloatingStart by rememberSaveable { mutableStateOf(false) }
 
     if (whatsNewLoading) {
         AlertDialog(

@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.VpnService
 import android.os.Build
+import android.os.UserManager
 import android.provider.Settings
 import android.util.Log
 import androidx.preference.PreferenceManager
@@ -16,7 +17,15 @@ import net.typeblog.socks.BuildConfig.DEBUG
 
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        val p: Profile = ProfileManager.getInstance(context).getDefault()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            val um = context.getSystemService(Context.USER_SERVICE) as? UserManager
+            if (um != null && !um.isUserUnlocked) return
+        }
+        val p: Profile = try {
+            ProfileManager.getInstance(context.applicationContext).getDefault()
+        } catch (_: Exception) {
+            return
+        }
 
         if (p.autoConnect() && VpnService.prepare(context) == null) {
             if (DEBUG) {

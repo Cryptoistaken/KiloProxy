@@ -183,6 +183,10 @@ fun ConnectionCard(
             // Timer/status line — always rendered (same height) so nothing shifts.
             Spacer(modifier = Modifier.height(12.dp))
             val elapsed by produceState(initialValue = 0L, isConnected, connectedSince) {
+                if (!isConnected || connectedSince <= 0L) {
+                    value = 0L
+                    return@produceState
+                }
                 while (true) {
                     value = System.currentTimeMillis() - connectedSince
                     delay(1000)

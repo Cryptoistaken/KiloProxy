@@ -28,6 +28,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -64,13 +67,15 @@ fun CountriesScreen(
     val isRunning by viewModel.isRunning.collectAsState()
     val activeProfileName by viewModel.activeProfileName.collectAsState()
     val profiles by viewModel.profiles.collectAsState()
+    val profileVersion by viewModel.profileVersion.collectAsState()
 
     var query by remember { mutableStateOf("") }
     var recentCountries by remember { mutableStateOf(Utility.getRecentCountries(context)) }
+    var countryRewriteTick by remember { mutableStateOf(0) }
 
     // The country switch always targets the default profile, matching the
     // floating bubble's country menu.
-    val defaultProfileName = remember(profiles) {
+    val defaultProfileName = remember(profiles, profileVersion) {
         try {
             val pm = ProfileManager.getInstance(context)
             pm.getDefault().getName()
@@ -81,7 +86,7 @@ fun CountriesScreen(
 
     // Connected-country marking, same shape as ProxiesScreen's per-card
     // `isRunning && activeProfileName == profileName` check.
-    val connectedCountryCode = remember(defaultProfileName, activeProfileName, isRunning) {
+    val connectedCountryCode = remember(defaultProfileName, activeProfileName, isRunning, profileVersion, countryRewriteTick) {
         if (!isRunning || activeProfileName != defaultProfileName || defaultProfileName == null) {
             null
         } else {
@@ -158,12 +163,15 @@ fun CountriesScreen(
             profile.setUsername(newUsername)
             Utility.addRecentCountry(context, code)
             recentCountries = Utility.getRecentCountries(context)
+            countryRewriteTick++
             val target = defaultProfileName ?: return
             if (isRunning) {
-                // Running tunnel keeps its old zone — restart to apply the switch.
                 scope.launch {
                     viewModel.stopVpn(context)
-                    delay(500)
+                    val deadline = System.currentTimeMillis() + 5000
+                    while (viewModel.isRunning.value && System.currentTimeMillis() < deadline) {
+                        delay(150)
+                    }
                     connectToProfile(target)
                 }
             } else {
@@ -302,7 +310,8 @@ private fun CountryRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .semantics { role = Role.Button }
+            .clickable(role = Role.Button, onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {

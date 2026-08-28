@@ -1,35 +1,87 @@
 package net.typeblog.socks.util
 
 import android.content.Context
+import android.content.SharedPreferences
 import androidx.preference.PreferenceManager
+import androidx.security.crypto.EncryptedSharedPreferences
+import androidx.security.crypto.MasterKey
 
 object KiloProxyAuth {
     private const val KEY_UID = "kiloproxy_telegram_id"
     private const val KEY_USERNAME = "kiloproxy_username"
     private const val KEY_DEVICE = "kiloproxy_device_id"
+    private const val SECURE_PREF = "kiloproxy_auth"
+
+    private fun createEncryptedPrefs(ctx: Context): SharedPreferences {
+        val masterKey = MasterKey.Builder(ctx)
+            .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+            .build()
+        return EncryptedSharedPreferences.create(
+            ctx,
+            SECURE_PREF,
+            masterKey,
+            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+        )
+    }
+
+    private fun getSecurePrefs(context: Context): SharedPreferences {
+        val appCtx = context.applicationContext
+        return try {
+            createEncryptedPrefs(appCtx)
+        } catch (e: Exception) {
+            try {
+                appCtx.deleteSharedPreferences(SECURE_PREF)
+                try {
+                    val ks = java.security.KeyStore.getInstance("AndroidKeyStore")
+                    ks.load(null)
+                    ks.deleteEntry(MasterKey.DEFAULT_MASTER_KEY_ALIAS)
+                } catch (_: Exception) {}
+            } catch (_: Exception) {}
+            createEncryptedPrefs(appCtx)
+        }
+    }
+
+    private fun migratedGet(context: Context, key: String): String? {
+        val secure = getSecurePrefs(context)
+        var v = secure.getString(key, null)
+        if (v == null) {
+            val plain = PreferenceManager.getDefaultSharedPreferences(context.applicationContext).getString(key, null)
+            if (!plain.isNullOrEmpty()) {
+                secure.edit().putString(key, plain).apply()
+                v = plain
+            }
+        }
+        return v
+    }
 
     fun isLoggedIn(context: Context): Boolean {
-        val prefs = PreferenceManager.getDefaultSharedPreferences(context)
-        return prefs.getString(KEY_UID, null)?.isNotEmpty() == true
+        return !migratedGet(context, KEY_UID).isNullOrEmpty()
     }
 
     fun getUid(context: Context): String? {
-        return PreferenceManager.getDefaultSharedPreferences(context).getString(KEY_UID, null)
+        return migratedGet(context, KEY_UID)
     }
 
     fun getUsername(context: Context): String? {
-        return PreferenceManager.getDefaultSharedPreferences(context).getString(KEY_USERNAME, null)
+        return migratedGet(context, KEY_USERNAME)
     }
 
     fun saveLogin(context: Context, uid: String, username: String?) {
-        PreferenceManager.getDefaultSharedPreferences(context).edit()
+        getSecurePrefs(context).edit()
             .putString(KEY_UID, uid)
             .putString(KEY_USERNAME, username ?: "")
             .apply()
     }
 
     fun clear(context: Context) {
-        PreferenceManager.getDefaultSharedPreferences(context).edit()
+        getSecurePrefs(context).edit()
+            .remove(KEY_UID)
+            .remove(KEY_USERNAME)
+            .remove(KEY_DEVICE)
+            .apply()
+        // also clear plaintext copies if any remain from pre-migration
+        PreferenceManager.getDefaultSharedPreferences(context.applicationContext).edit()
             .remove(KEY_UID)
             .remove(KEY_USERNAME)
             .remove(KEY_DEVICE)
@@ -37,12 +89,22 @@ object KiloProxyAuth {
     }
 
     fun getOrCreateDeviceId(context: Context): String {
-        val prefs = PreferenceManager.getDefaultSharedPreferences(context)
-        var id = prefs.getString(KEY_DEVICE, null)
-        if (id.isNullOrEmpty()) {
-            id = (0..15).map { (('a'..'z') + ('0'..'9')).random() }.joinToString("")
-            prefs.edit().putString(KEY_DEVICE, id).apply()
+        val secure = getSecurePrefs(context)
+        var id = secure.getString(KEY_DEVICE, null)
+        if (!id.isNullOrEmpty()) return id
+        // migrate from plaintext if present
+        val plain = PreferenceManager.getDefaultSharedPreferences(context.applicationContext).getString(KEY_DEVICE, null)
+        if (!plain.isNullOrEmpty()) {
+            secure.edit().putString(KEY_DEVICE, plain).apply()
+            return plain
         }
+        // generate with SecureRandom, 16-char [a-z0-9]
+        val chars = "abcdefghijklmnopqrstuvwxyz0123456789"
+        val rnd = java.security.SecureRandom()
+        val sb = StringBuilder(16)
+        repeat(16) { sb.append(chars[rnd.nextInt(chars.length)]) }
+        id = sb.toString()
+        secure.edit().putString(KEY_DEVICE, id).apply()
         return id
     }
 

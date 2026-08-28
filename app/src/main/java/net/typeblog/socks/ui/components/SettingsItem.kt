@@ -20,6 +20,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import net.typeblog.socks.R
 
@@ -46,7 +49,9 @@ fun SettingsItem(
         modifier = modifier
             .fillMaxWidth()
             .then(
-                if (onClick != null) Modifier.clickable(onClick = onClick)
+                if (onClick != null) Modifier
+                    .semantics { role = Role.Button }
+                    .clickable(role = Role.Button, onClick = onClick)
                 else Modifier
             )
             .heightIn(min = 56.dp)

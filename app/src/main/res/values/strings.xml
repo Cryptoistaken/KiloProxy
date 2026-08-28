@@ -63,4 +63,11 @@
     <string name="whats_new_dialog_title">What\'s new</string>
     <string name="whats_new_loading">Loading…</string>
     <string name="whats_new_error">Couldn\'t load release notes</string>
+    <string name="bubble_overlay_permission">Overlay permission required. Please enable \"Display over other apps\".</string>
+    <string name="bubble_overlay_denied">Cannot display overlay. Check \"Display over other apps\" permission.</string>
+    <string name="bubble_no_proxy">No proxy configured yet. Add a proxy in the app first.</string>
+    <string name="bubble_section_recent">RECENT</string>
+    <string name="bubble_section_all">ALL</string>
+    <string name="bubble_section_no_results">NO RESULTS</string>
+    <string name="bubble_country_switch_unavailable">Country switching is not available for this profile</string>
 </resources>

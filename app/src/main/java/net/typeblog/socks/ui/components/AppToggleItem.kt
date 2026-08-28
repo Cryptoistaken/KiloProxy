@@ -18,13 +18,16 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.painter.BitmapPainter
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import net.typeblog.socks.ui.theme.GeistMonoFonts
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -84,23 +87,27 @@ fun AppToggleItem(
             contentAlignment = Alignment.Center
         ) {
             if (icon != null) {
-                val bitmap = remember(icon) {
-                    val bmp = Bitmap.createBitmap(
-                        icon.intrinsicWidth.coerceAtLeast(1),
-                        icon.intrinsicHeight.coerceAtLeast(1),
-                        Bitmap.Config.ARGB_8888
-                    )
-                    val canvas = android.graphics.Canvas(bmp)
-                    icon.setBounds(0, 0, canvas.width, canvas.height)
-                    icon.draw(canvas)
-                    bmp
+                val bitmap by produceState<Bitmap?>(initialValue = null, icon) {
+                    value = withContext(Dispatchers.IO) {
+                        val bmp = Bitmap.createBitmap(
+                            icon.intrinsicWidth.coerceAtLeast(1),
+                            icon.intrinsicHeight.coerceAtLeast(1),
+                            Bitmap.Config.ARGB_8888
+                        )
+                        val canvas = android.graphics.Canvas(bmp)
+                        icon.setBounds(0, 0, canvas.width, canvas.height)
+                        icon.draw(canvas)
+                        bmp
+                    }
                 }
-                Icon(
-                    painter = BitmapPainter(bitmap.asImageBitmap()),
-                    contentDescription = appName,
-                    modifier = Modifier.size(24.dp),
-                    tint = Color.Unspecified
-                )
+                if (bitmap != null) {
+                    Icon(
+                        painter = BitmapPainter(bitmap!!.asImageBitmap()),
+                        contentDescription = appName,
+                        modifier = Modifier.size(24.dp),
+                        tint = Color.Unspecified
+                    )
+                }
             } else {
                 Text(
                     text = firstLetter,

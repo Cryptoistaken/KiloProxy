@@ -32,7 +32,9 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -44,7 +46,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.preference.PreferenceManager
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import net.typeblog.socks.R
 import net.typeblog.socks.ui.components.ConnectionCard
 import net.typeblog.socks.ui.components.ConnectionStatusCard
@@ -52,6 +56,7 @@ import net.typeblog.socks.ui.components.DataUsageCard
 import net.typeblog.socks.ui.viewmodel.VpnViewModel
 import net.typeblog.socks.util.ProfileManager
 import net.typeblog.socks.util.ProxyProviders
+import net.typeblog.socks.util.Utility
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -79,10 +84,27 @@ fun StatusScreen(
     val proxyVerified by viewModel.proxyVerified.collectAsState()
     val isConnecting by viewModel.isConnecting.collectAsState()
 
-    var selectedProfile by remember { mutableStateOf<String?>(null) }
+    var selectedProfile by rememberSaveable { mutableStateOf<String?>(null) }
     var menuExpanded by remember { mutableStateOf(false) }
 
     val isActuallyConnected = isRunning && connectedSince > 0L && proxyVerified
+
+    var connectStartMs by rememberSaveable { mutableStateOf(0L) }
+    LaunchedEffect(isConnecting) {
+        if (isConnecting) {
+            if (connectStartMs == 0L) connectStartMs = System.currentTimeMillis()
+        } else {
+            connectStartMs = 0L
+        }
+    }
+    LaunchedEffect(connectStartMs) {
+        if (connectStartMs != 0L) {
+            val elapsed = System.currentTimeMillis() - connectStartMs
+            val remaining = 20000L - elapsed
+            if (remaining > 0) delay(remaining)
+            if (connectStartMs != 0L) viewModel.onConnectTimeout()
+        }
+    }
 
     LaunchedEffect(errorMessage) {
         val message = errorMessage
@@ -91,13 +113,6 @@ fun StatusScreen(
             // A failure ends any in-flight connect request so the button is
             // never left stuck on a disabled "Connecting…" state.
             viewModel.cancelConnect()
-        }
-    }
-
-    LaunchedEffect(isConnecting) {
-        if (isConnecting) {
-            delay(20000)
-            viewModel.onConnectTimeout()
         }
     }
 
@@ -169,32 +184,34 @@ fun StatusScreen(
 
     // Show persisted totals when disconnected so the usage card is never blank.
     val displayProfileName = selectedProfile ?: activeProfileName ?: profiles.firstOrNull()
-    val persistedUsage = remember(displayProfileName, receivedBytes, sentBytes, isRunning, proxyVerified) {
+    val persistedUsage by produceState(
+        initialValue = Triple(false, receivedBytes, sentBytes),
+        displayProfileName, receivedBytes, sentBytes, isRunning, proxyVerified, connectedSince
+    ) {
         if (isRunning && connectedSince > 0L && proxyVerified) {
-            // Live, cumulative values from the running service.
-            Triple(false, receivedBytes, sentBytes)
+            value = Triple(false, receivedBytes, sentBytes)
         } else {
-            // Disconnected: keep the last-known session totals when available;
-            // otherwise fall back to the profile's persisted history so the
-            // card never drops to zero after a disconnect.
             var rx = receivedBytes
             var tx = sentBytes
             if (rx <= 0L && tx <= 0L) {
-                rx = 0L
-                tx = 0L
-                try {
-                    val pm = ProfileManager.getInstance(context)
-                    val p = displayProfileName?.let { pm.getProfile(it) }
-                    if (p != null) {
-                        val suffix = displayProfileName?.replace(Regex("[^A-Za-z0-9]"), "_") ?: ""
-                        val prefs = PreferenceManager.getDefaultSharedPreferences(context)
-                        rx = prefs.getLong("usage_rx_${displayProfileName}_$suffix", 0L)
-                        tx = prefs.getLong("usage_tx_${displayProfileName}_$suffix", 0L)
-                    }
-                } catch (_: Exception) {
+                val loaded = withContext(Dispatchers.IO) {
+                    try {
+                        val pm = ProfileManager.getInstance(context)
+                        val p = displayProfileName?.let { pm.getProfile(it) }
+                        if (p != null) {
+                            val suffix = displayProfileName?.let { Utility.usageSuffix(it) } ?: ""
+                            val prefs = PreferenceManager.getDefaultSharedPreferences(context)
+                            Pair(
+                                prefs.getLong("usage_rx_${displayProfileName}_$suffix", 0L),
+                                prefs.getLong("usage_tx_${displayProfileName}_$suffix", 0L)
+                            )
+                        } else Pair(0L, 0L)
+                    } catch (_: Exception) { Pair(0L, 0L) }
                 }
+                rx = loaded.first
+                tx = loaded.second
             }
-            Triple(true, rx, tx)
+            value = Triple(true, rx, tx)
         }
     }
 

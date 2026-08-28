@@ -78,6 +78,9 @@ android {
     def ksFile = env('KILO_KEYSTORE_FILE')
     def usePersistentSigning = ksFile != null && new File(ksFile).exists() &&
             env('KILO_KEYSTORE_PASSWORD') != null && env('KILO_KEY_ALIAS') != null && env('KILO_KEY_PASSWORD') != null
+    if (!usePersistentSigning) {
+        println("⚠️  KILO_KEYSTORE_* not set or keystore missing — falling back to debug keystore; release will NOT install over store builds")
+    }
 
     signingConfigs {
         release {

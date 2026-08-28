@@ -8,7 +8,6 @@ import android.content.Context
 import android.content.Context.RECEIVER_EXPORTED
 import android.content.Intent
 import android.content.IntentFilter
-import android.content.SharedPreferences
 import android.content.pm.ServiceInfo
 import android.net.VpnService
 import android.net.VpnService.Builder
@@ -26,6 +25,7 @@ import androidx.core.app.NotificationCompat
 import androidx.preference.PreferenceManager
 import net.typeblog.socks.R
 import net.typeblog.socks.util.Constants
+import net.typeblog.socks.util.Constants.ACTION_NETSHIELD_CHANGED
 import net.typeblog.socks.util.Constants.ACTION_STOP_VPN
 import net.typeblog.socks.util.Constants.INTENT_APP_BYPASS
 import net.typeblog.socks.util.Constants.INTENT_APP_LIST
@@ -41,13 +41,13 @@ import net.typeblog.socks.util.Constants.INTENT_SERVER
 import net.typeblog.socks.util.Constants.INTENT_UDP_GW
 import net.typeblog.socks.util.Constants.INTENT_USERNAME
 import net.typeblog.socks.util.Constants.PREF_AUTO_STOP
-import net.typeblog.socks.util.Constants.PREF_NETSHIELD_BLOCK_ADULT
-import net.typeblog.socks.util.Constants.PREF_NETSHIELD_ENABLED
 import net.typeblog.socks.util.IpInfo
 import net.typeblog.socks.util.Routes
 import net.typeblog.socks.util.SocksTester
 import net.typeblog.socks.util.Utility
 import net.typeblog.socks.BuildConfig.DEBUG
+import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicBoolean
 
 class SocksVpnService : VpnService() {
     inner class VpnBinder : IVpnService.Stub() {
@@ -149,9 +149,21 @@ class SocksVpnService : VpnService() {
     private var mConnectedSince: Long = 0L
     private var mError: String? = null
     private var mIpCheckFailures = 0
+    @Volatile
     private var mTunnelUp = false
     private var mPendingIpInfo: IpInfo? = null
     private val mIpCheckHandler = Handler(Looper.getMainLooper())
+    private val mMainHandler = Handler(Looper.getMainLooper())
+    private val mIpCheckExecutor = Executors.newSingleThreadExecutor { r ->
+        Thread(r, "ipcheck").apply { isDaemon = true }
+    }
+    private val mProbeInFlight = AtomicBoolean(false)
+    @Volatile
+    private var mSendfdCancelled = false
+    private var mNotificationReceiverRegistered = false
+    private var mScreenOffRegistered = false
+    private var mScreenOnRegistered = false
+    private var mNetshieldReceiverRegistered = false
 
     // Last notification content actually issued, so the retry loop can skip
     // redundant notify() calls when the visible text didn't change.
@@ -170,6 +182,7 @@ class SocksVpnService : VpnService() {
     private var mBaseTx = 0L
 
     private val mStatsHandler = Handler(Looper.getMainLooper())
+    @Volatile
     private var mStatsTick = 0L
     private val mStatsRunnable = object : Runnable {
         override fun run() {
@@ -224,11 +237,13 @@ class SocksVpnService : VpnService() {
             val port = mPort
             val username = mUsername
             val password = mPassword
-            Thread {
+            if (!mProbeInFlight.compareAndSet(false, true)) return
+            mIpCheckExecutor.execute {
                 try {
                     val info = Utility.checkPublicIp(server, port, username, password)
                     if (info != null) {
                         runOnMainThread {
+                            mProbeInFlight.set(false)
                             if (!mTunnelUp) {
                                 mPendingIpInfo = info
                             } else {
@@ -243,6 +258,7 @@ class SocksVpnService : VpnService() {
                         // counts as a dead proxy and may tear down the VPN.
                         val probe = SocksTester.probeProxy(server, port, username, password)
                         runOnMainThread {
+                            mProbeInFlight.set(false)
                             if (!mTunnelUp) {
                                 // Tunnel still spawning — quiet fast retry; the
                                 // failure counter/probe path is only valid once the
@@ -284,6 +300,7 @@ class SocksVpnService : VpnService() {
                 } catch (e: Exception) {
                     Log.e(TAG, "IP check failed", e)
                     runOnMainThread {
+                        mProbeInFlight.set(false)
                         if (!mTunnelUp) {
                             // Same rule as the failure branch: no failure counting
                             // while the tunnel is still spawning.
@@ -293,7 +310,7 @@ class SocksVpnService : VpnService() {
                         }
                     }
                 }
-            }.start()
+            }
         }
     }
 
@@ -316,19 +333,18 @@ class SocksVpnService : VpnService() {
 
     // Live NetShield toggles: flipping NetShield / Block adult content while
     // the tunnel is up re-evaluates the DNS upstream and restarts pdnsd.
-    private var mNetshieldPrefsListener: SharedPreferences.OnSharedPreferenceChangeListener? =
-        null
+    // UI writes prefs from the main process, so a broadcast (not a same-process
+    // SharedPreferences listener) carries the change into :vpn.
+    private val mNetshieldReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            reconcileNetshield()
+        }
+    }
 
-    private fun registerNetshieldPrefsListener() {
-        if (mNetshieldPrefsListener != null) return
-        val prefs = PreferenceManager.getDefaultSharedPreferences(this)
-        mNetshieldPrefsListener =
-            SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
-                if (key == PREF_NETSHIELD_ENABLED || key == PREF_NETSHIELD_BLOCK_ADULT) {
-                    if (mRunning) reconcileNetshield()
-                }
-            }
-        prefs.registerOnSharedPreferenceChangeListener(mNetshieldPrefsListener)
+    private fun registerNetshieldReceiver() {
+        if (mNetshieldReceiverRegistered) return
+        registerReceiverCompat(mNetshieldReceiver, IntentFilter(ACTION_NETSHIELD_CHANGED))
+        mNetshieldReceiverRegistered = true
     }
 
     private fun createNotificationChannel() {
@@ -351,11 +367,12 @@ class SocksVpnService : VpnService() {
         }
 
         if (intent == null) {
-            return 0
+            stopSelf()
+            return START_STICKY
         }
 
         if (mRunning) {
-            return 0
+            return START_STICKY
         }
 
         mProfileName = intent.getStringExtra(INTENT_NAME)
@@ -382,12 +399,14 @@ class SocksVpnService : VpnService() {
 
         createNotificationChannel()
 
-        registerNetshieldPrefsListener()
+        registerNetshieldReceiver()
 
         showNotification()
+        mRunning = true
 
             // Register notification action receiver
         registerReceiverCompat(mNotificationActionReceiver, IntentFilter(ACTION_STOP_VPN))
+        mNotificationReceiverRegistered = true
 
         configure(mProfileName, route, perApp, appBypass, appList, ipv6)
 
@@ -446,27 +465,37 @@ class SocksVpnService : VpnService() {
 
     override fun onDestroy() {
         Log.d(TAG, "onDestroy called")
-        if (mNetshieldPrefsListener != null) {
+        if (mNetshieldReceiverRegistered) {
             try {
-                PreferenceManager.getDefaultSharedPreferences(this)
-                    .unregisterOnSharedPreferenceChangeListener(mNetshieldPrefsListener)
-            } catch (e: Exception) {
-                Log.w(TAG, "unregister netshield prefs listener failed: ${e.message}")
-            }
-            mNetshieldPrefsListener = null
+                unregisterReceiver(mNetshieldReceiver)
+            } catch (_: Exception) {}
+            mNetshieldReceiverRegistered = false
         }
         super.onDestroy()
         stopMe("on_destroy")
     }
 
     private fun stopMe(reason: String = "") {
+        synchronized(this) {
+            if (!mRunning && reason != "on_destroy") return
+            if (mRunning) mRunning = false
+        }
         Log.d(TAG, "stopMe called" + if (reason.isNotEmpty()) " - reason: $reason" else "")
         if (reason.isEmpty()) {
             // Log stack trace when no reason is given to identify caller
             Log.d(TAG, "stopMe stack trace:", Throwable("stopMe caller trace"))
         }
+        mSendfdCancelled = true
+        mProbeInFlight.set(false)
         persistProfileBytes()
         mStatsHandler.removeCallbacks(mStatsRunnable)
+        mIpCheckHandler.removeCallbacks(mIpCheckRunnable)
+        if (mNetshieldReceiverRegistered) {
+            try {
+                unregisterReceiver(mNetshieldReceiver)
+            } catch (_: Exception) {}
+            mNetshieldReceiverRegistered = false
+        }
         if (Build.VERSION.SDK_INT >= 34) {
             stopForeground(STOP_FOREGROUND_DETACH)
         } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
@@ -536,24 +565,30 @@ class SocksVpnService : VpnService() {
         mStatsHandler.removeCallbacks(mStatsRunnable)
 
         try {
-            unregisterReceiver(mNotificationActionReceiver)
+            if (mNotificationReceiverRegistered) {
+                unregisterReceiver(mNotificationActionReceiver)
+                mNotificationReceiverRegistered = false
+            }
         } catch (_: Exception) { }
 
         try {
-            unregisterReceiver(mScreenOffReceiver)
-        } catch (e: Exception) { }
+            if (mScreenOffRegistered) {
+                unregisterReceiver(mScreenOffReceiver)
+                mScreenOffRegistered = false
+            }
+        } catch (_: Exception) { }
 
         try {
-            unregisterReceiver(mScreenOnReceiver)
-        } catch (e: Exception) { }
+            if (mScreenOnRegistered) {
+                unregisterReceiver(mScreenOnReceiver)
+                mScreenOnRegistered = false
+            }
+        } catch (_: Exception) { }
 
         stopSelf()
     }
 
-    private fun usageKeySuffix(): String {
-        val name = mProfileName ?: ""
-        return name.replace(Regex("[^A-Za-z0-9]"), "_")
-    }
+    private fun usageKeySuffix(): String = Utility.usageSuffix(mProfileName ?: "")
 
     private fun loadProfileBytes(profileName: String?) {
         val name = profileName ?: return
@@ -572,7 +607,7 @@ class SocksVpnService : VpnService() {
         prefs.edit()
             .putLong("usage_rx_${name}_$suffix", totalRx)
             .putLong("usage_tx_${name}_$suffix", totalTx)
-            .apply()
+            .commit()
         Log.d(TAG, "Persisted usage for ${name}_$suffix: rx=$totalRx tx=$totalTx")
     }
 
@@ -581,6 +616,7 @@ class SocksVpnService : VpnService() {
             .setContentTitle(getString(R.string.notify_title))
             .setContentText(getString(R.string.notify_msg, mProfileName ?: ""))
             .setSmallIcon(R.drawable.ic_launcher)
+            .setOngoing(true)
             .build()
 
         if (Build.VERSION.SDK_INT >= 34) {
@@ -664,6 +700,11 @@ class SocksVpnService : VpnService() {
                     }
                 }
             } else {
+                try {
+                    b.addDisallowedApplication(packageName)
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error: ${e.message}", e)
+                }
                 for (p in apps!!) {
                     if (TextUtils.isEmpty(p) || p.trim { it <= ' ' } == packageName) continue
                     try {
@@ -690,6 +731,7 @@ class SocksVpnService : VpnService() {
         // so startup does not stall the main thread.
         // Clear any stale failure text from a previous attempt before connecting.
         mError = null
+        mSendfdCancelled = false
         // Fire the IP check in parallel with the tunnel spawn below, so the exit
         // IP/country is already on its way while pdnsd/tun2socks boot. Results
         // landing before the tunnel is up are buffered (mPendingIpInfo) and shown
@@ -806,14 +848,13 @@ class SocksVpnService : VpnService() {
                 // (up to 15s on the main thread). Poll every 50ms up to 100 attempts
                 // (~5s cap).
                 var attempts = 0
-                while (attempts < 100) {
+                while (attempts < 100 && !mSendfdCancelled) {
                     val sendResult = System.sendfd(fd)
                     if (sendResult != -1) {
                         Log.d(TAG, "sendfd succeeded on attempt ${attempts + 1}/100")
-                        mRunning = true
                         // FIX #2: connected is now immediate on tunnel-up; the IP check
                         // is posted below as async enrichment.
-                        runOnMainThread { postStartOnMain() }
+                        runOnMainThread { if (!mSendfdCancelled) postStartOnMain() }
                         return@Thread
                     }
                     attempts++
@@ -825,8 +866,9 @@ class SocksVpnService : VpnService() {
                     }
                 }
 
+                if (mSendfdCancelled) return@Thread
                 Log.e(TAG, "sendfd failed after 100 attempts, stopping VPN")
-                runOnMainThread { stopMe("sendfd_failed_5_attempts") }
+                runOnMainThread { stopMe("sendfd_failed_100_attempts") }
                 return@Thread
             } catch (e: Exception) {
                 Log.e(TAG, "Vpn startup failed", e)
@@ -839,13 +881,14 @@ class SocksVpnService : VpnService() {
         process ?: return
         Thread {
             try {
-                val reader = java.io.BufferedReader(java.io.InputStreamReader(process.inputStream))
-                var line = reader.readLine()
-                while (line != null) {
-                    if (line.isNotEmpty()) Log.d(TAG, "pdnsd: $line")
-                    line = reader.readLine()
+                java.io.BufferedReader(java.io.InputStreamReader(process.inputStream)).use { reader ->
+                    var line = reader.readLine()
+                    while (line != null) {
+                        if (line.isNotEmpty()) Log.d(TAG, "pdnsd: $line")
+                        line = reader.readLine()
+                    }
                 }
-                process.waitFor()
+                try { process.waitFor() } catch (_: Exception) {}
             } catch (_: Exception) {
             }
         }.apply { isDaemon = true }.start()
@@ -961,15 +1004,19 @@ class SocksVpnService : VpnService() {
         }
 
         val prefs = PreferenceManager.getDefaultSharedPreferences(this)
-        if (prefs.getBoolean(PREF_AUTO_STOP, false)) {
+        if (prefs.getBoolean(PREF_AUTO_STOP, false) && !mScreenOffRegistered) {
             val filter = IntentFilter(Intent.ACTION_SCREEN_OFF)
             registerReceiverCompat(mScreenOffReceiver, filter)
+            mScreenOffRegistered = true
         }
-        registerReceiverCompat(mScreenOnReceiver, IntentFilter(Intent.ACTION_SCREEN_ON))
+        if (!mScreenOnRegistered) {
+            registerReceiverCompat(mScreenOnReceiver, IntentFilter(Intent.ACTION_SCREEN_ON))
+            mScreenOnRegistered = true
+        }
     }
 
     private fun runOnMainThread(action: () -> Unit) {
-        Handler(Looper.getMainLooper()).post(action)
+        mMainHandler.post(action)
     }
 
     companion object {

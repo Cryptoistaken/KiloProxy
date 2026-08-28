@@ -27,6 +27,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -51,7 +52,7 @@ fun AuthScreen(onLoggedIn: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var checking by remember { mutableStateOf(false) }
-    var hasClicked by remember { mutableStateOf(false) }
+    var hasClicked by rememberSaveable { mutableStateOf(false) }
     var deviceId by remember { mutableStateOf(KiloProxyAuth.getOrCreateDeviceId(context)) }
 
     suspend fun checkLogin(): Boolean = withContext(Dispatchers.IO) {

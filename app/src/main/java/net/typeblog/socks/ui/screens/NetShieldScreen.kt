@@ -1,5 +1,6 @@
 package net.typeblog.socks.ui.screens
 
+import android.content.Intent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -33,10 +34,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import net.typeblog.socks.R
+import net.typeblog.socks.util.Constants.ACTION_NETSHIELD_CHANGED
 import net.typeblog.socks.util.Constants.PREF_NETSHIELD_ENABLED
 import net.typeblog.socks.util.Constants.PREF_NETSHIELD_BLOCK_ADULT
 import androidx.preference.PreferenceManager
@@ -154,6 +160,7 @@ fun NetShieldScreen(
                         onCheckedChange = { newValue ->
                             netShieldEnabled = newValue
                             prefs.edit().putBoolean(PREF_NETSHIELD_ENABLED, newValue).apply()
+                            context.sendBroadcast(Intent(ACTION_NETSHIELD_CHANGED).setPackage(context.packageName))
                         },
                         colors = androidx.compose.material3.SwitchDefaults.colors(
                             checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
@@ -184,9 +191,14 @@ fun NetShieldScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp)
-                    .clickable {
+                    .semantics {
+                        role = Role.Switch
+                        stateDescription = if (blockAdultContent) "On" else "Off"
+                    }
+                    .clickable(role = Role.Switch) {
                         blockAdultContent = !blockAdultContent
                         prefs.edit().putBoolean(PREF_NETSHIELD_BLOCK_ADULT, blockAdultContent).apply()
+                        context.sendBroadcast(Intent(ACTION_NETSHIELD_CHANGED).setPackage(context.packageName))
                     },
                 shape = RoundedCornerShape(16.dp),
                 color = MaterialTheme.colorScheme.surfaceContainerLow,

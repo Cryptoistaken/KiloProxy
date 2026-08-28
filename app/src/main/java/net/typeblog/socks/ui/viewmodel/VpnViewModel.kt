@@ -7,7 +7,9 @@ import android.content.Intent
 import android.content.ServiceConnection
 import android.net.VpnService
 import android.os.Build
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -114,12 +116,17 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
     private var bound = false
     private var rebinding = false
     private var cleared = false
+    private val rebindHandler = Handler(Looper.getMainLooper())
+    private var rebindRunnable: Runnable? = null
+    private var rebindAttempts = 0
 
     private val serviceConnection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
             vpnService = IVpnService.Stub.asInterface(service)
             bound = true
             rebinding = false
+            rebindAttempts = 0
+            rebindRunnable?.let { rebindHandler.removeCallbacks(it); rebindRunnable = null }
             // Re-sync live state so the UI never keeps stale "disconnected"
             // after the VPN process restarts and reconnects.
             syncState()
@@ -128,12 +135,14 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
         override fun onServiceDisconnected(name: ComponentName?) {
             vpnService = null
             bound = false
+            rebinding = false
             scheduleRebind()
         }
 
         override fun onBindingDied(name: ComponentName?) {
             vpnService = null
             bound = false
+            rebinding = false
             scheduleRebind()
         }
     }
@@ -167,6 +176,27 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
         Log.d("KiloProxyVM", "VPN service connection lost; rebinding")
         if (!bindToService(getApplication())) {
             rebinding = false
+            rebindAttempts++
+            val delayMs = when {
+                rebindAttempts <= 3 -> 200L
+                rebindAttempts <= 10 -> 1000L
+                else -> 3000L
+            }
+            rebindRunnable?.let { rebindHandler.removeCallbacks(it) }
+            val r = Runnable { if (!cleared) scheduleRebind() }
+            rebindRunnable = r
+            rebindHandler.postDelayed(r, delayMs)
+        } else {
+            // Bind initiated; arm watchdog in case onServiceConnected never arrives
+            rebindRunnable?.let { rebindHandler.removeCallbacks(it) }
+            val r = Runnable {
+                if (!bound && !cleared) {
+                    rebinding = false
+                    scheduleRebind()
+                }
+            }
+            rebindRunnable = r
+            rebindHandler.postDelayed(r, 2000L)
         }
     }
 
@@ -416,6 +446,8 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
     override fun onCleared() {
         super.onCleared()
         cleared = true
+        rebindRunnable?.let { rebindHandler.removeCallbacks(it); rebindRunnable = null }
+        rebinding = false
         try {
             getApplication<Application>().unbindService(serviceConnection)
         } catch (_: Exception) {

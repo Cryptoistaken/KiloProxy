@@ -10,6 +10,7 @@ internal class ProfileFactory private constructor(
 ) {
     private val mMap = HashMap<String, WeakReference<Profile>>()
 
+    @Synchronized
     fun getProfile(name: String): Profile {
         var p = mMap[name]
         if (p == null || p.get() == null) {
@@ -20,13 +21,14 @@ internal class ProfileFactory private constructor(
     }
 
     companion object {
-        private var sInstance: ProfileFactory? = null
+        @Volatile private var sInstance: ProfileFactory? = null
 
+        @Synchronized
         fun getInstance(context: Context, pref: SharedPreferences): ProfileFactory {
-            if (sInstance == null) {
-                sInstance = ProfileFactory(context, pref)
-            }
-            return sInstance!!
+            sInstance?.let { return it }
+            val inst = ProfileFactory(context.applicationContext, pref)
+            sInstance = inst
+            return inst
         }
     }
 }

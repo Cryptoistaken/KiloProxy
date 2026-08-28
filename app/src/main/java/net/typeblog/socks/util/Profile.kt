@@ -12,6 +12,30 @@ class Profile internal constructor(
     private val mName = name
     private val mPrefix = prefPrefix(name)
 
+    init {
+        val legacy = mName.replace("_", "__").replace(" ", "_")
+        if (legacy != mPrefix) {
+            val all = mPref.all
+            if (all.containsKey(legacy + "server")) {
+                val ed = mPref.edit()
+                for ((k, v) in all) {
+                    if (k.startsWith(legacy)) {
+                        val suffix = k.removePrefix(legacy)
+                        when (v) {
+                            is String -> ed.putString(mPrefix + suffix, v)
+                            is Int -> ed.putInt(mPrefix + suffix, v)
+                            is Boolean -> ed.putBoolean(mPrefix + suffix, v)
+                            is Float -> ed.putFloat(mPrefix + suffix, v)
+                            is Long -> ed.putLong(mPrefix + suffix, v)
+                        }
+                        ed.remove(k)
+                    }
+                }
+                ed.apply()
+            }
+        }
+    }
+
     fun getName(): String = mName
 
     fun getServer(): String {
@@ -180,7 +204,7 @@ class Profile internal constructor(
 
     companion object {
         private fun prefPrefix(name: String): String {
-            return name.replace("_", "__").replace(" ", "_")
+            return java.net.URLEncoder.encode(name, "UTF-8")
         }
     }
 }

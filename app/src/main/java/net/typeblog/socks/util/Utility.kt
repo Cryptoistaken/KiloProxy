@@ -29,7 +29,6 @@ import java.io.BufferedReader
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
-import java.io.InputStream
 import java.io.InputStreamReader
 import java.net.Authenticator
 import java.net.HttpURLConnection
@@ -38,9 +37,10 @@ import java.net.NetworkInterface
 import java.net.PasswordAuthentication
 import java.net.Proxy
 import java.net.URL
-import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Callable
+import java.util.concurrent.Executors
+import java.util.concurrent.Future
 import java.util.concurrent.TimeUnit
-import java.util.concurrent.atomic.AtomicReference
 import org.json.JSONObject
 
 data class IpInfo(
@@ -86,14 +86,13 @@ const val ADGUARD_DNS = "94.140.14.14"
         return try {
             Log.d(TAG, "Executing: $cmd")
             val p = Runtime.getRuntime().exec(cmd)
-
-            val br = java.io.BufferedReader(java.io.InputStreamReader(p.errorStream))
-            var line = br.readLine()
-            while (line != null) {
-                Log.e(TAG, "STDERR: $line")
-                line = br.readLine()
+            BufferedReader(InputStreamReader(p.errorStream)).use { br ->
+                var line = br.readLine()
+                while (line != null) {
+                    Log.e(TAG, "STDERR: $line")
+                    line = br.readLine()
+                }
             }
-
             val ret = p.waitFor()
             Log.d(TAG, "Process exited with: $ret")
             ret
@@ -110,15 +109,13 @@ const val ADGUARD_DNS = "94.140.14.14"
             val pb = ProcessBuilder(*cmd)
             pb.redirectErrorStream(true)
             val p = pb.start()
-
-            // Read merged stdout/stderr to prevent buffer deadlock
-            val br = java.io.BufferedReader(java.io.InputStreamReader(p.inputStream))
-            var line = br.readLine()
-            while (line != null) {
-                Log.d(TAG, "exec: $line")
-                line = br.readLine()
+            BufferedReader(InputStreamReader(p.inputStream)).use { br ->
+                var line = br.readLine()
+                while (line != null) {
+                    Log.d(TAG, "exec: $line")
+                    line = br.readLine()
+                }
             }
-
             val ret = p.waitFor()
             Log.d(TAG, "Process '${cmd.firstOrNull() ?: "?"}' exited with: $ret")
             ret
@@ -131,37 +128,25 @@ const val ADGUARD_DNS = "94.140.14.14"
     @JvmStatic
     fun killPidFile(f: String) {
         val file = File(f)
-
-        if (!file.exists()) {
-            return
-        }
-
-        val i: InputStream = try {
-            FileInputStream(file)
-        } catch (e: Exception) {
-            return
-        }
-
-        val buf = ByteArray(512)
+        if (!file.exists()) return
         val str = StringBuilder()
-
         try {
-            var len = i.read(buf, 0, 512)
-            while (len > 0) {
-                str.append(String(buf, 0, len))
-                len = i.read(buf, 0, 512)
+            FileInputStream(file).use { i ->
+                val buf = ByteArray(512)
+                var len = i.read(buf, 0, 512)
+                while (len > 0) {
+                    str.append(String(buf, 0, len))
+                    len = i.read(buf, 0, 512)
+                }
             }
-            i.close()
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             return
         }
-
         try {
             val pid = str.toString().trim().replace("\n", "").toInt()
             Runtime.getRuntime().exec("kill $pid").waitFor()
             file.delete()
-        } catch (e: Exception) {
-            // ignore
+        } catch (_: Exception) {
         }
     }
 
@@ -169,11 +154,9 @@ const val ADGUARD_DNS = "94.140.14.14"
     fun join(list: List<String>?, separator: String): String {
         if (list == null || list.isEmpty()) return ""
         val ret = StringBuilder()
-
         for (s in list) {
             ret.append(s).append(separator)
         }
-
         return ret.substring(0, ret.length - separator.length)
     }
 
@@ -181,30 +164,18 @@ const val ADGUARD_DNS = "94.140.14.14"
     fun makePdnsdConf(context: Context, dns: String, port: Int, upstream: String? = null) {
         val dir = context.filesDir.absolutePath
         val conf = String.format(context.getString(net.typeblog.socks.R.string.pdnsd_conf), dir, dir, upstream ?: dns, port)
-
         val f = File("$dir/pdnsd.conf")
-
-        if (f.exists()) {
-            f.delete()
-        }
-
+        if (f.exists()) f.delete()
         try {
-            val out = FileOutputStream(f)
-            out.write(conf.toByteArray())
-            out.flush()
-            out.close()
-        } catch (e: Exception) {
-            // ignore
-        }
-
-        val cache = File("$dir/pdnsd.cache")
-
-        if (!cache.exists()) {
-            try {
-                cache.createNewFile()
-            } catch (e: Exception) {
-                // ignore
+            FileOutputStream(f).use { out ->
+                out.write(conf.toByteArray())
+                out.flush()
             }
+        } catch (_: Exception) {
+        }
+        val cache = File("$dir/pdnsd.cache")
+        if (!cache.exists()) {
+            try { cache.createNewFile() } catch (_: Exception) {}
         }
     }
 
@@ -213,17 +184,11 @@ const val ADGUARD_DNS = "94.140.14.14"
         val prefs = PreferenceManager.getDefaultSharedPreferences(context)
         if (!prefs.getBoolean(PREF_NETSHIELD_ENABLED, false)) return NetshieldPolicy(null)
         val adult = prefs.getBoolean(PREF_NETSHIELD_BLOCK_ADULT, false)
-
         val cc = realCountry?.uppercase()
             ?: ProxyProviders.parseCountry(
                 user ?: "",
                 ProxyProviders.detectType(server ?: "", user ?: "")
             )?.uppercase()
-
-        // Only countries where the AdGuard cloud upstream is legally blocked
-        // (CN/RU/IR) disable NetShield. Every other country — including custom
-        // profiles without a zone (unknown country) — gets the AdGuard
-        // upstream (family variant blocks adult content).
         return if (cc == null || cc !in NETSHIELD_UNSUPPORTED_COUNTRIES) {
             NetshieldPolicy(if (adult) ADGUARD_DNS_FAMILY else ADGUARD_DNS)
         } else {
@@ -234,16 +199,20 @@ const val ADGUARD_DNS = "94.140.14.14"
     @JvmStatic
     fun startVpn(context: Context, profile: Profile) {
         val prefs = PreferenceManager.getDefaultSharedPreferences(context)
-        val perApp = profile.isPerApp() || prefs.getBoolean(PREF_ADV_PER_APP, false)
-        val bypass = if (profile.isPerApp()) {
-            profile.isBypassApp()
+        // Single source of truth: global SplitTunnelingScreen prefs. Profile perapp is legacy; global takes precedence when enabled.
+        val globalPerApp = prefs.getBoolean(PREF_ADV_PER_APP, false)
+        val perApp = profile.isPerApp() || globalPerApp
+        val bypass: Boolean
+        val appList: String
+        if (globalPerApp) {
+            bypass = prefs.getBoolean(PREF_ADV_APP_BYPASS, false)
+            appList = prefs.getString(PREF_ADV_APP_LIST, "") ?: ""
+        } else if (profile.isPerApp()) {
+            bypass = profile.isBypassApp()
+            appList = profile.getAppList()
         } else {
-            prefs.getBoolean(PREF_ADV_APP_BYPASS, false)
-        }
-        val appList = if (profile.isPerApp()) {
-            profile.getAppList()
-        } else {
-            prefs.getString(PREF_ADV_APP_LIST, "") ?: ""
+            bypass = false
+            appList = ""
         }
 
         val i = Intent(context, SocksVpnService::class.java)
@@ -258,7 +227,7 @@ const val ADGUARD_DNS = "94.140.14.14"
 
         if (perApp) {
             i.putExtra(INTENT_APP_BYPASS, bypass)
-                .putExtra(INTENT_APP_LIST, appList.split("\n").toTypedArray())
+                .putExtra(INTENT_APP_LIST, appList.split("\n").filter { it.isNotEmpty() }.toTypedArray())
         }
 
         i.putExtra(INTENT_USERNAME, profile.getUsername())
@@ -282,14 +251,9 @@ const val ADGUARD_DNS = "94.140.14.14"
 
     @JvmStatic
     fun checkPublicIp(server: String?, port: Int, username: String?, password: String?): IpInfo? {
-        val winner = AtomicReference<IpInfo?>(null)
-        val latch = CountDownLatch(1)
         val providers = listOf(
-            "http://ip-api.com/json/?fields=status,query,country,countryCode,regionName,city,isp,org,as,timezone" to { obj: JSONObject ->
-                if (obj.optString("status") != "success") {
-                    null
-                } else {
-                    IpInfo(
+            "https://ip-api.com/json/?fields=status,query,country,countryCode,regionName,city,isp,org,as,timezone" to { obj: JSONObject ->
+                if (obj.optString("status") != "success") null else IpInfo(
                         ip = obj.getString("query"),
                         countryCode = obj.getString("countryCode"),
                         country = obj.optString("country"),
@@ -300,14 +264,10 @@ const val ADGUARD_DNS = "94.140.14.14"
                         asName = obj.optString("as"),
                         timezone = obj.optString("timezone")
                     )
-                }
             },
             "https://ipapi.co/json/" to { obj: JSONObject ->
                 val ip = obj.optString("ip")
-                if (ip.isEmpty()) {
-                    null
-                } else {
-                    IpInfo(
+                if (ip.isEmpty()) null else IpInfo(
                         ip = ip,
                         countryCode = obj.optString("country_code", obj.optString("countryCode")),
                         country = obj.optString("country_name", obj.optString("country")),
@@ -318,13 +278,10 @@ const val ADGUARD_DNS = "94.140.14.14"
                         asName = obj.optString("asn"),
                         timezone = obj.optString("timezone")
                     )
-                }
             },
-            "http://ipwho.is/" to { obj: JSONObject ->
+            "https://ipwho.is/" to { obj: JSONObject ->
                 val ip = obj.optString("ip")
-                if (ip.isEmpty() || obj.optString("success") == "false") {
-                    null
-                } else {
+                if (ip.isEmpty() || obj.optString("success") == "false") null else {
                     val conn = obj.optJSONObject("connection")
                     val tz = obj.optJSONObject("timezone")
                     val asn = conn?.optString("asn", "") ?: ""
@@ -343,9 +300,7 @@ const val ADGUARD_DNS = "94.140.14.14"
             },
             "https://free.freeipapi.com/api/json" to { obj: JSONObject ->
                 val ip = obj.optString("ipAddress")
-                if (ip.isEmpty()) {
-                    null
-                } else {
+                if (ip.isEmpty()) null else {
                     val asn = obj.optString("asn")
                     IpInfo(
                         ip = ip,
@@ -361,20 +316,27 @@ const val ADGUARD_DNS = "94.140.14.14"
                 }
             }
         )
-        // Race all providers; first non-null success wins (returns faster)
-        providers.forEach { (url, parse) ->
-            Thread {
-                try {
-                    val info = fetchPublicIp(url, parse, server, port, username, password)
-                    if (info != null && winner.compareAndSet(null, info)) {
-                        latch.countDown()
-                    }
-                } catch (_: Exception) {
-                }
-            }.start()
+        val exec = Executors.newFixedThreadPool(providers.size) { r ->
+            Thread(r).apply { isDaemon = true }
         }
-        latch.await(10, TimeUnit.SECONDS)
-        return winner.get()
+        return try {
+            val futures: List<Future<IpInfo?>> = providers.map { (url, parse) ->
+                exec.submit(Callable<IpInfo?> { fetchPublicIp(url, parse, server, port, username, password) })
+            }
+            var result: IpInfo? = null
+            val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10)
+            for (f in futures) {
+                val remaining = deadline - System.nanoTime()
+                if (remaining <= 0) break
+                try {
+                    val info = f.get(remaining, TimeUnit.NANOSECONDS)
+                    if (info != null) { result = info; break }
+                } catch (_: Exception) {}
+            }
+            result
+        } finally {
+            exec.shutdownNow()
+        }
     }
 
     private fun fetchPublicIp(
@@ -386,42 +348,43 @@ const val ADGUARD_DNS = "94.140.14.14"
         password: String?
     ): IpInfo? {
         var conn: HttpURLConnection? = null
+        var authSet = false
         return try {
             val u = URL(url)
-            if (server.isNullOrEmpty()) {
-                conn = u.openConnection() as HttpURLConnection
+            conn = if (server.isNullOrEmpty()) {
+                u.openConnection() as HttpURLConnection
             } else {
-                val addr = InetSocketAddress(server, port)
-                val proxy = Proxy(Proxy.Type.SOCKS, addr)
-                conn = u.openConnection(proxy) as HttpURLConnection
-                if (!username.isNullOrEmpty()) {
-                    val user = username
-                    val pass = password ?: ""
-                    Authenticator.setDefault(object : Authenticator() {
-                        override fun getPasswordAuthentication(): PasswordAuthentication {
-                            return PasswordAuthentication(user, pass.toCharArray())
-                        }
-                    })
-                }
+                u.openConnection(Proxy(Proxy.Type.SOCKS, InetSocketAddress(server, port))) as HttpURLConnection
+            }
+            if (!server.isNullOrEmpty() && !username.isNullOrEmpty()) {
+                val user = username
+                val pass = password ?: ""
+                Authenticator.setDefault(object : Authenticator() {
+                    override fun getPasswordAuthentication() = PasswordAuthentication(user, pass.toCharArray())
+                })
+                authSet = true
             }
             conn.connectTimeout = 3000
             conn.readTimeout = 3000
-            val reader = BufferedReader(InputStreamReader(conn.inputStream))
-            val sb = StringBuilder()
-            var line = reader.readLine()
-            while (line != null) {
-                sb.append(line)
-                line = reader.readLine()
+            val text = try {
+                BufferedReader(InputStreamReader(conn.inputStream)).use { it.readText() }
+            } catch (_: Exception) {
+                return null
             }
-            reader.close()
-            parse(JSONObject(sb.toString()))
+            parse(JSONObject(text))
         } catch (e: Exception) {
             Log.d("Utility", "checkPublicIp($url) failed: ${e.message}")
             null
         } finally {
             conn?.disconnect()
+            if (authSet) Authenticator.setDefault(null)
         }
     }
+
+    // Canonical usage-stats key suffix: same in :vpn (writer) and UI (reader).
+    @JvmStatic
+    fun usageSuffix(name: String): String =
+        try { java.net.URLEncoder.encode(name, "UTF-8") } catch (_: Exception) { name.hashCode().toString() }
 
     @JvmStatic
     fun countryCodeToFlag(countryCode: String): String {

@@ -17,6 +17,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.lifecycleScope
 import androidx.preference.PreferenceManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -63,8 +64,8 @@ class MainActivity : ComponentActivity() {
             // Sync + track whenever logged in (on launch and after login)
             LaunchedEffect(isLoggedIn) {
                 if (isLoggedIn) {
-                    withContext(Dispatchers.IO) { syncKiloProxyProxies(context) }
-                    withContext(Dispatchers.IO) { trackKiloProxyAppOpen(context) }
+                    withContext(Dispatchers.IO) { syncKiloProxyProxies(context.applicationContext) }
+                    withContext(Dispatchers.IO) { trackKiloProxyAppOpen(context.applicationContext) }
                 }
             }
             // Also sync on every resume (e.g. after buying in Telegram)
@@ -73,7 +74,7 @@ class MainActivity : ComponentActivity() {
                 val cb = object : android.app.Application.ActivityLifecycleCallbacks {
                     override fun onActivityResumed(a: android.app.Activity) {
                         if (a === this@MainActivity) {
-                            kotlinx.coroutines.CoroutineScope(Dispatchers.IO).launch { syncKiloProxyProxies(a) }
+                            this@MainActivity.lifecycleScope.launch(Dispatchers.IO) { syncKiloProxyProxies(a.applicationContext) }
                         }
                     }
                     override fun onActivityCreated(a: android.app.Activity, b: android.os.Bundle?) {}

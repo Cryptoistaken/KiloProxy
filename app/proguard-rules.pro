@@ -16,11 +16,8 @@
 #   public *;
 #}
 
-# JNI native methods
+# JNI native methods — only class referenced via registerNatives (System.kt -> system.cpp)
 -keep class net.typeblog.socks.System { native <methods>; }
-
-# Keep all classes in the app (no stripping)
--keep class net.typeblog.socks.** { *; }
 
 # R8: javax.annotation classes are referenced by com.google.crypto.tink but not on compile classpath
 -dontwarn javax.annotation.**
