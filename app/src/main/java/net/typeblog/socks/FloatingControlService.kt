@@ -1484,7 +1484,7 @@ class FloatingControlService : Service() {
                                     lockHandler.postDelayed(this, EVERY_MS)
                                     return
                                 }
-                                val elapsedSec = (if (getConnectedSince() > 0) (System.currentTimeMillis() - getConnectedSince()) / 1000 else 0)
+                                val elapsedSec = (if (getConnectedSince() > 0) (java.lang.System.currentTimeMillis() - getConnectedSince()) / 1000 else 0)
                                 if (elapsedSec % 60L == 0L) {
                                     // guard tick
                                     lockHandler.postDelayed({ if (state == BubbleState.CONNECTED && !lockFlashing) doLockFlash() }, 300)
