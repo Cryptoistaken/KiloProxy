@@ -430,13 +430,13 @@ class FloatingControlService : Service() {
 
             timerView = TextView(this).apply {
                 text = "00:00"
-                setTextColor(Color.WHITE)
+                setTextColor(Color.BLACK)
                 textSize = 11f
                 typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
                 letterSpacing = 0.02f
                 gravity = Gravity.CENTER
-                // Below icon: top = center(48dp)+21dp+4dp
-                val topMargin = (sizePx / 2 + glyphSizePx / 2 + (4 * density).toInt())
+                // Below icon: 1dp gap (was 4dp) — even closer to icon like html demo
+                val topMargin = (sizePx / 2 + glyphSizePx / 2 + (1 * density).toInt())
                 layoutParams = FrameLayout.LayoutParams(
                     FrameLayout.LayoutParams.WRAP_CONTENT,
                     FrameLayout.LayoutParams.WRAP_CONTENT,
@@ -723,8 +723,10 @@ class FloatingControlService : Service() {
         val bounds = currentDragBounds()
         val displayWidth = bounds.width() + insets.left + insets.right
         lp.x = (bp.x + bubbleWindowSizePx / 2) - displayWidth / 2
-        // Like html demo: float gap 5dp + label Δ -24 → effectively 4-6dp below bubble, very near lock
-        lp.y = bp.y + bubbleGrowMarginPx + bubbleSizePx + (4 * density).toInt()
+        // Exactly where timer (Protected / flag) sits: below icon 1dp — even closer like html demo
+        val glyphPx = (42 * density).toInt()
+        val timerTop = bubbleSizePx / 2 + glyphPx / 2 + (1 * density).toInt()
+        lp.y = bp.y + bubbleGrowMarginPx + timerTop
         try { if (statusLabelView?.isAttachedToWindow == true) windowManager?.updateViewLayout(statusLabelView, lp) } catch (e: Exception) { Log.e(TAG, "update status label pos failed", e) }
         if (statusLabelView?.height ?: 0 == 0) statusLabelView?.post { updateStatusLabelPosition() }
     }
