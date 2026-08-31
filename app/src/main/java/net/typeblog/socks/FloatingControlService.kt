@@ -106,6 +106,8 @@ class FloatingControlService : Service() {
     private var flagPillView: LinearLayout? = null
     private var flagPillText: TextView? = null
     private var flagPillParams: WindowManager.LayoutParams? = null
+    private var statusLabelView: TextView? = null
+    private var statusLabelParams: WindowManager.LayoutParams? = null
 
     private var touchSlop = 0
     private var initialX = 0
@@ -236,9 +238,14 @@ class FloatingControlService : Service() {
         restoreBubblePosition()
         flagPillView = createFlagPillView()
         flagPillParams = buildFlagPillLayoutParams()
+        statusLabelView = createStatusLabelView()
+        statusLabelParams = buildStatusLabelLayoutParams()
         addBubbleToWindow()
         addFlagPillToWindow()
+        addStatusLabelToWindow()
         updateFlagPillPosition()
+        updateStatusLabelPosition()
+        updateStatusLabel()
         bindToVpnService()
         registerActionReceiver()
         pollHandler.post(pollRunnable)
@@ -300,6 +307,7 @@ class FloatingControlService : Service() {
             persistBubblePosition()
         }
         updateFlagPillPosition()
+        updateStatusLabelPosition()
     }
 
     private fun recreateBubbleForStyleChange(newStyle: String) {
@@ -322,9 +330,14 @@ class FloatingControlService : Service() {
         }
         flagPillView = createFlagPillView()
         flagPillParams = buildFlagPillLayoutParams()
+        statusLabelView = createStatusLabelView()
+        statusLabelParams = buildStatusLabelLayoutParams()
         addBubbleToWindow()
         addFlagPillToWindow()
+        addStatusLabelToWindow()
         updateFlagPillPosition()
+        updateStatusLabelPosition()
+        updateStatusLabel()
         // re-apply ui for current state
         updateBubbleUi(state)
         updateForegroundNotification()
@@ -354,6 +367,7 @@ class FloatingControlService : Service() {
         menuOverlay?.hide()
         persistBubblePosition()
         removeFlagPillFromWindow()
+        removeStatusLabelFromWindow()
         removeBubbleFromWindow()
         super.onDestroy()
     }
@@ -640,6 +654,81 @@ class FloatingControlService : Service() {
         }
     }
 
+    private fun createStatusLabelView(): TextView {
+        val tv = TextView(this)
+        tv.textSize = 14f
+        tv.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        tv.letterSpacing = 0.01f
+        tv.gravity = Gravity.CENTER
+        tv.setShadowLayer(4f, 0f, 2f, Color.argb(100, 0, 0, 0))
+        tv.visibility = View.GONE
+        return tv
+    }
+
+    private fun buildStatusLabelLayoutParams(): WindowManager.LayoutParams {
+        val type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+        } else {
+            @Suppress("DEPRECATION")
+            WindowManager.LayoutParams.TYPE_PHONE
+        }
+        return WindowManager.LayoutParams(
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            type,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+            PixelFormat.TRANSLUCENT
+        ).apply { gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL; x = 0; y = 0 }
+    }
+
+    private fun addStatusLabelToWindow() {
+        val wm = windowManager ?: return
+        val v = statusLabelView ?: return
+        try { if (v.isAttachedToWindow) return; wm.addView(v, statusLabelParams) } catch (e: Exception) { Log.e(TAG, "add status label failed", e) }
+    }
+
+    private fun removeStatusLabelFromWindow() {
+        val wm = windowManager ?: return
+        val v = statusLabelView ?: return
+        try { if (v.isAttachedToWindow) wm.removeView(v) } catch (e: Exception) { Log.e(TAG, "remove status label failed", e) }
+    }
+
+    private fun updateStatusLabel() {
+        val tv = statusLabelView ?: return
+        if (!isLockStyle()) { tv.visibility = View.GONE; return }
+        when (state) {
+            BubbleState.DISCONNECTED -> {
+                tv.text = "Unprotected"
+                tv.setTextColor(lockErr())
+                tv.visibility = View.VISIBLE
+                updateStatusLabelPosition()
+            }
+            BubbleState.CONNECTING -> {
+                tv.text = "Connecting…"
+                tv.setTextColor(Color.BLACK)
+                tv.visibility = View.VISIBLE
+                updateStatusLabelPosition()
+            }
+            BubbleState.CONNECTED -> {
+                tv.visibility = View.GONE
+            }
+        }
+    }
+
+    private fun updateStatusLabelPosition() {
+        val lp = statusLabelParams ?: return
+        val bp = params ?: return
+        val density = resources.displayMetrics.density
+        val insets = currentSystemBarInsets()
+        val bounds = currentDragBounds()
+        val displayWidth = bounds.width() + insets.left + insets.right
+        lp.x = (bp.x + bubbleWindowSizePx / 2) - displayWidth / 2
+        // Like html demo: float gap 5dp + label Δ -24 → effectively 4-6dp below bubble, very near lock
+        lp.y = bp.y + bubbleGrowMarginPx + bubbleSizePx + (4 * density).toInt()
+        try { if (statusLabelView?.isAttachedToWindow == true) windowManager?.updateViewLayout(statusLabelView, lp) } catch (e: Exception) { Log.e(TAG, "update status label pos failed", e) }
+        if (statusLabelView?.height ?: 0 == 0) statusLabelView?.post { updateStatusLabelPosition() }
+    }
+
     private fun buildLayoutParams(): WindowManager.LayoutParams {
         val type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
@@ -780,6 +869,7 @@ class FloatingControlService : Service() {
                         try {
                             windowManager?.updateViewLayout(v, lp)
                             updateFlagPillPosition()
+                            updateStatusLabelPosition()
                         } catch (e: Exception) {
                             Log.e(TAG, "updateViewLayout failed", e)
                         }
@@ -1263,6 +1353,7 @@ class FloatingControlService : Service() {
                 }
             }
             updateFlagPill()
+            updateStatusLabel()
             return
         }
 
@@ -1421,7 +1512,7 @@ class FloatingControlService : Service() {
             0L
         }
         if (isLockStyle()) {
-            view.setTextColor(Color.WHITE)
+            view.setTextColor(Color.BLACK)
             view.textSize = 11f
             view.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
             view.letterSpacing = 0.02f
@@ -1458,7 +1549,7 @@ class FloatingControlService : Service() {
             tv.animate().alpha(0f).setDuration(200).withEndAction {
                 if (state != BubbleState.CONNECTED) return@withEndAction
                 val (flag, digits) = lockFlagDigits()
-                tv.setTextColor(Color.WHITE)
+                tv.setTextColor(Color.BLACK)
                 tv.textSize = 11f
                 tv.letterSpacing = 0.02f
                 tv.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
@@ -1470,7 +1561,7 @@ class FloatingControlService : Service() {
                     tv.animate().alpha(0f).setDuration(200).withEndAction {
                         if (state != BubbleState.CONNECTED) return@withEndAction
                         // show 00:12 counting
-                        tv.setTextColor(Color.WHITE)
+                        tv.setTextColor(Color.BLACK)
                         tv.textSize = 11f
                         updateTimerText()
                         tv.alpha = 0f
@@ -1523,7 +1614,7 @@ class FloatingControlService : Service() {
             if (state != BubbleState.CONNECTED) { lockFlashing = false; return@withEndAction }
             val (flag, digits) = lockFlagDigits()
             val code = lockCountryCode()
-            tv.setTextColor(Color.WHITE)
+            tv.setTextColor(Color.BLACK)
             if (isCode) {
                 tv.textSize = 12f
                 tv.text = if (code.isNotEmpty()) flag + " " + code else flag + " DE"
@@ -1538,7 +1629,7 @@ class FloatingControlService : Service() {
                     if (state != BubbleState.CONNECTED) { lockFlashing = false; tv.minWidth = 0; return@withEndAction }
                     lockFlashing = false
                     tv.minWidth = 0
-                    tv.setTextColor(Color.WHITE)
+                    tv.setTextColor(Color.BLACK)
                     tv.textSize = 11f
                     updateTimerText()
                     tv.alpha = 0f

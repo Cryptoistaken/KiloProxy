@@ -50,9 +50,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import net.typeblog.socks.BuildConfig
-import net.typeblog.socks.FloatingControlService
 import net.typeblog.socks.R
-import net.typeblog.socks.ui.components.BubbleStylePickerDialog
 import net.typeblog.socks.ui.components.SettingsItem
 import net.typeblog.socks.ui.components.ThemePickerDialog
 import net.typeblog.socks.ui.components.UpdateDialog
@@ -67,6 +65,7 @@ import net.typeblog.socks.util.UpdateChecker
 @Composable
 fun SettingsScreen(
     onNavigateToSplitTunneling: () -> Unit,
+    onNavigateToBubbleSettings: () -> Unit,
     onNavigateToNetShield: () -> Unit,
     onNavigateToDebugLogs: () -> Unit,
     modifier: Modifier = Modifier
@@ -103,7 +102,6 @@ fun SettingsScreen(
         onDispose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
     }
     var showThemeDialog by remember { mutableStateOf(false) }
-    var showBubbleStyleDialog by remember { mutableStateOf(false) }
     var checkingUpdates by remember { mutableStateOf(false) }
     var updateInfo by remember { mutableStateOf<UpdateChecker.UpdateInfo?>(null) }
     var whatsNewLoading by remember { mutableStateOf(false) }
@@ -146,8 +144,6 @@ fun SettingsScreen(
         UpdateDialog(info = info, onDismiss = { updateInfo = null })
     }
 
-    var pendingFloatingStart by rememberSaveable { mutableStateOf(false) }
-
     if (whatsNewLoading) {
         AlertDialog(
             onDismissRequest = {},
@@ -187,85 +183,6 @@ fun SettingsScreen(
                 }
             }
         )
-    }
-
-    fun canDrawOverlays(context: Context): Boolean =
-        Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.canDrawOverlays(context)
-
-    fun startFloatingControl(context: Context) {
-        val intent = Intent(context, FloatingControlService::class.java)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            context.startForegroundService(intent)
-        } else {
-            context.startService(intent)
-        }
-    }
-
-    if (showBubbleStyleDialog) {
-        BubbleStylePickerDialog(
-            current = bubbleStyle,
-            onSelect = { value ->
-                prefs.edit().putString(PREF_BUBBLE_STYLE, value).apply()
-                bubbleStyle = value
-                if (floatingControl) {
-                    context.stopService(Intent(context, FloatingControlService::class.java))
-                    startFloatingControl(context)
-                }
-                showBubbleStyleDialog = false
-            },
-            onDismiss = { showBubbleStyleDialog = false }
-        )
-    }
-
-    val vpnPermissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        if (pendingFloatingStart) {
-            pendingFloatingStart = false
-            if (result.resultCode == android.app.Activity.RESULT_OK && canDrawOverlays(context)) {
-                floatingControl = true
-                saveBoolean(PREF_FLOATING_CONTROL, true)
-                startFloatingControl(context)
-            }
-        }
-    }
-
-    fun requestVpnPermissionAndStart(context: Context) {
-        val prepareIntent = VpnService.prepare(context)
-        if (prepareIntent == null) {
-            floatingControl = true
-            saveBoolean(PREF_FLOATING_CONTROL, true)
-            startFloatingControl(context)
-        } else {
-            pendingFloatingStart = true
-            vpnPermissionLauncher.launch(prepareIntent)
-        }
-    }
-
-    val notificationPermissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission()
-    ) { granted ->
-        if (pendingFloatingStart) {
-            pendingFloatingStart = false
-            if (granted && canDrawOverlays(context)) {
-                requestVpnPermissionAndStart(context)
-            }
-        }
-    }
-
-    val overlayPermissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.StartActivityForResult()
-    ) {
-        if (!canDrawOverlays(context)) return@rememberLauncherForActivityResult
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
-            PackageManager.PERMISSION_GRANTED
-        ) {
-            pendingFloatingStart = true
-            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-        } else {
-            requestVpnPermissionAndStart(context)
-        }
     }
 
     LazyColumn(
@@ -309,7 +226,7 @@ fun SettingsScreen(
             }
         }
 
-        // ═══ General (Theme, Floating Control Bubble — mirrors ProtonVPN General group) ═══
+        // ═══ General (Theme, Floating Bubble — like Split Tunneling page) ═══
         item {
             SectionTitle(text = "General")
             SettingsGroup {
@@ -321,49 +238,12 @@ fun SettingsScreen(
                 )
                 SettingsItem(
                     icon = painterResource(R.drawable.ic_proton_mobile),
-                    label = "Floating Control Bubble",
-                    description = "Draggable connect/disconnect button over other apps",
-                    trailing = {
-                        Switch(
-                            checked = floatingControl,
-                            onCheckedChange = { enabled ->
-                                if (enabled) {
-                                    if (canDrawOverlays(context)) {
-                                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-                                            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
-                                            PackageManager.PERMISSION_GRANTED
-                                        ) {
-                                            pendingFloatingStart = true
-                                            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                                        } else {
-                                            requestVpnPermissionAndStart(context)
-                                        }
-                                    } else {
-                                        pendingFloatingStart = true
-                                        val intent = Intent(
-                                            Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                                            Uri.parse("package:${context.packageName}")
-                                        )
-                                        overlayPermissionLauncher.launch(intent)
-                                    }
-                                } else {
-                                    floatingControl = false
-                                    saveBoolean(PREF_FLOATING_CONTROL, false)
-                                    context.stopService(Intent(context, FloatingControlService::class.java))
-                                }
-                            }
-                        )
-                    }
-                )
-                SettingsItem(
-                    icon = painterResource(
-                        if (bubbleStyle == BUBBLE_STYLE_LOCK) R.drawable.ic_proton_lock_filled else R.drawable.ic_bubble_play
-                    ),
-                    label = "Bubble style",
-                    description = if (bubbleStyle == BUBBLE_STYLE_LOCK) "Lock \u2014 Flag+Digits \u2192 Timer (new)" else "Classic \u2014 Play/Stop orb",
-                    value = if (bubbleStyle == BUBBLE_STYLE_LOCK) "Lock" else "Classic",
-                    onClick = { showBubbleStyleDialog = true },
-                    enabled = true
+                    label = "Floating Bubble",
+                    description = if (floatingControl) {
+                        if (bubbleStyle == BUBBLE_STYLE_LOCK) "Lock • On — tap to configure style & preview" else "Classic • On — tap to configure"
+                    } else "Off — Tap to enable and choose style",
+                    value = if (floatingControl) "On" else "Off",
+                    onClick = onNavigateToBubbleSettings
                 )
             }
         }
