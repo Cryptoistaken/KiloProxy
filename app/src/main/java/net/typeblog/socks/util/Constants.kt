@@ -29,6 +29,9 @@ object Constants {
     const val PREF_AUTO_STOP = "auto_stop"
 
     const val PREF_FLOATING_CONTROL = "floating_control"
+    const val PREF_BUBBLE_STYLE = "bubble_style"
+    const val BUBBLE_STYLE_LOCK = "lock"
+    const val BUBBLE_STYLE_CLASSIC = "classic"
     const val PREF_BUBBLE_X = "bubble_x"
     const val PREF_BUBBLE_Y = "bubble_y"
     const val PREF_SKIPPED_UPDATE_VERSION = "skipped_update_version"

@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark light">
+<title>KiloProxy — Timer cycle Flag+Code ↔ Flag+Digits</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;700&family=Geist+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+  /* ── Tokens ── */
+  :root{
+    --green-dark:#2CFFCC; --green-light:#1C9C7C;
+    --err-dark:#F08FA4; --err-light:#CC2D4F;
+    --ease:cubic-bezier(.4,0,.2,1);
+  }
+
+  /* ── Reset / Base ── */
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{height:100%;background:#0C0C14}
+  @media(prefers-color-scheme:light){html{background:#F1EEEB}}
+  body{
+    height:100%;min-height:100vh;display:grid;place-items:center;
+    font-family:Inter,system-ui,sans-serif;background:#0C0C14;color:#fff;
+    -webkit-font-smoothing:antialiased;
+  }
+  @media(prefers-color-scheme:light){body{background:#F1EEEB;color:#0C0C14}}
+
+  /* ── Canvas ── */
+  .canvas{
+    width:100vw;height:100vh;position:relative;overflow:visible;
+    background:radial-gradient(900px 600px at 50% 0%, #1a1a2e 0%, #0C0C14 65%, #07070f 100%);
+  }
+  @media(prefers-color-scheme:light){
+    .canvas{background:radial-gradient(900px 600px at 50% 0%, #fff 0%, #F1EEEB 70%, #EAE7E4 100%)}
+  }
+
+  /* ── Bubble (lock never moves, timer below) ── */
+  .float{
+    position:absolute;left:calc(50vw - 48px);top:calc(50vh - 104px);
+    display:grid;place-items:center;gap:5px;
+    touch-action:none;user-select:none;cursor:grab;
+  }
+  .float:active{cursor:grabbing}
+  .lock{
+    appearance:none;border:none;cursor:pointer;
+    width:96px;height:96px;border-radius:28px;
+    display:grid;place-items:center;padding:8px;
+    background:transparent;border:1px solid transparent;
+    transition:transform 120ms;
+  }
+  .lock:active{transform:scale(.96)}
+  .lock:focus-visible{outline:2px solid #6D4AFF;outline-offset:3px}
+  .lock:disabled{cursor:default}
+  .lock .icon{width:42px;height:42px;display:block;transition:transform 180ms var(--ease)}
+  .lock:hover .icon{transform:scale(1.05)}
+  .spinner{width:42px;height:42px;animation:spin 1.32s linear infinite}
+  .spinner circle{fill:none;stroke:currentColor;stroke-width:2.6;stroke-linecap:round;stroke-dasharray:66 28}
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  .stack{position:relative;display:flex;flex-direction:column;align-items:center}
+  .stack #timer{
+    position:absolute;top:100%;left:50%;transform:translateX(-50%);
+    margin-top:4px;white-space:nowrap;
+    display:inline-flex;align-items:center;justify-content:center;gap:5px;
+    transition:opacity 220ms var(--ease), transform 220ms var(--ease);
+    will-change:opacity,transform;
+  }
+  .timer{
+    font-family:Geist Mono,monospace;font-size:11px;font-weight:500;
+    letter-spacing:.02em;color:#fff;line-height:1;
+  }
+  @media(prefers-color-scheme:light){.timer{color:#0C0C14}}
+
+  .connected-row{
+    display:flex;flex-direction:column;align-items:center;
+    opacity:0;transform:translateY(8px);
+    transition:opacity 500ms var(--ease), transform 500ms var(--ease);
+  }
+  .connected-row.on{opacity:1;transform:translateY(0)}
+  .label{font-size:14px;font-weight:700;letter-spacing:.01em;line-height:1;text-align:center;min-height:1em}
+
+  /* ── Flag ── */
+  .flag-svg{width:16px;height:12px;border-radius:2px;overflow:hidden;display:inline-block;vertical-align:middle;flex-shrink:0}
+  .flag-svg svg{width:100%;height:100%;display:block}
+  .mono{font-family:Geist Mono,monospace;font-size:11px;font-weight:500;opacity:.62}
+
+  .hint{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);font-size:11px;opacity:.4;text-align:center;white-space:nowrap}
+</style>
+</head>
+<body>
+<div class="canvas" id="canvas">
+  <!-- Bubble -->
+  <div class="float" id="float">
+    <button id="lock" class="lock" type="button" aria-label="Connect">
+      <!-- Disconnected: open lock (red) -->
+      <span id="s-dis"><svg class="icon" viewBox="0 0 24 24" fill="currentColor" style="color:var(--err-dark)"><path fill-rule="evenodd" d="M6,1.5a6,6 0,0 0,-6 6v0.75a0.75,0.75 0,0 0,1.5 0L1.5,7.5a4.5,4.5 0,0 1,9 0c-1.483,0.001 -2.26,0.02 -2.862,0.327a3,3 0,0 0,-1.311 1.311C6,9.78 6,10.62 6,12.3v5.4c0,1.68 0,2.52 0.327,3.162a3,3 0,0 0,1.311 1.311c0.642,0.327 1.482,0.327 3.162,0.327h8.4c1.68,0 2.52,0 3.162,-0.327a3,3 0,0 0,1.311 -1.311C24,20.22 24,19.38 24,17.7v-5.4c0,-1.68 0,-2.52 -0.327,-3.162a3,3 0,0 0,-1.311 -1.311C21.72,7.5 20.88,7.5 19.2,7.5L12,7.5a6,6 0,0 0,-6 -6ZM15.706,14.824a1.5,1.5 0,1 0,-1.412 0l-0.654,2.617a0.45,0.45 0,0 0,0.436 0.559h1.848a0.45,0.45 0,0 0,0.436 -0.56l-0.654,-2.616Z"/></svg></span>
+      <!-- Connecting: spinner -->
+      <span id="s-conn" style="display:none"><svg class="spinner" viewBox="0 0 32 32"><circle cx="16" cy="16" r="14"></circle></svg></span>
+      <!-- Connected: locked (green) + timer below -->
+      <span id="s-pro" style="display:none">
+        <span class="connected-row" id="row">
+          <span class="stack">
+            <svg class="icon" viewBox="0 0 24 24" fill="currentColor" style="color:var(--green-dark)"><path fill-rule="evenodd" d="M17.7137,7.7143C17.7137,7.6904 17.7136,7.6666 17.7133,7.6429C17.675,4.5199 15.1315,2 11.9994,2C8.8674,2 6.3239,4.5199 6.2856,7.6429C6.2853,7.6666 6.2852,7.6904 6.2852,7.7143V7.7417C5.7247,7.7759 5.3271,7.8529 4.9878,8.0258C4.4502,8.2997 4.0131,8.7368 3.7391,9.2744C3.4277,9.8856 3.4277,10.6856 3.4277,12.2858V17.4286C3.4277,19.0288 3.4277,19.8289 3.7391,20.44C4.0131,20.9776 4.4502,21.4147 4.9878,21.6887C5.5989,22.0001 6.399,22.0001 7.9992,22.0001H15.9992C17.5993,22.0001 18.3994,22.0001 19.0106,21.6887C19.5482,21.4147 19.9853,20.9776 20.2592,20.44C20.5706,19.8289 20.5706,19.0288 20.5706,17.4286V12.2858C20.5706,10.6856 20.5706,9.8856 20.2592,9.2744C19.9853,8.7368 19.5482,8.2997 19.0106,8.0258C18.6713,7.8529 18.2739,7.776 17.7137,7.7418V7.7143ZM11.9994,3.5C9.6958,3.5 7.8239,5.3483 7.7857,7.6429H16.2131C16.175,5.3483 14.3031,3.5 11.9994,3.5ZM12.6732,14.6894C13.1232,14.4489 13.4294,13.9745 13.4294,13.4286C13.4294,12.6396 12.7898,12 12.0008,12C11.2119,12 10.5723,12.6396 10.5723,13.4286C10.5723,13.9745 10.8785,14.4489 11.3285,14.6894L10.7054,17.1818C10.6378,17.4523 10.8424,17.7143 11.1212,17.7143H12.8805C13.1593,17.7143 13.3639,17.4523 13.2963,17.1818L12.6732,14.6894Z"/></svg>
+            <span id="timer" style="font-size:15px;font-weight:700;letter-spacing:.01em;line-height:1;color:var(--green-dark)">Protected</span>
+          </span>
+        </span>
+      </span>
+    </button>
+    <div id="label" class="label" style="transform:translateY(-24px)">Unprotected</div>
+  </div>
+
+  <div class="hint">Protected 1.5s → Flag+Digits 2.5s → 00:12 → every 5s Flag+Code ↔ Flag+Digits</div>
+</div>
+
+<script>
+/* ── Config ── */
+const PROT_DEFAULT = 1500;          // Protected 1-2s selectable
+const FIRST_FLAG_HOLD = 2300;       // Flag+Digits after Protected: 2.5s (200 in + 2300 hold + 200 out)
+const CYCLE_HOLD = 900;             // Flash hold 700 + fade 200
+const FADE = 200;                   // fade in/out ms
+
+/* ── DOM ── */
+const $ = id => document.getElementById(id);
+const els = {
+  lock: $('lock'), sDis: $('s-dis'), sConn: $('s-conn'), sPro: $('s-pro'),
+  row: $('row'), label: $('label'), timer: $('timer'),
+  float: $('float'), canvas: $('canvas'),
+  selProt: $('selProt'), selEvery: $('selEvery'),
+  vProt: $('vProt'), vEvery: $('vEvery'), ctlY: $('ctlY'), vY: $('vY'),
+};
+const FLAG_SVG = '<span class="flag-svg" aria-hidden="true"><svg viewBox="0 0 5 3" width="16" height="12" style="display:block;border-radius:2px;overflow:hidden;box-shadow:0 0 0 1px rgba(0,0,0,.08) inset;"><rect width="5" height="1" y="0" fill="#000"/><rect width="5" height="1" y="1" fill="#D00"/><rect width="5" height="1" y="2" fill="#FFCE00"/></svg></span>';
+
+/* ── Helpers ── */
+const isLight = () => matchMedia('(prefers-color-scheme:light)').matches;
+const colors = () => { const l=isLight(); return {err:l?'#CC2D4F':'#F08FA4', green:l?'#1C9C7C':'#2CFFCC', spin:l?'#0C0C14':'#FFFFFF'}; };
+const fmtTime = s => { const m=String(Math.floor(s/60)).padStart(2,'0'), sec=String(s%60).padStart(2,'0'), h=Math.floor(s/3600); return h?`${h}:${String(Math.floor((s%3600)/60)).padStart(2,'0')}:${sec}`:`${m}:${sec}`; };
+const timerBaseStyle = c => `position:absolute;top:100%;left:50%;transform:translateX(-50%);margin-top:4px;white-space:nowrap;display:inline-flex;align-items:center;justify-content:center;gap:5px;color:${c}`;
+const fade = (el, show) => {
+  el.style.opacity = show ? '1' : '0';
+  el.style.transform = show ? 'translateX(-50%) translateY(0) scale(1)' : 'translateX(-50%) translateY(4px) scale(.98)';
+};
+
+/* ── State ── */
+let state = 'disconnected', connTimer = null, secs = 12;
+let tick = null, bubbleTimer = null, cycle = null, flash = null, alt = 0;
+
+/* ── Timer (Protected → Flag+Digits → Timer) ── */
+function startTimer(){
+  stopTimer(); secs = 12; const c = colors();
+  const protMs = parseInt(els.selProt?.value || PROT_DEFAULT, 10);
+  els.timer.textContent = 'Protected';
+  els.timer.className = '';
+  els.timer.style.cssText = `font-size:15px;font-weight:700;letter-spacing:.01em;line-height:1;color:${c.green};font-family:Inter,system-ui,sans-serif;${timerBaseStyle(c.green)}`;
+  els.timer.style.transition = 'opacity 220ms var(--ease)';
+  bubbleTimer = setTimeout(()=>{
+    if(state!=='connected') return;
+    els.timer.style.opacity='0'; els.timer.style.transform='translateX(-50%) translateY(4px)';
+    setTimeout(()=>{
+      if(state!=='connected') return;
+      // Flag+Digits right after Protected (2.5s)
+      els.timer.innerHTML = FLAG_SVG + ' <span class="mono">153</span>';
+      els.timer.style.cssText = `font-size:11px;font-weight:500;letter-spacing:.02em;color:${c.spin};${timerBaseStyle(c.spin)};opacity:0;transform:translateX(-50%) translateY(4px) scale(.98);transition:opacity 200ms var(--ease), transform 200ms var(--ease)`;
+      const mono=els.timer.querySelector('.mono'); if(mono) mono.style.opacity='.62';
+      const flag=els.timer.querySelector('.flag-svg'); if(flag){ flag.style.transform='scale(.96)'; flag.style.transition='transform 200ms var(--ease)'; }
+      requestAnimationFrame(()=>requestAnimationFrame(()=>{ els.timer.style.opacity='1'; els.timer.style.transform='translateX(-50%) translateY(0) scale(1)'; if(flag) flag.style.transform='scale(1)'; }));
+      setTimeout(()=>{
+        els.timer.style.opacity='0'; els.timer.style.transform='translateX(-50%) translateY(4px) scale(.98)';
+        setTimeout(()=>{
+          if(state!=='connected') return;
+          els.timer.textContent = '00:12';
+          els.timer.className = 'timer';
+          els.timer.style.cssText = ''; els.timer.style.color = c.spin;
+          els.timer.style.cssText += `;${timerBaseStyle(c.spin)};transform:translateX(-50%) translateY(4px);transition:opacity 220ms var(--ease), transform 220ms var(--ease);opacity:0`;
+          requestAnimationFrame(()=>requestAnimationFrame(()=>fade(els.timer,true)));
+          tick = setInterval(()=>{ secs++; if(state!=='connected'||els.timer.dataset.flashing==='1') return; els.timer.textContent = fmtTime(secs); },1000);
+          setTimeout(()=>{ if(state==='connected') startCycle(); },5000); // next is Flag+Code
+        },FADE);
+      },FIRST_FLAG_HOLD);
+    },220);
+  },protMs);
+}
+function stopTimer(){ if(tick) clearInterval(tick); tick=null; if(bubbleTimer) clearTimeout(bubbleTimer); bubbleTimer=null; stopCycle(); }
+
+/* ── Cycle (Timer ↔ Flag+Code / Flag+Digits) ── */
+function startCycle(){
+  stopCycle(); alt = 0; // next is Flag+Code (since Flag+Digits already shown)
+  const every = parseInt(els.selEvery?.value || '5000',10);
+  cycle = setInterval(()=>{
+    if(state!=='connected'||els.timer.dataset.flashing==='1') return;
+    if(secs % 60 === 0){ setTimeout(()=>{ if(state==='connected'&&els.timer.dataset.flashing!=='1') doFlash(); },300); return; } // guard tick
+    doFlash();
+  },every);
+  function doFlash(){
+    const isCode = alt===0; alt=1-alt;
+    els.timer.dataset.flashing='1';
+    const c=colors(), w=els.timer.offsetWidth;
+    els.timer.style.minWidth=w+'px';
+    els.timer.style.opacity='0'; els.timer.style.transform='translateX(-50%) translateY(4px) scale(.98)';
+    setTimeout(()=>{
+      if(state!=='connected') return;
+      if(isCode){
+        els.timer.innerHTML = FLAG_SVG + ' <span style="font-size:12px;font-weight:500;letter-spacing:.02em;">DE</span>';
+      } else {
+        els.timer.innerHTML = FLAG_SVG + ' <span class="mono">153</span>';
+      }
+      els.timer.style.cssText = `font-size:${isCode?'12px':'11px'};font-weight:500;letter-spacing:.02em;color:${c.spin};${timerBaseStyle(c.spin)};opacity:0;transform:translateX(-50%) translateY(4px) scale(.98);transition:opacity 200ms var(--ease), transform 200ms var(--ease);min-width:${w}px`;
+      if(!isCode){ const m=els.timer.querySelector('.mono'); if(m) m.style.opacity='.62'; }
+      const flag=els.timer.querySelector('.flag-svg'); if(flag){ flag.style.transform='scale(.96)'; flag.style.transition='transform 200ms var(--ease)'; }
+      requestAnimationFrame(()=>requestAnimationFrame(()=>{ els.timer.style.opacity='1'; els.timer.style.transform='translateX(-50%) translateY(0) scale(1)'; if(flag) flag.style.transform='scale(1)'; }));
+      if(flash) clearTimeout(flash);
+      flash=setTimeout(()=>{
+        els.timer.style.opacity='0'; els.timer.style.transform='translateX(-50%) translateY(4px) scale(.98)';
+        setTimeout(()=>{
+          if(state!=='connected') return;
+          els.timer.dataset.flashing='0';
+          els.timer.textContent = fmtTime(secs);
+          els.timer.className='timer'; els.timer.style.cssText=''; els.timer.style.color=c.spin;
+          els.timer.style.cssText += `;${timerBaseStyle(c.spin)};transform:translateX(-50%) translateY(4px);transition:opacity 220ms var(--ease), transform 220ms var(--ease)`;
+          els.timer.style.minWidth=''; fade(els.timer,true);
+        },FADE);
+      },CYCLE_HOLD);
+    },FADE);
+  }
+}
+function stopCycle(){ if(cycle) clearInterval(cycle); cycle=null; if(flash) clearTimeout(flash); flash=null; if(els.timer) els.timer.dataset.flashing='0'; }
+
+/* ── Render / Connect ── */
+function render(){
+  const c=colors();
+  els.sDis.style.display=state==='disconnected'?'':'none';
+  els.sConn.style.display=state==='connecting'?'':'none';
+  els.sPro.style.display=state==='connected'?'':'none';
+  if(state==='connected') requestAnimationFrame(()=>requestAnimationFrame(()=>els.row.classList.add('on'))); else els.row.classList.remove('on');
+  els.sDis.querySelector('svg').style.color=c.err;
+  els.sPro.querySelector('svg').style.color=c.green;
+  els.sConn.querySelector('svg').style.color=c.spin;
+  els.lock.disabled=state==='connecting';
+  if(state==='disconnected'){ els.label.style.display=''; els.label.textContent='Unprotected'; els.label.style.color=c.err; stopTimer(); }
+  else if(state==='connecting'){ els.label.style.display=''; els.label.textContent='Connecting…'; els.label.style.color=c.spin; stopTimer(); }
+  else { els.label.style.display='none'; startTimer(); }
+}
+function go(s){ clearTimeout(connTimer); if(s==='connecting'){ state='connecting'; render(); connTimer=setTimeout(()=>{state='connected';render()},1200);} else {state=s;render();} }
+
+/* ── Drag / Controls ── */
+let dragging=false,pending=false,sx=0,sy=0,ox=0,oy=0,pid=0; const SLOP=6;
+els.float.addEventListener('pointerdown',e=>{ pending=true; dragging=false; sx=e.clientX; sy=e.clientY; ox=els.float.offsetLeft; oy=els.float.offsetTop; pid=e.pointerId; els.float.style.cursor='grabbing'; });
+addEventListener('pointermove',e=>{
+  if(!pending&&!dragging) return;
+  const dx=e.clientX-sx, dy=e.clientY-sy;
+  if(!dragging&&Math.hypot(dx,dy)<SLOP) return;
+  if(!dragging){ dragging=true; try{els.float.setPointerCapture(pid)}catch(_){} }
+  let nx=ox+dx, ny=oy+dy; const r=els.canvas.getBoundingClientRect(), w=els.float.offsetWidth, h=els.float.offsetHeight;
+  nx=Math.max(0,Math.min(r.width-w,nx)); ny=Math.max(14,Math.min(r.height-h,ny));
+  els.float.style.left=nx+'px'; els.float.style.top=ny+'px';
+});
+function endDrag(){ pending=false; if(dragging) setTimeout(()=>dragging=false,0); els.float.style.cursor='grab'; try{els.float.releasePointerCapture(pid)}catch(_){} }
+addEventListener('pointerup',endDrag); addEventListener('pointercancel',endDrag);
+els.ctlY?.addEventListener('input',e=>{ const v=parseInt(e.target.value)||0; els.vY.textContent=v; els.float.style.top=`calc(50vh - 30px + ${v}px)`; });
+els.selEvery?.addEventListener('change',e=>{ els.vEvery.textContent=e.target.value==='8000'?'8s':'5s'; if(state==='connected'){ stopCycle(); startCycle(); } });
+els.selProt?.addEventListener('change',e=>{ const v=parseInt(e.target.value,10); els.vProt.textContent=v===1000?'1s':v===1500?'1.5s':'2s'; });
+addEventListener('pointerup',()=>setTimeout(()=>{
+  const vh=innerHeight, cur=els.float.offsetTop, centered=vh/2-30, d=Math.round(cur-centered);
+  if(els.ctlY){ els.ctlY.value=Math.max(-140,Math.min(140,d)); els.vY.textContent=els.ctlY.value; }
+},60));
+els.lock.addEventListener('click',e=>{ if(dragging){e.preventDefault();e.stopPropagation();return} if(state==='disconnected') go('connecting'); else if(state==='connected') go('disconnected'); });
+matchMedia('(prefers-color-scheme:light)').addEventListener?.('change',render);
+addEventListener('keydown',e=>{ if(e.code==='Space'&&document.activeElement===document.body){e.preventDefault();els.lock.click();}});
+render();
+</script>
+</body>
+</html>

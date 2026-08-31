@@ -47,8 +47,13 @@ import android.widget.Toast
 import androidx.compose.ui.graphics.toArgb
 import androidx.core.app.NotificationCompat
 import androidx.preference.PreferenceManager
+import android.content.SharedPreferences
+import net.typeblog.socks.util.Constants
 import net.typeblog.socks.util.Constants.ACTION_START_VPN
 import net.typeblog.socks.util.Constants.ACTION_STOP_VPN
+import net.typeblog.socks.util.Constants.BUBBLE_STYLE_CLASSIC
+import net.typeblog.socks.util.Constants.BUBBLE_STYLE_LOCK
+import net.typeblog.socks.util.Constants.PREF_BUBBLE_STYLE
 import net.typeblog.socks.util.Constants.PREF_BUBBLE_X
 import net.typeblog.socks.util.Constants.PREF_BUBBLE_Y
 import net.typeblog.socks.util.ProfileManager
@@ -108,6 +113,25 @@ class FloatingControlService : Service() {
     private var initialRawX = 0f
     private var initialRawY = 0f
     private var dragging = false
+
+    private var bubbleStyle: String = Constants.BUBBLE_STYLE_LOCK
+    // Lock-style cycling (Protected -> Flag+Digits -> Timer -> every 5s alternate)
+    private var lockHandler: Handler = Handler(Looper.getMainLooper())
+    private var lockProtRunnable: Runnable? = null
+    private var lockFirstFlagRunnable: Runnable? = null
+    private var lockCycleRunnable: Runnable? = null
+    private var lockFlashHideRunnable: Runnable? = null
+    private var lockCycleAlt: Int = 0
+    private var lockFlashing: Boolean = false
+    private var prefListener: SharedPreferences.OnSharedPreferenceChangeListener? = null
+
+    fun getBubbleStyle(): String = bubbleStyle
+    fun isLockStyle(): Boolean = bubbleStyle == Constants.BUBBLE_STYLE_LOCK
+
+    private fun isLightMode(): Boolean = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_NO
+    private fun lockGreen(): Int = if (isLightMode()) Color.parseColor("#1C9C7C") else Color.parseColor("#2CFFCC")
+    private fun lockErr(): Int = if (isLightMode()) Color.parseColor("#CC2D4F") else Color.parseColor("#F08FA4")
+    private fun lockSpin(): Int = if (isLightMode()) Color.parseColor("#0C0C14") else Color.WHITE
 
     private var bubbleSizePx = 0
     // Reserve extra window space around the visual circle so scale animations
@@ -197,6 +221,8 @@ class FloatingControlService : Service() {
             return
         }
 
+        bubbleStyle = PreferenceManager.getDefaultSharedPreferences(this)
+            .getString(PREF_BUBBLE_STYLE, BUBBLE_STYLE_LOCK) ?: BUBBLE_STYLE_LOCK
         createNotificationChannel()
         touchSlop = ViewConfiguration.get(this).scaledTouchSlop
         // Use display context for WindowManager so overlay is a top-level system window,
@@ -222,6 +248,16 @@ class FloatingControlService : Service() {
             onCountrySelected = { code -> onBubbleCountrySelected(code) },
             onDismissed = { longPressFired = false }
         )
+        prefListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            if (key == PREF_BUBBLE_STYLE) {
+                val newStyle = PreferenceManager.getDefaultSharedPreferences(this)
+                    .getString(PREF_BUBBLE_STYLE, BUBBLE_STYLE_LOCK) ?: BUBBLE_STYLE_LOCK
+                if (newStyle != bubbleStyle) {
+                    recreateBubbleForStyleChange(newStyle)
+                }
+            }
+        }
+        PreferenceManager.getDefaultSharedPreferences(this).registerOnSharedPreferenceChangeListener(prefListener)
         startAsForeground()
     }
 
@@ -266,11 +302,41 @@ class FloatingControlService : Service() {
         updateFlagPillPosition()
     }
 
+    private fun recreateBubbleForStyleChange(newStyle: String) {
+        bubbleStyle = newStyle
+        val oldX = params?.x
+        val oldY = params?.y
+        stopLockSequence()
+        stopTimer()
+        stopBreathing()
+        removeFlagPillFromWindow()
+        removeBubbleFromWindow()
+        bubbleView = createBubbleView()
+        params = buildLayoutParams()
+        if (oldX != null && oldY != null) {
+            val bounds = currentDragBounds()
+            val maxX = (bounds.right - bubbleWindowSizePx).coerceAtLeast(bounds.left)
+            val maxY = (bounds.bottom - bubbleWindowSizePx).coerceAtLeast(bounds.top)
+            params?.x = oldX.coerceIn(bounds.left, maxX)
+            params?.y = oldY.coerceIn(bounds.top, maxY)
+        }
+        flagPillView = createFlagPillView()
+        flagPillParams = buildFlagPillLayoutParams()
+        addBubbleToWindow()
+        addFlagPillToWindow()
+        updateFlagPillPosition()
+        // re-apply ui for current state
+        updateBubbleUi(state)
+        updateForegroundNotification()
+    }
+
     override fun onDestroy() {
         pollHandler.removeCallbacks(pollRunnable)
         rebindRunnable?.let { pollHandler.removeCallbacks(it); rebindRunnable = null }
         rebindInFlight = false
         timerHandler.removeCallbacks(timerRunnable)
+        stopLockSequence()
+        prefListener?.let { PreferenceManager.getDefaultSharedPreferences(this).unregisterOnSharedPreferenceChangeListener(it) }
         connectTimeoutRunnable?.let { connectTimeoutHandler?.removeCallbacks(it) }
         breatheAnimator?.cancel(); breatheAnimator = null
         colorAnimator?.cancel(); colorAnimator = null
@@ -306,72 +372,131 @@ class FloatingControlService : Service() {
     }
 
     private fun createBubbleView(): FrameLayout {
+        // Resolve style from prefs before sizing
+        bubbleStyle = PreferenceManager.getDefaultSharedPreferences(this)
+            .getString(PREF_BUBBLE_STYLE, BUBBLE_STYLE_LOCK) ?: BUBBLE_STYLE_LOCK
         val density = resources.displayMetrics.density
-        val sizePx = (60 * density).toInt()
-        bubbleSizePx = sizePx
-        // 12dp of transparent window room around the visual circle on each side —
-        // more than the 60 * 0.18 ≈ 10.8dp max connect-pop overshoot, so scaling
-        // never clips the oval against the square overlay window.
-        val growMarginPx = (12 * density).toInt()
-        bubbleGrowMarginPx = growMarginPx
-        val windowSizePx = sizePx + 2 * growMarginPx
-        bubbleWindowSizePx = windowSizePx
-        val glyphSizePx = (26 * density).toInt()
-        val progressSizePx = (26 * density).toInt()
+        if (isLockStyle()) {
+            val sizePx = (96 * density).toInt()
+            bubbleSizePx = sizePx
+            bubbleGrowMarginPx = 0
+            bubbleWindowSizePx = sizePx
+            val glyphSizePx = (42 * density).toInt()
 
-        // Outer transparent window container. It owns the WindowManager.LayoutParams
-        // (drag/position/pill math); the visual circle lives inside it and is the
-        // only thing scaled by the breathing/pop animations.
-        val root = FrameLayout(this)
-        root.clipChildren = false
-        root.clipToPadding = false
-        root.layoutParams = FrameLayout.LayoutParams(windowSizePx, windowSizePx)
+            val root = FrameLayout(this)
+            root.clipChildren = false
+            root.clipToPadding = false
+            root.layoutParams = FrameLayout.LayoutParams(sizePx, sizePx)
 
-        val circle = FrameLayout(this)
-        circle.outlineProvider = ViewOutlineProvider.BACKGROUND
-        circle.clipChildren = false
-        circle.clipToPadding = false
-        circle.layoutParams = FrameLayout.LayoutParams(sizePx, sizePx, Gravity.CENTER)
+            val circle = FrameLayout(this)
+            circle.clipChildren = false
+            circle.clipToPadding = false
+            circle.layoutParams = FrameLayout.LayoutParams(sizePx, sizePx, Gravity.CENTER)
+            circle.background = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = 28 * density
+                setColor(Color.TRANSPARENT)
+            }
 
-        val (startColor, endColor) = stateGradient(BubbleState.DISCONNECTED)
-        val background = GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(startColor, endColor))
-        background.shape = GradientDrawable.OVAL
-        circle.background = background
+            iconView = ImageView(this).apply {
+                layoutParams = FrameLayout.LayoutParams(glyphSizePx, glyphSizePx, Gravity.CENTER)
+                setImageResource(R.drawable.ic_proton_lock_open_filled_2)
+                setColorFilter(lockErr())
+                scaleType = ImageView.ScaleType.FIT_CENTER
+            }
+            circle.addView(iconView)
 
-        iconView = ImageView(this)
-        iconView!!.layoutParams = FrameLayout.LayoutParams(glyphSizePx, glyphSizePx, Gravity.CENTER)
-        iconView!!.setImageResource(R.drawable.ic_bubble_play)
-        iconView!!.setColorFilter(Color.WHITE)
-        iconView!!.scaleType = ImageView.ScaleType.FIT_CENTER
-        circle.addView(iconView)
+            progressBar = ProgressBar(this, null, android.R.attr.progressBarStyle).apply {
+                isIndeterminate = true
+                indeterminateDrawable?.mutate()?.setTint(lockSpin())
+                layoutParams = FrameLayout.LayoutParams(glyphSizePx, glyphSizePx, Gravity.CENTER)
+                visibility = View.GONE
+            }
+            circle.addView(progressBar)
 
-        progressBar = ProgressBar(this, null, android.R.attr.progressBarStyle)
-        progressBar!!.isIndeterminate = true
-        progressBar!!.indeterminateDrawable?.mutate()
-            ?.setTint(Color.WHITE)
-        progressBar!!.layoutParams = FrameLayout.LayoutParams(progressSizePx, progressSizePx, Gravity.CENTER)
-        progressBar!!.visibility = View.GONE
-        circle.addView(progressBar)
+            timerView = TextView(this).apply {
+                text = "00:00"
+                setTextColor(Color.WHITE)
+                textSize = 11f
+                typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+                letterSpacing = 0.02f
+                gravity = Gravity.CENTER
+                // Below icon: top = center(48dp)+21dp+4dp
+                val topMargin = (sizePx / 2 + glyphSizePx / 2 + (4 * density).toInt())
+                layoutParams = FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.WRAP_CONTENT,
+                    FrameLayout.LayoutParams.WRAP_CONTENT,
+                    Gravity.TOP or Gravity.CENTER_HORIZONTAL
+                ).apply { this.topMargin = topMargin }
+                visibility = View.GONE
+            }
+            circle.addView(timerView)
 
-        timerView = TextView(this)
-        timerView!!.text = "00:00"
-        timerView!!.setTextColor(Color.WHITE)
-        timerView!!.textSize = 11.5f
-        timerView!!.setTypeface(Typeface.create(Typeface.DEFAULT, Typeface.BOLD))
-        timerView!!.letterSpacing = 0.02f
-        timerView!!.gravity = Gravity.CENTER
-        timerView!!.layoutParams = FrameLayout.LayoutParams(
-            FrameLayout.LayoutParams.WRAP_CONTENT,
-            FrameLayout.LayoutParams.WRAP_CONTENT,
-            Gravity.CENTER
-        )
-        timerView!!.visibility = View.GONE
-        circle.addView(timerView)
+            root.addView(circle)
+            bubbleVisualView = circle
+            root.setOnTouchListener(createTouchListener())
+            return root
+        } else {
+            val sizePx = (60 * density).toInt()
+            bubbleSizePx = sizePx
+            val growMarginPx = (12 * density).toInt()
+            bubbleGrowMarginPx = growMarginPx
+            val windowSizePx = sizePx + 2 * growMarginPx
+            bubbleWindowSizePx = windowSizePx
+            val glyphSizePx = (26 * density).toInt()
+            val progressSizePx = (26 * density).toInt()
 
-        root.addView(circle)
-        bubbleVisualView = circle
-        root.setOnTouchListener(createTouchListener())
-        return root
+            val root = FrameLayout(this)
+            root.clipChildren = false
+            root.clipToPadding = false
+            root.layoutParams = FrameLayout.LayoutParams(windowSizePx, windowSizePx)
+
+            val circle = FrameLayout(this)
+            circle.outlineProvider = ViewOutlineProvider.BACKGROUND
+            circle.clipChildren = false
+            circle.clipToPadding = false
+            circle.layoutParams = FrameLayout.LayoutParams(sizePx, sizePx, Gravity.CENTER)
+
+            val (startColor, endColor) = stateGradient(BubbleState.DISCONNECTED)
+            val background = GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(startColor, endColor))
+            background.shape = GradientDrawable.OVAL
+            circle.background = background
+
+            iconView = ImageView(this)
+            iconView!!.layoutParams = FrameLayout.LayoutParams(glyphSizePx, glyphSizePx, Gravity.CENTER)
+            iconView!!.setImageResource(R.drawable.ic_bubble_play)
+            iconView!!.setColorFilter(Color.WHITE)
+            iconView!!.scaleType = ImageView.ScaleType.FIT_CENTER
+            circle.addView(iconView)
+
+            progressBar = ProgressBar(this, null, android.R.attr.progressBarStyle)
+            progressBar!!.isIndeterminate = true
+            progressBar!!.indeterminateDrawable?.mutate()
+                ?.setTint(Color.WHITE)
+            progressBar!!.layoutParams = FrameLayout.LayoutParams(progressSizePx, progressSizePx, Gravity.CENTER)
+            progressBar!!.visibility = View.GONE
+            circle.addView(progressBar)
+
+            timerView = TextView(this)
+            timerView!!.text = "00:00"
+            timerView!!.setTextColor(Color.WHITE)
+            timerView!!.textSize = 11.5f
+            timerView!!.setTypeface(Typeface.create(Typeface.DEFAULT, Typeface.BOLD))
+            timerView!!.letterSpacing = 0.02f
+            timerView!!.gravity = Gravity.CENTER
+            timerView!!.layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                Gravity.CENTER
+            )
+            timerView!!.visibility = View.GONE
+            circle.addView(timerView)
+
+            root.addView(circle)
+            bubbleVisualView = circle
+            root.setOnTouchListener(createTouchListener())
+            return root
+        }
     }
 
     private fun createFlagPillView(): LinearLayout {
@@ -448,6 +573,10 @@ class FloatingControlService : Service() {
     }
 
     private fun updateFlagPill() {
+        if (isLockStyle()) {
+            flagPillView?.visibility = View.GONE
+            return
+        }
         val pill = flagPillView ?: return
         val text = flagPillText ?: return
         if (state == BubbleState.CONNECTED) {
@@ -1099,10 +1228,49 @@ class FloatingControlService : Service() {
         animateGradientTransition(oldState, state)
         stopBreathing()
 
+        if (isLockStyle()) {
+            when (state) {
+                BubbleState.CONNECTING -> {
+                    iconView?.apply { visibility = View.GONE }
+                    progressBar?.visibility = View.VISIBLE
+                    progressBar?.indeterminateDrawable?.mutate()?.setTint(lockSpin())
+                    timerView?.visibility = View.GONE
+                    stopTimer()
+                    stopLockSequence()
+                }
+                BubbleState.CONNECTED -> {
+                    progressBar?.visibility = View.GONE
+                    iconView?.visibility = View.VISIBLE
+                    iconView?.setImageResource(R.drawable.ic_proton_lock_filled)
+                    iconView?.setColorFilter(lockGreen())
+                    if (getConnectedSince() > 0L) {
+                        timerView?.visibility = View.VISIBLE
+                        startLockSequence()
+                    } else {
+                        timerView?.visibility = View.GONE
+                        stopLockSequence()
+                    }
+                    if (oldState == BubbleState.CONNECTING) playConnectPop(circle)
+                }
+                BubbleState.DISCONNECTED -> {
+                    iconView?.visibility = View.VISIBLE
+                    iconView?.setImageResource(R.drawable.ic_proton_lock_open_filled_2)
+                    iconView?.setColorFilter(lockErr())
+                    progressBar?.visibility = View.GONE
+                    timerView?.visibility = View.GONE
+                    stopTimer()
+                    stopLockSequence()
+                }
+            }
+            updateFlagPill()
+            return
+        }
+
         when (state) {
             BubbleState.CONNECTING -> {
                 iconView?.visibility = View.GONE
                 progressBar?.visibility = View.VISIBLE
+                progressBar?.indeterminateDrawable?.mutate()?.setTint(Color.WHITE)
                 timerView?.visibility = View.GONE
                 stopTimer()
                 startBreathing(circle)
@@ -1117,6 +1285,7 @@ class FloatingControlService : Service() {
                 } else {
                     iconView?.visibility = View.VISIBLE
                     iconView?.setImageResource(R.drawable.ic_bubble_stop)
+                    iconView?.setColorFilter(Color.WHITE)
                     timerView?.visibility = View.GONE
                     stopTimer()
                 }
@@ -1128,6 +1297,7 @@ class FloatingControlService : Service() {
                 iconView?.visibility = View.VISIBLE
                 progressBar?.visibility = View.GONE
                 iconView?.setImageResource(R.drawable.ic_bubble_play)
+                iconView?.setColorFilter(Color.WHITE)
                 timerView?.visibility = View.GONE
                 stopTimer()
             }
@@ -1242,12 +1412,19 @@ class FloatingControlService : Service() {
     }
 
     private fun updateTimerText() {
+        if (isLockStyle() && lockFlashing) return
         val view = timerView ?: return
         val connectedSince = getConnectedSince()
         val elapsed = if (connectedSince > 0L) {
             (java.lang.System.currentTimeMillis() - connectedSince).coerceAtLeast(0L)
         } else {
             0L
+        }
+        if (isLockStyle()) {
+            view.setTextColor(Color.WHITE)
+            view.textSize = 11f
+            view.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            view.letterSpacing = 0.02f
         }
         view.text = formatElapsed(elapsed)
     }
@@ -1261,8 +1438,141 @@ class FloatingControlService : Service() {
         timerHandler.removeCallbacks(timerRunnable)
     }
 
+    // Lock-style Protected -> Flag+Digits -> Timer -> every 5s Flag+Code/Flag+Digits alternate 1.1s
+    private fun startLockSequence() {
+        stopLockSequence()
+        stopTimer()
+        val tv = timerView ?: return
+        val green = lockGreen()
+        // Protected 1.5s - large green
+        tv.alpha = 1f
+        tv.setTextColor(green)
+        tv.textSize = 15f
+        tv.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        tv.letterSpacing = 0.01f
+        tv.text = "Protected"
+        // Tick timer string separately via timerRunnable once sequence completes
+        lockProtRunnable = Runnable {
+            if (state != BubbleState.CONNECTED) return@Runnable
+            // fade to Flag+Digits
+            tv.animate().alpha(0f).setDuration(200).withEndAction {
+                if (state != BubbleState.CONNECTED) return@withEndAction
+                val (flag, digits) = lockFlagDigits()
+                tv.setTextColor(Color.WHITE)
+                tv.textSize = 11f
+                tv.letterSpacing = 0.02f
+                tv.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+                tv.text = flag + " " + digits
+                tv.alpha = 0f
+                tv.animate().alpha(1f).setDuration(200).start()
+                lockFirstFlagRunnable = Runnable {
+                    if (state != BubbleState.CONNECTED) return@Runnable
+                    tv.animate().alpha(0f).setDuration(200).withEndAction {
+                        if (state != BubbleState.CONNECTED) return@withEndAction
+                        // show 00:12 counting
+                        tv.setTextColor(Color.WHITE)
+                        tv.textSize = 11f
+                        updateTimerText()
+                        tv.alpha = 0f
+                        tv.animate().alpha(1f).setDuration(200).start()
+                        startTimer()
+                        // start 5s cycle after 5s
+                        lockCycleAlt = 0
+                        lockCycleRunnable = object : Runnable {
+                            override fun run() {
+                                if (state != BubbleState.CONNECTED || lockFlashing) {
+                                    lockHandler.postDelayed(this, EVERY_MS)
+                                    return
+                                }
+                                val elapsedSec = (if (getConnectedSince() > 0) (System.currentTimeMillis() - getConnectedSince()) / 1000 else 0)
+                                if (elapsedSec % 60L == 0L) {
+                                    // guard tick
+                                    lockHandler.postDelayed({ if (state == BubbleState.CONNECTED && !lockFlashing) doLockFlash() }, 300)
+                                } else {
+                                    doLockFlash()
+                                }
+                                lockHandler.postDelayed(this, EVERY_MS)
+                            }
+                        }
+                        lockHandler.postDelayed(lockCycleRunnable!!, EVERY_MS)
+                    }.start()
+                }
+                lockHandler.postDelayed(lockFirstFlagRunnable!!, FIRST_FLAG_HOLD_MS)
+            }.start()
+        }
+        lockHandler.postDelayed(lockProtRunnable!!, PROT_MS)
+    }
+
+    private fun stopLockSequence() {
+        lockProtRunnable?.let { lockHandler.removeCallbacks(it); lockProtRunnable = null }
+        lockFirstFlagRunnable?.let { lockHandler.removeCallbacks(it); lockFirstFlagRunnable = null }
+        lockCycleRunnable?.let { lockHandler.removeCallbacks(it); lockCycleRunnable = null }
+        lockFlashHideRunnable?.let { lockHandler.removeCallbacks(it); lockFlashHideRunnable = null }
+        lockFlashing = false
+    }
+
+    private fun doLockFlash() {
+        val tv = timerView ?: return
+        if (state != BubbleState.CONNECTED) return
+        lockFlashing = true
+        val isCode = lockCycleAlt == 0
+        lockCycleAlt = 1 - lockCycleAlt
+        val w = tv.width
+        if (w > 0) tv.minWidth = w
+        tv.animate().alpha(0f).setDuration(FADE_MS).withEndAction {
+            if (state != BubbleState.CONNECTED) { lockFlashing = false; return@withEndAction }
+            val (flag, digits) = lockFlagDigits()
+            val code = lockCountryCode()
+            tv.setTextColor(Color.WHITE)
+            if (isCode) {
+                tv.textSize = 12f
+                tv.text = if (code.isNotEmpty()) flag + " " + code else flag + " DE"
+            } else {
+                tv.textSize = 11f
+                tv.text = flag + " " + digits
+            }
+            tv.alpha = 0f
+            tv.animate().alpha(1f).setDuration(FADE_MS).start()
+            lockFlashHideRunnable = Runnable {
+                tv.animate().alpha(0f).setDuration(FADE_MS).withEndAction {
+                    if (state != BubbleState.CONNECTED) { lockFlashing = false; tv.minWidth = 0; return@withEndAction }
+                    lockFlashing = false
+                    tv.minWidth = 0
+                    tv.setTextColor(Color.WHITE)
+                    tv.textSize = 11f
+                    updateTimerText()
+                    tv.alpha = 0f
+                    tv.animate().alpha(1f).setDuration(FADE_MS).start()
+                }.start()
+            }
+            lockHandler.postDelayed(lockFlashHideRunnable!!, CYCLE_HOLD_MS)
+        }.start()
+    }
+
+    private fun lockFlagDigits(): Pair<String, String> {
+        val code = try { vpnService?.countryCode ?: "" } catch (_: Exception) { "" }
+        val flag = if (code.isNotEmpty()) Utility.countryCodeToFlag(code) else "🇩🇪"
+        val ip = try { vpnService?.currentIp ?: "" } catch (_: Exception) { "" }
+        val lastOctet = when {
+            ip.contains('.') -> ip.substringAfterLast('.')
+            ip.contains(':') -> ip.substringAfterLast(':').takeLast(4)
+            else -> "153"
+        }.ifEmpty { "153" }
+        return Pair(flag, lastOctet)
+    }
+
+    private fun lockCountryCode(): String {
+        return try { vpnService?.countryCode ?: "" } catch (_: Exception) { "" }
+    }
+
+    // lock timing constants are in companion below
+
     /** Solid fill color per bubble state (start == end, so the gradient renders flat). */
     private fun stateGradient(state: BubbleState): Pair<Int, Int> {
+        if (isLockStyle()) {
+            val t = Color.TRANSPARENT
+            return Pair(t, t)
+        }
         return when (state) {
             BubbleState.CONNECTING -> Pair(
                 0xFF000000.toInt(),
@@ -1288,6 +1598,11 @@ class FloatingControlService : Service() {
         // Matches the 20s "not yet connected" timeout in StatusScreen's
         // LaunchedEffect(isConnecting) so both surfaces abandon a stuck
         // connect together.
+        private const val PROT_MS = 1500L
+        private const val FIRST_FLAG_HOLD_MS = 2300L
+        private const val CYCLE_HOLD_MS = 900L
+        private const val FADE_MS = 200L
+        private const val EVERY_MS = 5000L
         private const val CONNECT_TIMEOUT_MS = 20_000L
 
         fun start(context: Context) {

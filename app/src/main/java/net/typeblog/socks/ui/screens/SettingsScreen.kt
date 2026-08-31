@@ -52,13 +52,16 @@ import kotlinx.coroutines.withContext
 import net.typeblog.socks.BuildConfig
 import net.typeblog.socks.FloatingControlService
 import net.typeblog.socks.R
+import net.typeblog.socks.ui.components.BubbleStylePickerDialog
 import net.typeblog.socks.ui.components.SettingsItem
 import net.typeblog.socks.ui.components.ThemePickerDialog
 import net.typeblog.socks.ui.components.UpdateDialog
+import net.typeblog.socks.util.Constants.BUBBLE_STYLE_LOCK
 import net.typeblog.socks.util.Constants.PREF_ADV_PER_APP
+import net.typeblog.socks.util.Constants.PREF_BUBBLE_STYLE
 import net.typeblog.socks.util.Constants.PREF_FLOATING_CONTROL
-import net.typeblog.socks.util.Constants.PREF_THEME_MODE
 import net.typeblog.socks.util.Constants.PREF_NETSHIELD_ENABLED
+import net.typeblog.socks.util.Constants.PREF_THEME_MODE
 import net.typeblog.socks.util.UpdateChecker
 
 @Composable
@@ -77,6 +80,9 @@ fun SettingsScreen(
     var floatingControl by remember {
         mutableStateOf(prefs.getBoolean(PREF_FLOATING_CONTROL, false))
     }
+    var bubbleStyle by remember {
+        mutableStateOf(prefs.getString(PREF_BUBBLE_STYLE, BUBBLE_STYLE_LOCK) ?: BUBBLE_STYLE_LOCK)
+    }
     var netShieldEnabled by remember {
         mutableStateOf(prefs.getBoolean(PREF_NETSHIELD_ENABLED, false))
     }
@@ -88,6 +94,7 @@ fun SettingsScreen(
             when (key) {
                 PREF_THEME_MODE -> themeMode = prefs.getString(PREF_THEME_MODE, "light") ?: "light"
                 PREF_FLOATING_CONTROL -> floatingControl = prefs.getBoolean(PREF_FLOATING_CONTROL, false)
+                PREF_BUBBLE_STYLE -> bubbleStyle = prefs.getString(PREF_BUBBLE_STYLE, BUBBLE_STYLE_LOCK) ?: BUBBLE_STYLE_LOCK
                 PREF_NETSHIELD_ENABLED -> netShieldEnabled = prefs.getBoolean(PREF_NETSHIELD_ENABLED, false)
                 PREF_ADV_PER_APP -> splitEnabled = prefs.getBoolean(PREF_ADV_PER_APP, false)
             }
@@ -96,6 +103,7 @@ fun SettingsScreen(
         onDispose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
     }
     var showThemeDialog by remember { mutableStateOf(false) }
+    var showBubbleStyleDialog by remember { mutableStateOf(false) }
     var checkingUpdates by remember { mutableStateOf(false) }
     var updateInfo by remember { mutableStateOf<UpdateChecker.UpdateInfo?>(null) }
     var whatsNewLoading by remember { mutableStateOf(false) }
@@ -115,6 +123,11 @@ fun SettingsScreen(
 
     fun saveBoolean(key: String, value: Boolean) {
         prefs.edit().putBoolean(key, value).apply()
+        if (key == PREF_FLOATING_CONTROL && value) {
+            if (prefs.getString(PREF_BUBBLE_STYLE, null) == null) {
+                prefs.edit().putString(PREF_BUBBLE_STYLE, BUBBLE_STYLE_LOCK).apply()
+            }
+        }
     }
 
     if (showThemeDialog) {
@@ -186,6 +199,22 @@ fun SettingsScreen(
         } else {
             context.startService(intent)
         }
+    }
+
+    if (showBubbleStyleDialog) {
+        BubbleStylePickerDialog(
+            current = bubbleStyle,
+            onSelect = { value ->
+                prefs.edit().putString(PREF_BUBBLE_STYLE, value).apply()
+                bubbleStyle = value
+                if (floatingControl) {
+                    context.stopService(Intent(context, FloatingControlService::class.java))
+                    startFloatingControl(context)
+                }
+                showBubbleStyleDialog = false
+            },
+            onDismiss = { showBubbleStyleDialog = false }
+        )
     }
 
     val vpnPermissionLauncher = rememberLauncherForActivityResult(
@@ -325,6 +354,16 @@ fun SettingsScreen(
                             }
                         )
                     }
+                )
+                SettingsItem(
+                    icon = painterResource(
+                        if (bubbleStyle == BUBBLE_STYLE_LOCK) R.drawable.ic_proton_lock_filled else R.drawable.ic_bubble_play
+                    ),
+                    label = "Bubble style",
+                    description = if (bubbleStyle == BUBBLE_STYLE_LOCK) "Lock \u2014 Flag+Digits \u2192 Timer (new)" else "Classic \u2014 Play/Stop orb",
+                    value = if (bubbleStyle == BUBBLE_STYLE_LOCK) "Lock" else "Classic",
+                    onClick = { showBubbleStyleDialog = true },
+                    enabled = true
                 )
             }
         }

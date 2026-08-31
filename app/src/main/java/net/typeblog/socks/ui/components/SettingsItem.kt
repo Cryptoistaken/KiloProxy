@@ -43,13 +43,14 @@ fun SettingsItem(
     showChevron: Boolean = true,
     trailing: @Composable RowScope.() -> Unit = {},
     onClick: (() -> Unit)? = null,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true
 ) {
     Row(
         modifier = modifier
             .fillMaxWidth()
             .then(
-                if (onClick != null) Modifier
+                if (onClick != null && enabled) Modifier
                     .semantics { role = Role.Button }
                     .clickable(role = Role.Button, onClick = onClick)
                 else Modifier
