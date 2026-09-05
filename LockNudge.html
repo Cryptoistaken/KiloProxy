@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lock Nudge — wireframe (mono)</title>
+<style>
+  body { font-family: system-ui, sans-serif; background:#fff; color:#111; margin:0; padding:24px; }
+  h1 { font-size:20px; } h2 { font-size:15px; margin-top:32px; border-bottom:2px solid #111; padding-bottom:4px; }
+  p, li { font-size:13px; line-height:1.6; }
+  .row { display:flex; gap:24px; flex-wrap:wrap; }
+  .card { background:#fff; border:2px solid #111; border-radius:12px; padding:16px; }
+  .lbl { font-size:12px; margin-bottom:8px; font-weight:bold; }
+  svg text { font-family: system-ui, sans-serif; }
+  .blue { color:#0044cc; } code { background:#eee; padding:1px 6px; border-radius:6px; font-size:12px; }
+</style>
+</head>
+<body>
+<h1>Unlocked lock = inverted-U shackle (∩) over body ([]) — wireframe</h1>
+<p>Disconnected state shows <b>∩ over []</b>. The open shackle arm leans out to the right, so the glyph's weight sits
+right of center while the text below is centered. Fix = nudge the lock left until ink centers over text.
+Blue dotted <span class="blue">.....</span> lines name <b>every part + its position</b>.</p>
+
+<h2>1 — Parts of the unlocked glyph (24-unit viewport)</h2>
+<div class="card">
+<svg width="640" height="220" viewBox="0 0 320 110">
+  <!-- viewport box -->
+  <rect x="60" y="5" width="120" height="100" fill="none" stroke="#111" stroke-width="1.5"/>
+  <!-- body [] -->
+  <rect x="90" y="55" width="60" height="40" fill="none" stroke="#111" stroke-width="3"/>
+  <!-- keyhole -->
+  <circle cx="120" cy="70" r="4" fill="#111"/>
+  <rect x="118" y="70" width="4" height="12" fill="#111"/>
+  <!-- shackle: inverted U, open arm out right -->
+  <path d="M100 58 V40 a20 20 0 0 1 38 -6" fill="none" stroke="#111" stroke-width="3"/>
+  <!-- viewport center -->
+  <line x1="120" y1="0" x2="120" y2="108" stroke="#0044cc" stroke-width="1.5" stroke-dasharray="1 3"/>
+  <!-- ink center -->
+  <line x1="132" y1="0" x2="132" y2="108" stroke="#0044cc" stroke-width="1.5" stroke-dasharray="1 3"/>
+  <!-- leaders -->
+  <line x1="100" y1="34" x2="20" y2="20" stroke="#0044cc" stroke-width="1" stroke-dasharray="1 3"/>
+  <line x1="150" y1="50" x2="200" y2="30" stroke="#0044cc" stroke-width="1" stroke-dasharray="1 3"/>
+  <line x1="90" y1="75" x2="20" y2="60" stroke="#0044cc" stroke-width="1" stroke-dasharray="1 3"/>
+  <line x1="120" y1="82" x2="200" y2="70" stroke="#0044cc" stroke-width="1" stroke-dasharray="1 3"/>
+  <line x1="120" y1="104" x2="200" y2="100" stroke="#0044cc" stroke-width="1" stroke-dasharray="1 3"/>
+  <line x1="132" y1="104" x2="260" y2="100" stroke="#0044cc" stroke-width="1" stroke-dasharray="1 3"/>
+  <text x="2" y="14" font-size="8" fill="#0044cc">..... shackle (inverted U ∩), x≈40–160</text>
+  <text x="205" y="24" font-size="8" fill="#0044cc">..... open arm tip, x≈150 (right overhang)</text>
+  <text x="2" y="62" font-size="8" fill="#0044cc">..... body ([]), x 90–150</text>
+  <text x="205" y="72" font-size="8" fill="#0044cc">..... keyhole, x≈120</text>
+  <text x="205" y="102" font-size="8" fill="#0044cc">..... viewport center x=120 (text anchors here)</text>
+  <text x="262" y="102" font-size="8" fill="#0044cc">..... ink center x≈132 (sits RIGHT)</text>
+</svg>
+</div>
+
+<h2>2 — Bubble: before vs after (lock over flag text)</h2>
+<div class="row">
+  <div class="card">
+    <div class="lbl">BEFORE — box centered, ink right, text centered → looks off</div>
+    <svg width="200" height="230" viewBox="0 0 100 115">
+      <circle cx="50" cy="40" r="37" fill="none" stroke="#111" stroke-width="1.5"/>
+      <line x1="50" y1="0" x2="50" y2="115" stroke="#0044cc" stroke-width="1" stroke-dasharray="1 2"/>
+      <g transform="translate(38,20) scale(2)" fill="none" stroke="#111" stroke-width="1.6">
+        <rect x="6" y="10" width="14" height="10"/>
+        <path d="M8 10 V7 a4 4 0 0 1 7.5 -1.5"/>
+      </g>
+      <line x1="62" y1="20" x2="95" y2="14" stroke="#0044cc" stroke-width="0.8" stroke-dasharray="1 2"/>
+      <text x="63" y="10" font-size="5" fill="#0044cc">..... lock ink, right of center</text>
+      <text x="50" y="98" font-size="10" text-anchor="middle" fill="#111">DE 153</text>
+      <text x="50" y="110" font-size="8" text-anchor="middle" fill="#111">00:12</text>
+      <line x1="50" y1="92" x2="5" y2="86" stroke="#0044cc" stroke-width="0.8" stroke-dasharray="1 2"/>
+      <text x="6" y="82" font-size="5" fill="#0044cc">..... text, centered x=50</text>
+    </svg>
+  </div>
+  <div class="card">
+    <div class="lbl">AFTER — lock nudged LEFT, ink centered over text</div>
+    <svg width="200" height="230" viewBox="0 0 100 115">
+      <circle cx="50" cy="40" r="37" fill="none" stroke="#111" stroke-width="1.5"/>
+      <line x1="50" y1="0" x2="50" y2="115" stroke="#0044cc" stroke-width="1" stroke-dasharray="1 2"/>
+      <g transform="translate(32,20) scale(2)" fill="none" stroke="#111" stroke-width="1.6">
+        <rect x="6" y="10" width="14" height="10"/>
+        <path d="M8 10 V7 a4 4 0 0 1 7.5 -1.5"/>
+      </g>
+      <line x1="30" y1="30" x2="5" y2="30" stroke="#0044cc" stroke-width="0.8" stroke-dasharray="1 2"/>
+      <text x="6" y="26" font-size="5" fill="#0044cc">..... nudge LEFT ≈ −3dp</text>
+      <text x="50" y="98" font-size="10" text-anchor="middle" fill="#111">DE 153</text>
+      <text x="50" y="110" font-size="8" text-anchor="middle" fill="#111">00:12</text>
+    </svg>
+  </div>
+</div>
+
+<h2>3 — Positions &amp; nudge math</h2>
+<ul>
+  <li><b>Viewport center</b> (text anchor): x = 12 / 24-grid.</li>
+  <li><b>Locked ∩+[]:</b> ink x 3.43 → 20.57, center 12.0 → shift <b>0</b> (leave it).</li>
+  <li><b>Unlocked ∩+[]:</b> open arm overhangs right → ink center ≈ 14–15 → shift <b>≈ −2.5 units ≈ −3dp</b> on a ~28dp icon.</li>
+  <li>Rule: <code>shiftDp = (12 − inkCenter) / 24 × iconDp</code>, applied as <code>iconView.translationX</code> in <b>DISCONNECTED only</b>, reset to 0 otherwise.</li>
+</ul>
+</body>
+</html>
