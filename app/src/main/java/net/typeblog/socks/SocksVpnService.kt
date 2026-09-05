@@ -700,11 +700,6 @@ class SocksVpnService : VpnService() {
                     }
                 }
             } else {
-                try {
-                    b.addDisallowedApplication(packageName)
-                } catch (e: Exception) {
-                    Log.e(TAG, "Error: ${e.message}", e)
-                }
                 for (p in apps!!) {
                     if (TextUtils.isEmpty(p) || p.trim { it <= ' ' } == packageName) continue
                     try {
