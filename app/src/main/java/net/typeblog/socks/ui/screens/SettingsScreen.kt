@@ -54,9 +54,7 @@ import net.typeblog.socks.R
 import net.typeblog.socks.ui.components.SettingsItem
 import net.typeblog.socks.ui.components.ThemePickerDialog
 import net.typeblog.socks.ui.components.UpdateDialog
-import net.typeblog.socks.util.Constants.BUBBLE_STYLE_LOCK
 import net.typeblog.socks.util.Constants.PREF_ADV_PER_APP
-import net.typeblog.socks.util.Constants.PREF_BUBBLE_STYLE
 import net.typeblog.socks.util.Constants.PREF_FLOATING_CONTROL
 import net.typeblog.socks.util.Constants.PREF_NETSHIELD_ENABLED
 import net.typeblog.socks.util.Constants.PREF_THEME_MODE
@@ -79,9 +77,6 @@ fun SettingsScreen(
     var floatingControl by remember {
         mutableStateOf(prefs.getBoolean(PREF_FLOATING_CONTROL, false))
     }
-    var bubbleStyle by remember {
-        mutableStateOf(prefs.getString(PREF_BUBBLE_STYLE, BUBBLE_STYLE_LOCK) ?: BUBBLE_STYLE_LOCK)
-    }
     var netShieldEnabled by remember {
         mutableStateOf(prefs.getBoolean(PREF_NETSHIELD_ENABLED, false))
     }
@@ -93,7 +88,6 @@ fun SettingsScreen(
             when (key) {
                 PREF_THEME_MODE -> themeMode = prefs.getString(PREF_THEME_MODE, "light") ?: "light"
                 PREF_FLOATING_CONTROL -> floatingControl = prefs.getBoolean(PREF_FLOATING_CONTROL, false)
-                PREF_BUBBLE_STYLE -> bubbleStyle = prefs.getString(PREF_BUBBLE_STYLE, BUBBLE_STYLE_LOCK) ?: BUBBLE_STYLE_LOCK
                 PREF_NETSHIELD_ENABLED -> netShieldEnabled = prefs.getBoolean(PREF_NETSHIELD_ENABLED, false)
                 PREF_ADV_PER_APP -> splitEnabled = prefs.getBoolean(PREF_ADV_PER_APP, false)
             }
@@ -117,15 +111,6 @@ fun SettingsScreen(
 
     fun saveString(key: String, value: String) {
         prefs.edit().putString(key, value).apply()
-    }
-
-    fun saveBoolean(key: String, value: Boolean) {
-        prefs.edit().putBoolean(key, value).apply()
-        if (key == PREF_FLOATING_CONTROL && value) {
-            if (prefs.getString(PREF_BUBBLE_STYLE, null) == null) {
-                prefs.edit().putString(PREF_BUBBLE_STYLE, BUBBLE_STYLE_LOCK).apply()
-            }
-        }
     }
 
     if (showThemeDialog) {
@@ -210,8 +195,7 @@ fun SettingsScreen(
                         else R.drawable.feature_netshield_off
                     ),
                     label = "NetShield",
-                    description = "Block ads, trackers & malware",
-                    value = if (netShieldEnabled) "On" else "Off",
+                    description = if (netShieldEnabled) "On" else "Off",
                     onClick = onNavigateToNetShield
                 )
                 SettingsItem(
@@ -239,10 +223,7 @@ fun SettingsScreen(
                 SettingsItem(
                     icon = painterResource(R.drawable.ic_proton_mobile),
                     label = "Floating Bubble",
-                    description = if (floatingControl) {
-                        if (bubbleStyle == BUBBLE_STYLE_LOCK) "Lock • On — tap to configure style & preview" else "Classic • On — tap to configure"
-                    } else "Off — Tap to enable and choose style",
-                    value = if (floatingControl) "On" else "Off",
+                    description = if (floatingControl) "On" else "Off",
                     onClick = onNavigateToBubbleSettings
                 )
             }
