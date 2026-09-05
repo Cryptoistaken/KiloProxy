@@ -49,10 +49,10 @@ class BubbleMenuOverlay(
 
     private fun createWindowManager(): WindowManager {
         val dm = context.getSystemService(Context.DISPLAY_SERVICE) as android.hardware.display.DisplayManager
-        val display = dm.getDisplay(android.view.Display.DEFAULT_DISPLAY) ?: return
-            context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
+        val display = dm.getDisplay(android.view.Display.DEFAULT_DISPLAY)
+            ?: return context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
         val displayCtx = context.createDisplayContext(display)
-        displayCtx.getSystemService(Context.WINDOW_SERVICE) as WindowManager
+        return displayCtx.getSystemService(Context.WINDOW_SERVICE) as WindowManager
     }
 
     fun onConfigurationChanged() {
