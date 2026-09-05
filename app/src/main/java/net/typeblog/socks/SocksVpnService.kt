@@ -11,7 +11,6 @@ import android.content.IntentFilter
 import android.content.pm.ServiceInfo
 import android.net.VpnService
 import android.net.VpnService.Builder
-import android.net.TrafficStats
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
@@ -209,9 +208,7 @@ class SocksVpnService : VpnService() {
     private var mStatsTick = 0L
     private val mStatsRunnable = object : Runnable {
         override fun run() {
-            val rx = TrafficStats.getUidRxBytes(Process.myUid())
-            val tx = TrafficStats.getUidTxBytes(Process.myUid())
-            if (rx >= 0L && tx >= 0L) {
+            Utility.readTunBytes()?.let { (rx, tx) ->
                 mReceivedBytes = (rx - mBaseRx).coerceAtLeast(0L)
                 mSentBytes = (tx - mBaseTx).coerceAtLeast(0L)
             }
@@ -931,8 +928,9 @@ class SocksVpnService : VpnService() {
         loadProfileBytes(mProfileName)
         mReceivedBytes = 0L
         mSentBytes = 0L
-        mBaseRx = TrafficStats.getUidRxBytes(Process.myUid()).coerceAtLeast(0L)
-        mBaseTx = TrafficStats.getUidTxBytes(Process.myUid()).coerceAtLeast(0L)
+        val initialTunBytes = Utility.readTunBytes()
+        mBaseRx = initialTunBytes?.first ?: 0L
+        mBaseTx = initialTunBytes?.second ?: 0L
         mStatsHandler.post(mStatsRunnable)
         mTunnelUp = true
         val buffered = mPendingIpInfo
