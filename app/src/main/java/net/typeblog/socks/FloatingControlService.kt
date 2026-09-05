@@ -317,6 +317,7 @@ class FloatingControlService : Service() {
         stopLockSequence()
         stopTimer()
         stopBreathing()
+        removeStatusLabelFromWindow()
         removeFlagPillFromWindow()
         removeBubbleFromWindow()
         bubbleView = createBubbleView()
