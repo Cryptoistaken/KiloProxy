@@ -184,7 +184,7 @@ Notes on the merged notification/dot pass:
 ### Resources — `app/src/main/res/`
 - `assets/` — (empty; NetShield blocklists were removed — NetShield is now cloud-only)
 - `layout/` — `app_item.xml`, `bubble_menu.xml` (bubble popup panel), `bubble_country_row.xml`, `notification_action.xml` (RemoteViews layout for the notification Connect/Disconnect pill)
-- `drawable/` — lucide_* icons, menu_panel_bg, search_input_bg, signal_dot, logo_*, launcher, notification_pill (pill button background)
+- `drawable/` — lucide_* icons, menu_panel_bg, search_input_bg, signal_dot, logo_*, launcher, notification_pill (pill button background), bg_dismiss_ripple (popup exit-button ripple)
 - `font/` — Geist family TTFs (bold/medium/mono/pixel etc.)
 - `mipmap-*/` — legacy + adaptive launcher icons
 - `values/` — strings.xml, arrays.xml, styles.xml, pdnsd.xml, ruroute.xml, simpleroute.xml, ic_launcher_background

@@ -19,17 +19,18 @@
         <!-- Search bar and dismiss action -->
         <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="40dp"
+            android:layout_height="44dp"
             android:orientation="horizontal"
             android:gravity="center_vertical"
-            android:paddingStart="6dp"
-            android:paddingEnd="2dp">
+            android:paddingStart="12dp"
+            android:paddingEnd="4dp">
 
             <EditText
                 android:id="@+id/menu_search"
                 android:layout_width="0dp"
                 android:layout_height="34dp"
                 android:layout_weight="1"
+                android:layout_marginEnd="8dp"
                 android:paddingStart="8dp"
                 android:background="@drawable/search_input_bg"
                 android:hint="Search name, code or +dial…"
@@ -46,10 +47,12 @@
                 android:id="@+id/menu_dismiss"
                 android:layout_width="40dp"
                 android:layout_height="40dp"
-                android:background="@android:color/transparent"
+                android:background="@drawable/bg_dismiss_ripple"
                 android:contentDescription="Turn off floating bubble"
                 android:padding="10dp"
-                android:src="@drawable/ic_exit_fill" />
+                android:src="@drawable/ic_exit_fill"
+                android:tint="#CC2D4F"
+                android:tintMode="src_in" />
         </LinearLayout>
 
         <View
