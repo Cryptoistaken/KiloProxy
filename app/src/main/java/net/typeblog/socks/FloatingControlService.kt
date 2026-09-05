@@ -238,10 +238,7 @@ class FloatingControlService : Service() {
         touchSlop = ViewConfiguration.get(this).scaledTouchSlop
         // Use display context for WindowManager so overlay is a top-level system window,
         // not attached to the service's window token.
-        val displayManager = getSystemService(Context.DISPLAY_SERVICE) as android.hardware.display.DisplayManager
-        val display = displayManager.getDisplay(android.view.Display.DEFAULT_DISPLAY)
-        val displayContext = createDisplayContext(display)
-        windowManager = displayContext.getSystemService(Context.WINDOW_SERVICE) as WindowManager
+        refreshWindowManager()
         bubbleView = createBubbleView()
         params = buildLayoutParams()
         restoreBubblePosition()
@@ -289,7 +286,16 @@ class FloatingControlService : Service() {
 
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
+        refreshWindowManager()
+        menuOverlay?.onConfigurationChanged()
         reClampBubblePosition()
+    }
+
+    private fun refreshWindowManager() {
+        val displayManager = getSystemService(Context.DISPLAY_SERVICE) as android.hardware.display.DisplayManager
+        val display = displayManager.getDisplay(android.view.Display.DEFAULT_DISPLAY) ?: return
+        windowManager = createDisplayContext(display)
+            .getSystemService(Context.WINDOW_SERVICE) as WindowManager
     }
 
     /**
