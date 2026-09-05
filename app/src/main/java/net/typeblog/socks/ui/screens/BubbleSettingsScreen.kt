@@ -168,61 +168,23 @@ fun BubbleSettingsScreen(
             // Master switch
             Surface(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surfaceContainerLow) {
                 Row(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text("Enable floating bubble", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
-                        Spacer(Modifier.height(4.dp))
-                        Text("Draggable connect button over other apps", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
+                    Text("Enable floating bubble", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
                     Switch(checked = floatingEnabled, onCheckedChange = { setEnabled(it) })
                 }
             }
 
-            // Style options + preview (inside page, not separate dialog)
             Text("Bubble style", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 4.dp, vertical = 8.dp))
-            // Lock preview
             SelectableStyleRow(
                 selected = bubbleStyle == BUBBLE_STYLE_LOCK,
                 onClick = { setStyle(BUBBLE_STYLE_LOCK) },
-                iconRes = R.drawable.ic_proton_lock_filled,
-                title = "Lock (new)",
-                subtitle = "Transparent 96dp lock • Flag+Digits 2.5s → Timer • every 5s Flag+Code/Flag+Digits",
-                preview = {
-                    // Mini lock preview
-                    Box(modifier = Modifier.size(56.dp).clip(RoundedCornerShape(14.dp)).background(Color.Transparent), contentAlignment = Alignment.Center) {
-                        Icon(painter = painterResource(R.drawable.ic_proton_lock_filled), contentDescription = null, modifier = Modifier.size(28.dp), tint = Color(0xFF2CFFCC))
-                    }
-                    Spacer(Modifier.width(4.dp))
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("🇩🇪 153", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.Black)
-                        Text("00:12", fontSize = 9.sp, color = Color.Black)
-                    }
-                }
+                title = "Lock"
             )
             Spacer(Modifier.height(8.dp))
             SelectableStyleRow(
                 selected = bubbleStyle == BUBBLE_STYLE_CLASSIC,
                 onClick = { setStyle(BUBBLE_STYLE_CLASSIC) },
-                iconRes = R.drawable.ic_bubble_play,
-                title = "Classic",
-                subtitle = "60dp orb • Play/Stop • flag pill below",
-                preview = {
-                    Box(modifier = Modifier.size(44.dp).clip(CircleShape).background(Color.Black), contentAlignment = Alignment.Center) {
-                        Icon(painter = painterResource(R.drawable.ic_bubble_play), contentDescription = null, modifier = Modifier.size(18.dp), tint = Color.White)
-                    }
-                    Spacer(Modifier.width(6.dp))
-                    Box(modifier = Modifier.clip(RoundedCornerShape(10.dp)).background(Color.White).padding(horizontal = 6.dp, vertical = 2.dp)) {
-                        Text("🇩🇪 DE 153", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color.Black)
-                    }
-                }
+                title = "Classic"
             )
-
-            Spacer(Modifier.height(12.dp))
-            Surface(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surfaceContainerLow) {
-                Text(
-                    "Preview shows how the bubble looks when connected. Lock is default and transparent — timer and flag cycle below the lock icon (like html demo, texts very near the lock).",
-                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(12.dp)
-                )
-            }
         }
     }
 }
@@ -231,10 +193,7 @@ fun BubbleSettingsScreen(
 private fun SelectableStyleRow(
     selected: Boolean,
     onClick: () -> Unit,
-    iconRes: Int,
-    title: String,
-    subtitle: String,
-    preview: @Composable () -> Unit
+    title: String
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
@@ -242,15 +201,8 @@ private fun SelectableStyleRow(
         color = if (selected) MaterialTheme.colorScheme.surfaceContainerHigh else MaterialTheme.colorScheme.surfaceContainerLow,
         tonalElevation = if (selected) 2.dp else 0.dp
     ) {
-        Row(modifier = Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(painter = painterResource(iconRes), contentDescription = null, modifier = Modifier.size(22.dp), tint = MaterialTheme.colorScheme.onSurface)
-            Spacer(Modifier.width(10.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
-                Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                // Preview row
-                Row(modifier = Modifier.padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) { preview() }
-            }
+        Row(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
             RadioButton(selected = selected, onClick = onClick)
         }
     }
