@@ -25,7 +25,6 @@ import androidx.core.app.NotificationCompat
 import androidx.preference.PreferenceManager
 import net.typeblog.socks.R
 import net.typeblog.socks.util.Constants
-import net.typeblog.socks.util.Constants.ACTION_NETSHIELD_CHANGED
 import net.typeblog.socks.util.Constants.ACTION_STOP_VPN
 import net.typeblog.socks.util.Constants.INTENT_APP_BYPASS
 import net.typeblog.socks.util.Constants.INTENT_APP_LIST
@@ -134,8 +133,6 @@ class SocksVpnService : VpnService() {
     private var mDns: String? = null
     @Volatile
     private var mDnsPort: Int = 53
-    @Volatile
-    private var mNetshieldPolicy: Utility.NetshieldPolicy? = null
     private var mResolvedServer: String? = null
     private var mServer: String? = null
     private var mPort: Int = 0
@@ -163,7 +160,6 @@ class SocksVpnService : VpnService() {
     private var mNotificationReceiverRegistered = false
     private var mScreenOffRegistered = false
     private var mScreenOnRegistered = false
-    private var mNetshieldReceiverRegistered = false
 
     // Last notification content actually issued, so the retry loop can skip
     // redundant notify() calls when the visible text didn't change.
@@ -331,22 +327,6 @@ class SocksVpnService : VpnService() {
         }
     }
 
-    // Live NetShield toggles: flipping NetShield / Block adult content while
-    // the tunnel is up re-evaluates the DNS upstream and restarts pdnsd.
-    // UI writes prefs from the main process, so a broadcast (not a same-process
-    // SharedPreferences listener) carries the change into :vpn.
-    private val mNetshieldReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context?, intent: Intent?) {
-            reconcileNetshield()
-        }
-    }
-
-    private fun registerNetshieldReceiver() {
-        if (mNetshieldReceiverRegistered) return
-        registerReceiverCompat(mNetshieldReceiver, IntentFilter(ACTION_NETSHIELD_CHANGED))
-        mNetshieldReceiverRegistered = true
-    }
-
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
@@ -398,8 +378,6 @@ class SocksVpnService : VpnService() {
         Log.d(TAG, "onStartCommand: profile=$mProfileName server=$server:$port user=$username route=$route dns=$dns:$dnsPort perApp=$perApp ipv6=$ipv6 udpgw=$udpgw")
 
         createNotificationChannel()
-
-        registerNetshieldReceiver()
 
         showNotification()
         mRunning = true
@@ -465,12 +443,6 @@ class SocksVpnService : VpnService() {
 
     override fun onDestroy() {
         Log.d(TAG, "onDestroy called")
-        if (mNetshieldReceiverRegistered) {
-            try {
-                unregisterReceiver(mNetshieldReceiver)
-            } catch (_: Exception) {}
-            mNetshieldReceiverRegistered = false
-        }
         super.onDestroy()
         stopMe("on_destroy")
     }
@@ -490,12 +462,6 @@ class SocksVpnService : VpnService() {
         persistProfileBytes()
         mStatsHandler.removeCallbacks(mStatsRunnable)
         mIpCheckHandler.removeCallbacks(mIpCheckRunnable)
-        if (mNetshieldReceiverRegistered) {
-            try {
-                unregisterReceiver(mNetshieldReceiver)
-            } catch (_: Exception) {}
-            mNetshieldReceiverRegistered = false
-        }
         if (Build.VERSION.SDK_INT >= 34) {
             stopForeground(STOP_FOREGROUND_DETACH)
         } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
@@ -543,7 +509,6 @@ class SocksVpnService : VpnService() {
         mPassword = null
         mDns = null
         mDnsPort = 53
-        mNetshieldPolicy = null
         mCurrentIp = null
         mCountryCode = null
         mIpInfo = null
@@ -736,13 +701,7 @@ class SocksVpnService : VpnService() {
         val dir = filesDir.absolutePath
         Thread {
             try {
-                // NetShield policy: ad-blocking cloud upstream where supported
-                // (CleanBrowsing Family 185.228.168.168 when "Block adult
-                // content" is on), plain DNS in unsupported countries.
-                val netshield = Utility.netshieldPolicy(this, server, user)
-                mNetshieldPolicy = netshield
-                Log.d(TAG, "NetShield upstream: ${netshield.upstream ?: "plain DNS"}")
-                Utility.makePdnsdConf(this, dns ?: "8.8.8.8", dnsPort, netshield.upstream)
+                Utility.makePdnsdConf(this, dns ?: "8.8.8.8", dnsPort)
 
                 // Launch pdnsd non-blocking: no waitFor() (pdnsd.conf sets
                 // daemon=on so it forks into the background). It only needs to be
@@ -908,44 +867,12 @@ class SocksVpnService : VpnService() {
         }
     }
 
-    /**
-     * Re-evaluates the NetShield upstream once the real exit country is known
-     * (ip-api check) and applies a new pdnsd config + restart when the policy
-     * changed (e.g. residential rotation moved the exit to/from a blocked
-     * country). Runs on the main thread; pdnsd config write + restart are fast.
-     */
-    private fun reconcileNetshield() {
-        if (!mRunning) return
-        val server = mServer
-        if (server.isNullOrEmpty()) return
-
-        val policy = Utility.netshieldPolicy(this, server, mUsername, mCountryCode)
-        if (policy == mNetshieldPolicy) return
-
-        mNetshieldPolicy = policy
-        val dir = filesDir.absolutePath
-        val libDir = applicationInfo.nativeLibraryDir
-        Utility.makePdnsdConf(this, mDns ?: "8.8.8.8", mDnsPort, policy.upstream)
-        try {
-            mPdnsdProcess?.destroy()
-        } catch (e: Exception) {
-            Log.e(TAG, "Error destroying pdnsd for reconcile: ${e.message}")
-        }
-        mPdnsdProcess = null
-        if (launchPdnsd(dir, libDir)) {
-            Log.d(TAG, "NetShield policy reconciled: upstream=${policy.upstream}")
-        } else {
-            Log.e(TAG, "pdnsd restart failed during NetShield reconcile")
-        }
-    }
-
     private fun applyIpInfo(info: IpInfo) {
         mCurrentIp = info.ip
         mCountryCode = info.countryCode
         mIpInfo = info
         mProxyVerified = true
         mIpCheckFailures = 0
-        reconcileNetshield()
         updateNotification()
     }
 

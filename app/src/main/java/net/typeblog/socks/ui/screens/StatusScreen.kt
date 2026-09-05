@@ -233,7 +233,7 @@ fun StatusScreen(
             Image(
                 painter = painterResource(id = logoSrc),
                 contentDescription = "KiloProxy",
-                modifier = Modifier.height(36.dp),
+                modifier = Modifier.height(28.dp),
                 contentScale = ContentScale.Fit
             )
             Spacer(modifier = Modifier.width(10.dp))

@@ -35,13 +35,10 @@ object Constants {
     const val PREF_BUBBLE_X = "bubble_x"
     const val PREF_BUBBLE_Y = "bubble_y"
     const val PREF_SKIPPED_UPDATE_VERSION = "skipped_update_version"
-    const val PREF_NETSHIELD_ENABLED = "netshield_enabled"
-    const val PREF_NETSHIELD_BLOCK_ADULT = "netshield_block_adult"
     // Split-tunnel: global keys (PREF_ADV_*) are single source of truth (written by SplitTunnelingScreen);
     // Profile keys "perapp"/"appbypass"/"applist" are legacy per-profile aliases kept for compat.
     // Unique to this app's package so a sibling app built from the same base
     // code can never wake our receivers with its own broadcasts (and vice versa).
     const val ACTION_STOP_VPN = "com.kiloproxy.app.STOP_VPN"
     const val ACTION_START_VPN = "com.kiloproxy.app.START_VPN"
-    const val ACTION_NETSHIELD_CHANGED = "com.kiloproxy.app.NETSHIELD_CHANGED"
 }

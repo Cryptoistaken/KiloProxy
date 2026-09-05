@@ -22,8 +22,6 @@ import net.typeblog.socks.util.Constants.INTENT_UDP_GW
 import net.typeblog.socks.util.Constants.PREF_ADV_APP_BYPASS
 import net.typeblog.socks.util.Constants.PREF_ADV_APP_LIST
 import net.typeblog.socks.util.Constants.PREF_ADV_PER_APP
-import net.typeblog.socks.util.Constants.PREF_NETSHIELD_BLOCK_ADULT
-import net.typeblog.socks.util.Constants.PREF_NETSHIELD_ENABLED
 
 import java.io.BufferedReader
 import java.io.File
@@ -57,24 +55,6 @@ data class IpInfo(
 
 object Utility {
     private val TAG = Utility::class.java.simpleName
-
-    // NetShield cloud upstreams — AdGuard public DNS (filtering resolvers).
-const val ADGUARD_DNS = "94.140.14.14"
-
-    // AdGuard's Family variant no longer blocks adult content (public policy
-    // change since 2021), so the "Block adult content" tier uses CleanBrowsing
-    // Family Filter, which still enforces it. Verified over TCP/53 (pdnsd uses
-    // tcp-only): pornhub.com -> no records (blocked); google.com resolves fine.
-    const val ADGUARD_DNS_FAMILY = "185.228.168.168"
-    // Countries where AdGuard public DNS is documented as blocked or heavily
-    // unreliable (China: GFW/SAN interference; Russia: RKN collateral bans
-    // historically took out AdGuard DNS for direct users; Iran: same as CN).
-    // NetShield is simply unavailable there — plain DNS is used, no fallback.
-    val NETSHIELD_UNSUPPORTED_COUNTRIES = setOf("CN", "RU", "IR")
-
-    data class NetshieldPolicy(
-        val upstream: String?
-    )
 
     @JvmStatic
     fun extractFile(context: Context) {
@@ -176,23 +156,6 @@ const val ADGUARD_DNS = "94.140.14.14"
         val cache = File("$dir/pdnsd.cache")
         if (!cache.exists()) {
             try { cache.createNewFile() } catch (_: Exception) {}
-        }
-    }
-
-    @JvmStatic
-    fun netshieldPolicy(context: Context, server: String?, user: String?, realCountry: String? = null): NetshieldPolicy {
-        val prefs = PreferenceManager.getDefaultSharedPreferences(context)
-        if (!prefs.getBoolean(PREF_NETSHIELD_ENABLED, false)) return NetshieldPolicy(null)
-        val adult = prefs.getBoolean(PREF_NETSHIELD_BLOCK_ADULT, false)
-        val cc = realCountry?.uppercase()
-            ?: ProxyProviders.parseCountry(
-                user ?: "",
-                ProxyProviders.detectType(server ?: "", user ?: "")
-            )?.uppercase()
-        return if (cc == null || cc !in NETSHIELD_UNSUPPORTED_COUNTRIES) {
-            NetshieldPolicy(if (adult) ADGUARD_DNS_FAMILY else ADGUARD_DNS)
-        } else {
-            NetshieldPolicy(null)
         }
     }
 

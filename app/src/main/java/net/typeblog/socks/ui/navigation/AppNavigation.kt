@@ -28,7 +28,6 @@ import net.typeblog.socks.ui.screens.StatusScreen
 import net.typeblog.socks.ui.screens.BubbleSettingsScreen
 import net.typeblog.socks.ui.screens.SettingsScreen
 import net.typeblog.socks.ui.screens.SplitTunnelingScreen
-import net.typeblog.socks.ui.screens.NetShieldScreen
 import net.typeblog.socks.ui.screens.DebugLogsScreen
 import net.typeblog.socks.ui.viewmodel.VpnViewModel
 
@@ -39,7 +38,6 @@ sealed class Screen(val route: String) {
     data object Settings : Screen("settings")
     data object SplitTunneling : Screen("split_tunneling")
     data object BubbleSettings : Screen("bubble_settings")
-    data object NetShield : Screen("netshield")
     data object DebugLogs : Screen("debug_logs")
 }
 
@@ -149,9 +147,6 @@ fun AppNavigation() {
                     onNavigateToBubbleSettings = {
                         navController.navigate(Screen.BubbleSettings.route)
                     },
-                    onNavigateToNetShield = {
-                        navController.navigate(Screen.NetShield.route)
-                    },
                     onNavigateToDebugLogs = {
                         navController.navigate(Screen.DebugLogs.route)
                     }
@@ -166,13 +161,6 @@ fun AppNavigation() {
                         navController.popBackStack()
                     },
                     viewModel = vpnViewModel
-                )
-            }
-            composable(Screen.NetShield.route) {
-                NetShieldScreen(
-                    onNavigateBack = {
-                        navController.popBackStack()
-                    }
                 )
             }
             composable(Screen.DebugLogs.route) {
