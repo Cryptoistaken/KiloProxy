@@ -262,6 +262,7 @@ class FloatingControlService : Service() {
         menuOverlay = BubbleMenuOverlay(
             this,
             onCountrySelected = { code -> onBubbleCountrySelected(code) },
+            onExitRequested = { stopFloatingBubble() },
             onDismissed = { longPressFired = false }
         )
         prefListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
@@ -1107,6 +1108,7 @@ class FloatingControlService : Service() {
             menuOverlay = BubbleMenuOverlay(
                 this,
                 onCountrySelected = { code -> onBubbleCountrySelected(code) },
+                onExitRequested = { stopFloatingBubble() },
                 onDismissed = { longPressFired = false }
             )
         }
@@ -1193,6 +1195,14 @@ class FloatingControlService : Service() {
             Log.e(TAG, "Failed to stop VPN", e)
         }
         setState(BubbleState.DISCONNECTED)
+    }
+
+    private fun stopFloatingBubble() {
+        PreferenceManager.getDefaultSharedPreferences(this)
+            .edit()
+            .putBoolean(Constants.PREF_FLOATING_CONTROL, false)
+            .apply()
+        stopSelf()
     }
 
     private fun startVpn() {

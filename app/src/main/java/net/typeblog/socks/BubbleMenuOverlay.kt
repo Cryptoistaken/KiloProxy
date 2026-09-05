@@ -24,6 +24,7 @@ import android.view.WindowManager
 import androidx.interpolator.view.animation.FastOutSlowInInterpolator
 import android.widget.EditText
 import android.widget.FrameLayout
+import android.widget.ImageButton
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
@@ -40,6 +41,7 @@ import java.util.Locale
 class BubbleMenuOverlay(
     private val context: Context,
     private val onCountrySelected: (String) -> Unit,
+    private val onExitRequested: () -> Unit = {},
     private val onDismissed: () -> Unit = {}
 ) {
     // Use display context so the menu overlay is a system-level window
@@ -76,6 +78,7 @@ class BubbleMenuOverlay(
         val scroll = root.findViewById<ScrollView>(R.id.menu_scroll)
         val list = root.findViewById<LinearLayout>(R.id.menu_list)
         val searchInput = root.findViewById<EditText>(R.id.menu_search)
+        root.findViewById<ImageButton>(R.id.menu_dismiss).setOnClickListener { onExitRequested() }
         menuList = list
 
         // Clamp against the inset-aware content area (display minus system bars /
