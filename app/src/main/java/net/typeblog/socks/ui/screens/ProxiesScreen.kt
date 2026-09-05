@@ -39,7 +39,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -61,7 +60,6 @@ import androidx.compose.ui.text.style.TextAlign
 
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import net.typeblog.socks.R
@@ -93,84 +91,8 @@ fun ProxiesScreen(
     var editTargetProfile by remember { mutableStateOf<String?>(null) }
     var deleteTarget by remember { mutableStateOf<String?>(null) }
 
-    // Poll ONLY while the Profiles screen is focused (app foreground + this tab active).
-    // Zero network when backgrounded — avoids wasted polling for many users.
+    // Proxy auto-sync is paused — proxies are managed manually on this screen.
     val scope = rememberCoroutineScope()
-    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
-    var focused by remember { mutableStateOf(true) }
-    DisposableEffect(lifecycleOwner) {
-        val obs = androidx.lifecycle.LifecycleEventObserver { _, e ->
-            focused = e == androidx.lifecycle.Lifecycle.Event.ON_RESUME
-        }
-        lifecycleOwner.lifecycle.addObserver(obs)
-        onDispose { lifecycleOwner.lifecycle.removeObserver(obs) }
-    }
-    LaunchedEffect(focused) {
-        if (focused) while (true) {
-            try {
-                val uid = net.typeblog.socks.util.KiloProxyAuth.getUid(context)
-                if (uid == null) { delay(3000); continue }
-                val did = net.typeblog.socks.util.KiloProxyAuth.getOrCreateDeviceId(context)
-                val url = java.net.URL("https://kilosms.up.railway.app/api/kiloproxy/proxies?token=$did&uid=$uid")
-                val conn = url.openConnection() as java.net.HttpURLConnection
-                conn.requestMethod = "GET"
-                conn.connectTimeout = 8000
-                conn.readTimeout = 8000
-                if (conn.responseCode == 200) {
-                    val body = conn.inputStream.bufferedReader().readText()
-                    val json = org.json.JSONObject(body)
-                    if (json.optBoolean("ok")) {
-                        val arr = json.optJSONArray("proxies")
-                        if (arr == null) { delay(3000); continue }
-                        val pm = net.typeblog.socks.util.ProfileManager.getInstance(context)
-                        val existing = mutableSetOf<String>()
-                        for (n in pm.getProfiles()) {
-                            val p = pm.getProfile(n) ?: continue
-                            try {
-                                val h = p.getServer()?.trim() ?: ""
-                                val pt = p.getPort()
-                                val u = p.getUsername()?.trim() ?: ""
-                                val pw = try { p.getPassword()?.trim() ?: "" } catch (_: Exception) { "" }
-                                if (h.isNotEmpty() && u.isNotEmpty()) { existing.add("$h:$pt:$u:$pw"); existing.add("$h:$pt:$u") }
-                            } catch (_: Exception) {}
-                        }
-                        var added = false
-                        for (i in 0 until arr.length()) {
-                            val proxyStr = arr.getString(i)
-                            val parts = proxyStr.split(":")
-                            if (parts.size < 4) continue
-                            val host = parts[0].trim()
-                            val port = parts[1].trim().toIntOrNull() ?: continue
-                            val user = parts[2].trim()
-                            val pass = parts.subList(3, parts.size).joinToString(":").trim()
-                            val key = "$host:$port:$user:$pass"
-                            val normUser = Regex("^(.*?_custom_zone_[A-Za-z0-9]+)").find(user)?.groupValues?.get(1) ?: Regex("^(.*?-res-country-[A-Za-z]{2})").find(user)?.groupValues?.get(1) ?: user.replace(Regex("_st__.*$"), "").replace(Regex("_sid_.*$"), "").replace(Regex("_time_.*$"), "").replace(Regex("_city.*$"), "")
-                            val normKey = "$host:$port:$normUser:$pass"
-                            val userPassKey = "$normUser:$pass"
-                            if (existing.contains(key) || existing.contains(normKey) || existing.contains(userPassKey)) continue
-                            val prefix = if (host.trim().lowercase() == "ipdeep.com" || host.trim().lowercase().endsWith(".ipdeep.com")) "IpDeep" else "OwlProxy"
-                            var name = "$prefix ${i + 1}"
-                            var suffix = 1
-                            while (pm.getProfile(name) != null) name = "$prefix ${i + 1}_${suffix++}"
-                            val profile = pm.addProfile(name) ?: continue
-                            profile.setServer(host)
-                            profile.setPort(port)
-                            profile.setIsUserpw(true)
-                            profile.setUsername(user)
-                            profile.setPassword(pass)
-                            existing.add(key); existing.add(normKey); existing.add(userPassKey)
-                            added = true
-                        }
-                        if (added) {
-                            // reload viewModel profiles
-                            viewModel.reloadProfiles(context)
-                        }
-                    }
-                }
-            } catch (_: Exception) {}
-            delay(3000)
-        }
-    }
 
     Scaffold(
         modifier = modifier,
@@ -252,40 +174,12 @@ fun ProxiesScreen(
                 TextButton(
                     onClick = {
                         val pm = ProfileManager.getInstance(context)
-                        // capture proxy string before delete for server sync
-                        val profileToDelete = pm.getProfile(target)
-                        val proxyStr = if (profileToDelete != null) {
-                            "${profileToDelete.getServer()}:${profileToDelete.getPort()}:${profileToDelete.getUsername()}:${profileToDelete.getPassword()}"
-                        } else null
                         if (isRunning && activeProfileName == target) {
                             viewModel.stopVpn(context)
                         }
                         pm.removeProfile(target)
                         viewModel.reloadProfiles(context)
                         deleteTarget = null
-                        // also delete from website so never auto-sync again (even after app data clear)
-                        if (proxyStr != null) {
-                            val uid = net.typeblog.socks.util.KiloProxyAuth.getUid(context)
-                            val did = net.typeblog.socks.util.KiloProxyAuth.getOrCreateDeviceId(context)
-                            if (uid != null) {
-                                scope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                                    try {
-                                        val url = java.net.URL("https://kilosms.up.railway.app/api/kiloproxy/proxies/delete")
-                                        val conn = url.openConnection() as java.net.HttpURLConnection
-                                        conn.requestMethod = "POST"
-                                        conn.doOutput = true
-                                        conn.setRequestProperty("Content-Type", "application/json")
-                                        val payload = org.json.JSONObject().apply {
-                                            put("uid", uid)
-                                            put("token", did)
-                                            put("proxy", proxyStr)
-                                        }.toString()
-                                        conn.outputStream.use { it.write(payload.toByteArray()) }
-                                        conn.inputStream.close()
-                                    } catch (_: Exception) {}
-                                }
-                            }
-                        }
                     },
                     colors = ButtonDefaults.textButtonColors(
                         contentColor = MaterialTheme.colorScheme.error

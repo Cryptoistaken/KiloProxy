@@ -17,11 +17,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.lifecycle.lifecycleScope
 import androidx.preference.PreferenceManager
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import net.typeblog.socks.ui.components.UpdateDialog
 import net.typeblog.socks.ui.navigation.AppNavigation
@@ -47,7 +44,6 @@ class MainActivity : ComponentActivity() {
         setContent {
             val context = this@MainActivity
             var updatePrompt by remember { mutableStateOf<UpdateChecker.UpdateInfo?>(null) }
-            var isLoggedIn by remember { mutableStateOf(net.typeblog.socks.util.KiloProxyAuth.isLoggedIn(context)) }
 
             // Proactive update check: on launch, look for a newer release and prompt
             // the user once per version (they can update or skip). Runs on a
@@ -61,45 +57,10 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             }
-            // Sync + track whenever logged in (on launch and after login)
-            LaunchedEffect(isLoggedIn) {
-                if (isLoggedIn) {
-                    withContext(Dispatchers.IO) { syncKiloProxyProxies(context.applicationContext) }
-                    withContext(Dispatchers.IO) { trackKiloProxyAppOpen(context.applicationContext) }
-                }
-            }
-            // Also sync on every resume (e.g. after buying in Telegram)
-            androidx.compose.runtime.DisposableEffect(isLoggedIn) {
-                if (!isLoggedIn) return@DisposableEffect onDispose {}
-                val cb = object : android.app.Application.ActivityLifecycleCallbacks {
-                    override fun onActivityResumed(a: android.app.Activity) {
-                        if (a === this@MainActivity) {
-                            this@MainActivity.lifecycleScope.launch(Dispatchers.IO) { syncKiloProxyProxies(a.applicationContext) }
-                        }
-                    }
-                    override fun onActivityCreated(a: android.app.Activity, b: android.os.Bundle?) {}
-                    override fun onActivityStarted(a: android.app.Activity) {}
-                    override fun onActivityPaused(a: android.app.Activity) {}
-                    override fun onActivityStopped(a: android.app.Activity) {}
-                    override fun onActivitySaveInstanceState(a: android.app.Activity, b: android.os.Bundle) {}
-                    override fun onActivityDestroyed(a: android.app.Activity) {}
-                }
-                val app = context.applicationContext as android.app.Application
-                app.registerActivityLifecycleCallbacks(cb)
-                onDispose { app.unregisterActivityLifecycleCallbacks(cb) }
-            }
-            // No background polling — proxies sync only on the Profiles screen (see ProxiesScreen
-            // focus-gated poll) and on every app resume. Saves resources for many users.
 
             KiloProxyTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
-                    if (isLoggedIn) {
-                        AppNavigation()
-                    } else {
-                        net.typeblog.socks.ui.screens.AuthScreen(onLoggedIn = {
-                            isLoggedIn = true
-                        })
-                    }
+                    AppNavigation()
                 }
                 updatePrompt?.let { info ->
                     UpdateDialog(
@@ -116,84 +77,6 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
-    }
-
-    private fun syncKiloProxyProxies(context: android.content.Context) {
-        try {
-            val uid = net.typeblog.socks.util.KiloProxyAuth.getUid(context) ?: return
-            val did = net.typeblog.socks.util.KiloProxyAuth.getOrCreateDeviceId(context)
-            val url = java.net.URL("https://kilosms.up.railway.app/api/kiloproxy/proxies?token=$did&uid=$uid")
-            val conn = url.openConnection() as java.net.HttpURLConnection
-            conn.requestMethod = "GET"
-            conn.connectTimeout = 8000
-            conn.readTimeout = 8000
-            if (conn.responseCode != 200) return
-            val body = conn.inputStream.bufferedReader().readText()
-            val json = org.json.JSONObject(body)
-            if (!json.optBoolean("ok")) return
-            val arr = json.optJSONArray("proxies") ?: return
-            val pm = net.typeblog.socks.util.ProfileManager.getInstance(context)
-            // Build set of existing proxy identities to avoid duplicates
-            val existing = mutableSetOf<String>()
-            for (n in pm.getProfiles()) {
-                val p = pm.getProfile(n) ?: continue
-                try {
-                    val h = p.getServer()?.trim() ?: ""
-                    val pt = p.getPort()
-                    val u = p.getUsername()?.trim() ?: ""
-                    val pw = try { p.getPassword()?.trim() ?: "" } catch (_: Exception) { "" }
-                    if (h.isNotEmpty() && u.isNotEmpty()) { existing.add("$h:$pt:$u:$pw"); existing.add("$h:$pt:$u") }
-                } catch (_: Exception) {}
-            }
-            for (i in 0 until arr.length()) {
-                val proxyStr = arr.getString(i)
-                val parts = proxyStr.split(":")
-                if (parts.size < 4) continue
-                val host = parts[0].trim()
-                val port = parts[1].trim().toIntOrNull() ?: continue
-                val user = parts[2].trim()
-                val pass = parts.subList(3, parts.size).joinToString(":").trim()
-                val key = "$host:$port:$user:$pass"
-                // normalize custom_zone for dedup (user:pass uniqueness)
-                val normUser = Regex("^(.*?_custom_zone_[A-Za-z0-9]+)").find(user)?.groupValues?.get(1) ?: user.replace(Regex("_st__.*$"), "").replace(Regex("_sid_.*$"), "").replace(Regex("_time_.*$"), "").replace(Regex("_city.*$"), "")
-                val normKey = "$host:$port:$normUser:$pass"
-                val userPassKey = "$normUser:$pass"
-                if (existing.contains(key) || existing.contains(normKey) || existing.contains(userPassKey)) continue
-                // Find next free name
-                var name = "OwlProxy ${i + 1}"
-                var suffix = 1
-                while (pm.getProfile(name) != null) {
-                    name = "OwlProxy ${i + 1}_${suffix++}"
-                }
-                val profile = pm.addProfile(name) ?: continue
-                profile.setServer(host)
-                profile.setPort(port)
-                profile.setIsUserpw(true)
-                profile.setUsername(user)
-                profile.setPassword(pass)
-                existing.add(key); existing.add(normKey); existing.add(userPassKey)
-            }
-        } catch (_: Exception) {}
-    }
-
-    private fun trackKiloProxyAppOpen(context: android.content.Context) {
-        try {
-            val uid = net.typeblog.socks.util.KiloProxyAuth.getUid(context) ?: return
-            val country = net.typeblog.socks.util.KiloProxyAuth.getCountry(context)
-            val url = java.net.URL("https://kilosms.up.railway.app/api/kiloproxy/track")
-            val conn = url.openConnection() as java.net.HttpURLConnection
-            conn.requestMethod = "POST"
-            conn.doOutput = true
-            conn.setRequestProperty("Content-Type", "application/json")
-            val payload = org.json.JSONObject().apply {
-                put("uid", uid)
-                put("host", "app_open")
-                put("country", country)
-                put("appVersion", "1.0")
-            }.toString()
-            conn.outputStream.use { it.write(payload.toByteArray()) }
-            conn.inputStream.close()
-        } catch (_: Exception) {}
     }
 
     private fun startFloatingControlIfPersisted() {
