@@ -1322,6 +1322,8 @@ class FloatingControlService : Service() {
         val circle = bubbleVisualView ?: view
         animateGradientTransition(oldState, state)
         stopBreathing()
+        // Optical alignment reset — the disconnected open lock re-applies its own nudge below.
+        iconView?.translationX = 0f
 
         if (isLockStyle()) {
             when (state) {
@@ -1351,6 +1353,8 @@ class FloatingControlService : Service() {
                     iconView?.visibility = View.VISIBLE
                     iconView?.setImageResource(R.drawable.ic_proton_lock_open_filled_2)
                     iconView?.setColorFilter(lockErr())
+                    // Open shackle leans right — nudge left so ink centers over the text.
+                    iconView?.translationX = -UNLOCKED_NUDGE_DP * resources.displayMetrics.density
                     progressBar?.visibility = View.GONE
                     timerView?.visibility = View.GONE
                     stopTimer()
@@ -1689,6 +1693,8 @@ class FloatingControlService : Service() {
         private const val TAG = "FloatingControlService"
         private const val POLL_INTERVAL = 200L
         private const val TIMER_INTERVAL = 1000L
+        // Left nudge for the disconnected open lock (shackle leans right).
+        private const val UNLOCKED_NUDGE_DP = 2f
         private const val CHANNEL_ID = "floating_control"
         private const val NOTIFICATION_ID = 2
         // Matches the 20s "not yet connected" timeout in StatusScreen's
