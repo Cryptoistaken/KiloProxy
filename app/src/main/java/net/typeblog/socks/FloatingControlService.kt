@@ -51,6 +51,7 @@ import android.content.SharedPreferences
 import net.typeblog.socks.util.Constants
 import net.typeblog.socks.util.Constants.ACTION_START_VPN
 import net.typeblog.socks.util.Constants.ACTION_STOP_VPN
+import net.typeblog.socks.util.Constants.ACTION_VPN_STATE_CHANGED
 import net.typeblog.socks.util.Constants.BUBBLE_STYLE_CLASSIC
 import net.typeblog.socks.util.Constants.BUBBLE_STYLE_LOCK
 import net.typeblog.socks.util.Constants.PREF_BUBBLE_STYLE
@@ -162,7 +163,10 @@ class FloatingControlService : Service() {
             pollState()
             updateFlagPill()
             updateForegroundNotification()
-            pollHandler.postDelayed(this, POLL_INTERVAL)
+            pollHandler.postDelayed(
+                this,
+                if (state == BubbleState.CONNECTING) CONNECTING_POLL_INTERVAL else POLL_INTERVAL
+            )
         }
     }
 
@@ -204,6 +208,11 @@ class FloatingControlService : Service() {
                 ACTION_STOP_VPN -> {
                     Log.d(TAG, "Notification Disconnect action")
                     stopVpn()
+                }
+                ACTION_VPN_STATE_CHANGED -> {
+                    pollState()
+                    updateFlagPill()
+                    updateForegroundNotification()
                 }
             }
         }
@@ -377,6 +386,7 @@ class FloatingControlService : Service() {
         val filter = IntentFilter().apply {
             addAction(ACTION_START_VPN)
             addAction(ACTION_STOP_VPN)
+            addAction(ACTION_VPN_STATE_CHANGED)
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             registerReceiver(actionReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
@@ -1265,26 +1275,21 @@ class FloatingControlService : Service() {
             return
         }
         try {
-            val running = vpnService!!.isRunning
-            val connectedSince = getConnectedSince()
-            val proxyVerified = isProxyVerified()
+            val snapshot = vpnService!!.state
+            val running = snapshot.getBoolean(Constants.VPN_STATE_RUNNING)
+            val connected = snapshot.getBoolean(Constants.VPN_STATE_CONNECTED)
             // Only claim CONNECTED once the SOCKS proxy has actually been verified
             // (IP check routed through it succeeded, or a direct probe handshake
             // completed). Tunnel-up alone is a false positive — a dead or misconfigured
             // proxy brings the tun up then fails seconds later.
-            if (running && connectedSince > 0L && proxyVerified) {
+            if (connected) {
                 setState(BubbleState.CONNECTED)
             } else if (running) {
                 if (state == BubbleState.DISCONNECTED) {
                     setState(BubbleState.CONNECTING)
                 }
             } else {
-                // Stay CONNECTING (spinner) until the timeout fires — do NOT
-                // flip back to the shield icon mid-bring-up, that causes the
-                // visible spin→shield→spin flicker.
-                if (state != BubbleState.CONNECTING) {
-                    setState(BubbleState.DISCONNECTED)
-                }
+                setState(BubbleState.DISCONNECTED)
             }
         } catch (e: Exception) {
             Log.e(TAG, "Poll failed", e)
@@ -1688,7 +1693,8 @@ class FloatingControlService : Service() {
 
     companion object {
         private const val TAG = "FloatingControlService"
-        private const val POLL_INTERVAL = 200L
+        private const val POLL_INTERVAL = 1000L
+        private const val CONNECTING_POLL_INTERVAL = 200L
         private const val TIMER_INTERVAL = 1000L
         private const val CHANNEL_ID = "floating_control"
         private const val NOTIFICATION_ID = 2

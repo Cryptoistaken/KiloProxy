@@ -1,5 +1,7 @@
 package net.typeblog.socks;
 
+import android.os.Bundle;
+
 interface IVpnService
 {
 	boolean isRunning();
@@ -19,4 +21,5 @@ interface IVpnService
 	long getSentBytes();
 	String getProfileName();
 	boolean isProxyVerified();
+	Bundle getState();
 }

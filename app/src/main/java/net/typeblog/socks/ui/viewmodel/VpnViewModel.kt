@@ -1,9 +1,11 @@
 package net.typeblog.socks.ui.viewmodel
 
 import android.app.Application
+import android.content.BroadcastReceiver
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.ServiceConnection
 import android.net.VpnService
 import android.os.Build
@@ -13,6 +15,7 @@ import android.os.Looper
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -22,10 +25,29 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import net.typeblog.socks.IVpnService
 import net.typeblog.socks.SocksVpnService
 import net.typeblog.socks.util.ProfileManager
 import net.typeblog.socks.util.Utility
+import net.typeblog.socks.util.Constants.ACTION_VPN_STATE_CHANGED
+import net.typeblog.socks.util.Constants.VPN_STATE_AS_NAME
+import net.typeblog.socks.util.Constants.VPN_STATE_CITY
+import net.typeblog.socks.util.Constants.VPN_STATE_CONNECTED
+import net.typeblog.socks.util.Constants.VPN_STATE_CONNECTED_SINCE
+import net.typeblog.socks.util.Constants.VPN_STATE_COUNTRY
+import net.typeblog.socks.util.Constants.VPN_STATE_COUNTRY_CODE
+import net.typeblog.socks.util.Constants.VPN_STATE_ERROR
+import net.typeblog.socks.util.Constants.VPN_STATE_IP
+import net.typeblog.socks.util.Constants.VPN_STATE_ISP
+import net.typeblog.socks.util.Constants.VPN_STATE_ORG
+import net.typeblog.socks.util.Constants.VPN_STATE_PROFILE
+import net.typeblog.socks.util.Constants.VPN_STATE_RECEIVED
+import net.typeblog.socks.util.Constants.VPN_STATE_REGION
+import net.typeblog.socks.util.Constants.VPN_STATE_RUNNING
+import net.typeblog.socks.util.Constants.VPN_STATE_SENT
+import net.typeblog.socks.util.Constants.VPN_STATE_TIMEZONE
+import net.typeblog.socks.util.Constants.VPN_STATE_VERIFIED
 
 class VpnViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -71,6 +93,9 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
     private val _proxyVerified = MutableStateFlow(false)
     val proxyVerified: StateFlow<Boolean> = _proxyVerified.asStateFlow()
 
+    private val _isConnected = MutableStateFlow(false)
+    val isConnected: StateFlow<Boolean> = _isConnected.asStateFlow()
+
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
 
@@ -105,9 +130,9 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
      * agree regardless of which one initiated the connect.
      */
     val isConnecting: StateFlow<Boolean> = combine(
-        _isRunning, _connectedSince, _proxyVerified, _connectRequested
-    ) { running, since, verified, requested ->
-        (running && !(since > 0L && verified)) || (requested && !running)
+        _isRunning, _isConnected, _connectRequested
+    ) { running, connected, requested ->
+        (running && !connected) || (requested && !running)
     }.stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
     private var _pendingProfile = MutableStateFlow<String?>(null)
@@ -120,6 +145,18 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
     private var rebindRunnable: Runnable? = null
     private var rebindAttempts = 0
 
+    private val stateReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action != ACTION_VPN_STATE_CHANGED) return
+            viewModelScope.launch {
+                syncState()
+                intent.getStringExtra(VPN_STATE_ERROR)?.takeIf { it.isNotEmpty() }?.let {
+                    _errorMessage.value = it
+                }
+            }
+        }
+    }
+
     private val serviceConnection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
             vpnService = IVpnService.Stub.asInterface(service)
@@ -129,7 +166,7 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
             rebindRunnable?.let { rebindHandler.removeCallbacks(it); rebindRunnable = null }
             // Re-sync live state so the UI never keeps stale "disconnected"
             // after the VPN process restarts and reconnects.
-            syncState()
+            viewModelScope.launch { syncState() }
         }
 
         override fun onServiceDisconnected(name: ComponentName?) {
@@ -151,6 +188,13 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
         Log.d("KiloProxyVM", "VpnViewModel init - instance ${hashCode()}")
         val app = getApplication<Application>()
         bindToService(app)
+        val filter = IntentFilter(ACTION_VPN_STATE_CHANGED)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            app.registerReceiver(stateReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            @Suppress("DEPRECATION")
+            app.registerReceiver(stateReceiver, filter)
+        }
         loadProfiles(app)
         startPolling()
     }
@@ -234,7 +278,7 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                 } else {
                     clearState()
                 }
-                delay(200L)
+                delay(if (_isRunning.value && !_proxyVerified.value) 200L else 1000L)
             }
         }
     }
@@ -242,13 +286,15 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
     // Reads live state from the bound service. Called from the polling loop and
     // immediately after a (re)connect so the UI re-syncs when the service process
     // comes back instead of staying on a stale disconnected state.
-    private fun syncState() {
-        if (vpnService == null) return
+    private suspend fun syncState() = withContext(Dispatchers.IO) {
+        if (vpnService == null) return@withContext
         try {
-            val running = vpnService!!.isRunning
+            val state = vpnService!!.state
+            val running = state.getBoolean(VPN_STATE_RUNNING)
             _isRunning.value = running
-            _proxyVerified.value = vpnService!!.isProxyVerified
-            val serviceError = vpnService!!.getErrorMessage()
+            _proxyVerified.value = state.getBoolean(VPN_STATE_VERIFIED)
+            _isConnected.value = state.getBoolean(VPN_STATE_CONNECTED)
+            val serviceError = state.getString(VPN_STATE_ERROR).orEmpty()
             if (serviceError.isNotEmpty()) {
                 _errorMessage.value = serviceError
                 // A service-reported failure ends any in-flight connect request.
@@ -257,22 +303,22 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
             if (running) {
                 // Tunnel is up — the derived CONNECTING state takes over.
                 _connectRequested.value = false
-                _currentIp.value = vpnService!!.currentIp.ifEmpty { null }
-                _countryCode.value = vpnService!!.countryCode.ifEmpty { null }
-                _country.value = vpnService!!.country.ifEmpty { null }
-                _region.value = vpnService!!.region.ifEmpty { null }
-                _city.value = vpnService!!.city.ifEmpty { null }
-                _isp.value = vpnService!!.isp.ifEmpty { null }
-                _org.value = vpnService!!.org.ifEmpty { null }
-                _asName.value = vpnService!!.asName.ifEmpty { null }
-                _timezone.value = vpnService!!.timezone.ifEmpty { null }
-                _receivedBytes.value = vpnService!!.receivedBytes
-                _sentBytes.value = vpnService!!.sentBytes
-                _connectedSince.value = vpnService!!.connectedSince
+                _currentIp.value = state.getString(VPN_STATE_IP).orEmpty().ifEmpty { null }
+                _countryCode.value = state.getString(VPN_STATE_COUNTRY_CODE).orEmpty().ifEmpty { null }
+                _country.value = state.getString(VPN_STATE_COUNTRY).orEmpty().ifEmpty { null }
+                _region.value = state.getString(VPN_STATE_REGION).orEmpty().ifEmpty { null }
+                _city.value = state.getString(VPN_STATE_CITY).orEmpty().ifEmpty { null }
+                _isp.value = state.getString(VPN_STATE_ISP).orEmpty().ifEmpty { null }
+                _org.value = state.getString(VPN_STATE_ORG).orEmpty().ifEmpty { null }
+                _asName.value = state.getString(VPN_STATE_AS_NAME).orEmpty().ifEmpty { null }
+                _timezone.value = state.getString(VPN_STATE_TIMEZONE).orEmpty().ifEmpty { null }
+                _receivedBytes.value = state.getLong(VPN_STATE_RECEIVED)
+                _sentBytes.value = state.getLong(VPN_STATE_SENT)
+                _connectedSince.value = state.getLong(VPN_STATE_CONNECTED_SINCE)
                 // Always derive the live profile from the running service
                 // (not just from VM-initiated starts), so the bubble /
                 // notification / auto-start path keeps the correct card live.
-                val runningProfile = vpnService!!.profileName
+                val runningProfile = state.getString(VPN_STATE_PROFILE).orEmpty()
                 if (runningProfile.isNotEmpty()) {
                     _activeProfileName.value = runningProfile
                     _lastProfileName.value = runningProfile
@@ -292,6 +338,7 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                 // does not drop to zero the moment the VPN disconnects.
                 _connectedSince.value = 0L
                 _proxyVerified.value = false
+                _isConnected.value = false
                 _activeProfileName.value = null
                 if (serviceError.isEmpty()) _errorMessage.value = null
             }
@@ -315,6 +362,7 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
         _timezone.value = null
         _connectedSince.value = 0L
         _proxyVerified.value = false
+        _isConnected.value = false
         _activeProfileName.value = null
     }
 
@@ -446,6 +494,10 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
     override fun onCleared() {
         super.onCleared()
         cleared = true
+        try {
+            getApplication<Application>().unregisterReceiver(stateReceiver)
+        } catch (_: Exception) {
+        }
         rebindRunnable?.let { rebindHandler.removeCallbacks(it); rebindRunnable = null }
         rebinding = false
         try {

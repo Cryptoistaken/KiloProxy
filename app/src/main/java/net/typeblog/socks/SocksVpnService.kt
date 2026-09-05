@@ -13,6 +13,7 @@ import android.net.VpnService
 import android.net.VpnService.Builder
 import android.net.TrafficStats
 import android.os.Build
+import android.os.Bundle
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
@@ -118,6 +119,27 @@ class SocksVpnService : VpnService() {
         override fun isProxyVerified(): Boolean {
             return mProxyVerified
         }
+
+        override fun getState(): Bundle = Bundle().apply {
+            putBoolean(Constants.VPN_STATE_RUNNING, mRunning)
+            putBoolean(Constants.VPN_STATE_TUNNEL_UP, mTunnelUp)
+            putBoolean(Constants.VPN_STATE_VERIFIED, mProxyVerified)
+            putBoolean(Constants.VPN_STATE_CONNECTED, mRunning && mTunnelUp && mProxyVerified)
+            putLong(Constants.VPN_STATE_CONNECTED_SINCE, mConnectedSince)
+            putString(Constants.VPN_STATE_IP, mCurrentIp ?: "")
+            putString(Constants.VPN_STATE_COUNTRY_CODE, mCountryCode ?: "")
+            putString(Constants.VPN_STATE_COUNTRY, mIpInfo?.country ?: "")
+            putString(Constants.VPN_STATE_REGION, mIpInfo?.regionName ?: "")
+            putString(Constants.VPN_STATE_CITY, mIpInfo?.city ?: "")
+            putString(Constants.VPN_STATE_ISP, mIpInfo?.isp ?: "")
+            putString(Constants.VPN_STATE_ORG, mIpInfo?.org ?: "")
+            putString(Constants.VPN_STATE_AS_NAME, mIpInfo?.asName ?: "")
+            putString(Constants.VPN_STATE_TIMEZONE, mIpInfo?.timezone ?: "")
+            putString(Constants.VPN_STATE_ERROR, mError ?: "")
+            putLong(Constants.VPN_STATE_RECEIVED, mCumulativeRx + mReceivedBytes)
+            putLong(Constants.VPN_STATE_SENT, mCumulativeTx + mSentBytes)
+            putString(Constants.VPN_STATE_PROFILE, mProfileName ?: "")
+        }
     }
 
     private var mInterface: ParcelFileDescriptor? = null
@@ -126,6 +148,7 @@ class SocksVpnService : VpnService() {
     @Volatile
     private var mProxyVerified = false
     private val mBinder: IBinder = VpnBinder()
+    @Volatile
     private var mProfileName: String? = null
     private var mTun2socksProcess: java.lang.Process? = null
     private var mPdnsdProcess: java.lang.Process? = null
@@ -139,11 +162,15 @@ class SocksVpnService : VpnService() {
     private var mUsername: String? = null
     private var mPassword: String? = null
 
+    @Volatile
     private var mCurrentIp: String? = null
+    @Volatile
     private var mCountryCode: String? = null
+    @Volatile
     private var mIpInfo: IpInfo? = null
     @Volatile
     private var mConnectedSince: Long = 0L
+    @Volatile
     private var mError: String? = null
     private var mIpCheckFailures = 0
     @Volatile
@@ -270,8 +297,13 @@ class SocksVpnService : VpnService() {
                                 mProxyVerified = true
                                 mIpCheckFailures = 0
                                 updateNotification()
+                                notifyStateChanged()
                                 mIpCheckHandler.postDelayed(this, IP_INFO_RETRY)
                             } else {
+                                if (mProxyVerified) {
+                                    mProxyVerified = false
+                                    notifyStateChanged()
+                                }
                                 mIpCheckFailures++
                                 Log.e(TAG, "IP check failed ($mIpCheckFailures/$MAX_IP_CHECK_FAILURES): $probe")
                                 if (mIpCheckFailures >= MAX_IP_CHECK_FAILURES) {
@@ -448,9 +480,13 @@ class SocksVpnService : VpnService() {
     }
 
     private fun stopMe(reason: String = "") {
+        var stateChanged = false
         synchronized(this) {
             if (!mRunning && reason != "on_destroy") return
-            if (mRunning) mRunning = false
+            if (mRunning) {
+                mRunning = false
+                stateChanged = true
+            }
         }
         Log.d(TAG, "stopMe called" + if (reason.isNotEmpty()) " - reason: $reason" else "")
         if (reason.isEmpty()) {
@@ -459,6 +495,7 @@ class SocksVpnService : VpnService() {
         }
         mSendfdCancelled = true
         mProbeInFlight.set(false)
+        if (stateChanged) notifyStateChanged(mError)
         persistProfileBytes()
         mStatsHandler.removeCallbacks(mStatsRunnable)
         mIpCheckHandler.removeCallbacks(mIpCheckRunnable)
@@ -874,6 +911,14 @@ class SocksVpnService : VpnService() {
         mProxyVerified = true
         mIpCheckFailures = 0
         updateNotification()
+        notifyStateChanged()
+    }
+
+    private fun notifyStateChanged(error: String? = null) {
+        sendBroadcast(Intent(Constants.ACTION_VPN_STATE_CHANGED).apply {
+            setPackage(packageName)
+            error?.let { putExtra(Constants.VPN_STATE_ERROR, it) }
+        })
     }
 
     private fun postStartOnMain() {
@@ -912,6 +957,7 @@ class SocksVpnService : VpnService() {
             registerReceiverCompat(mScreenOnReceiver, IntentFilter(Intent.ACTION_SCREEN_ON))
             mScreenOnRegistered = true
         }
+        notifyStateChanged()
     }
 
     private fun runOnMainThread(action: () -> Unit) {

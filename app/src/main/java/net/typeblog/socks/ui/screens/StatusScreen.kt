@@ -81,13 +81,11 @@ fun StatusScreen(
     val receivedBytes by viewModel.receivedBytes.collectAsState()
     val sentBytes by viewModel.sentBytes.collectAsState()
     val errorMessage by viewModel.errorMessage.collectAsState()
-    val proxyVerified by viewModel.proxyVerified.collectAsState()
+    val isActuallyConnected by viewModel.isConnected.collectAsState()
     val isConnecting by viewModel.isConnecting.collectAsState()
 
     var selectedProfile by rememberSaveable { mutableStateOf<String?>(null) }
     var menuExpanded by remember { mutableStateOf(false) }
-
-    val isActuallyConnected = isRunning && connectedSince > 0L && proxyVerified
 
     var connectStartMs by rememberSaveable { mutableStateOf(0L) }
     LaunchedEffect(isConnecting) {
@@ -186,9 +184,9 @@ fun StatusScreen(
     val displayProfileName = selectedProfile ?: activeProfileName ?: profiles.firstOrNull()
     val persistedUsage by produceState(
         initialValue = Triple(false, receivedBytes, sentBytes),
-        displayProfileName, receivedBytes, sentBytes, isRunning, proxyVerified, connectedSince
+        displayProfileName, receivedBytes, sentBytes, isActuallyConnected
     ) {
-        if (isRunning && connectedSince > 0L && proxyVerified) {
+        if (isActuallyConnected) {
             value = Triple(false, receivedBytes, sentBytes)
         } else {
             var rx = receivedBytes
