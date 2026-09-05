@@ -12,13 +12,15 @@ package net.typeblog.socks.util
  *   OwlProxy   host *.owlproxy.com            username ..._custom_zone_<cc>
  *   RapidProxy host *.rapidproxy.io           username ...-residential-<cc>
  *   ClipProxy  host *.cliproxy.io             username ...-region-<cc>
+ *   IpDeep     host *.ipdeep.com              username ...-res-country-<cc>[-state-<city>-session-<id>-sessiontime-<t>]
  *   Generic    any                           username ...[-_]<cc>
- */
+  */
 object ProxyProviders {
     const val TYPE_CUSTOM = "custom"
     const val TYPE_OWL = "owl"
     const val TYPE_RAPID = "rapid"
     const val TYPE_CLIP = "clip"
+    const val TYPE_IPDEEP = "ipdeep"
     const val TYPE_GENERIC = "generic"
 
     data class GenericParts(
@@ -32,6 +34,7 @@ object ProxyProviders {
         isOwl(host, username) -> TYPE_OWL
         isRapid(host, username) -> TYPE_RAPID
         isClip(host, username) -> TYPE_CLIP
+        isIpDeep(host, username) -> TYPE_IPDEEP
         genericParts(username) != null -> TYPE_GENERIC
         else -> TYPE_CUSTOM
     }
@@ -47,10 +50,15 @@ object ProxyProviders {
         hostEndsWith(host, "cliproxy.io") ||
             Regex("^(.+)-region-[a-zA-Z]{2}(.*)$").matches(username)
 
+    fun isIpDeep(host: String, username: String): Boolean =
+        hostEndsWith(host, "ipdeep.com") ||
+            Regex("^(.+)-res-country-[a-zA-Z]{2}(.*)$").matches(username)
+
     fun label(type: String): String = when (type) {
         TYPE_OWL -> "OwlProxy"
         TYPE_RAPID -> "RapidProxy"
         TYPE_CLIP -> "ClipProxy"
+        TYPE_IPDEEP -> "IpDeep"
         TYPE_GENERIC -> "Custom"
         else -> "Custom"
     }
@@ -71,6 +79,7 @@ object ProxyProviders {
         TYPE_OWL -> Regex("^(.+?)_custom_zone_([a-zA-Z]{2})(.*)$").find(username)?.groupValues?.get(2)
         TYPE_RAPID -> Regex("^(.+)-residential-([a-zA-Z]{2})(.*)$").find(username)?.groupValues?.get(2)
         TYPE_CLIP -> Regex("^(.+)-region-([a-zA-Z]{2})(.*)$").find(username)?.groupValues?.get(2)
+        TYPE_IPDEEP -> Regex("^(.+)-res-country-([a-zA-Z]{2})(.*)$").find(username)?.groupValues?.get(2)
         TYPE_GENERIC -> genericParts(username)?.country
         else -> null
     }
@@ -79,8 +88,18 @@ object ProxyProviders {
         TYPE_OWL -> Regex("^(.+?)_custom_zone_[a-zA-Z]{2}(.*)$").find(username)?.groupValues?.get(1)
         TYPE_RAPID -> Regex("^(.+)-residential-[a-zA-Z]{2}(.*)$").find(username)?.groupValues?.get(1)
         TYPE_CLIP -> Regex("^(.+)-region-[a-zA-Z]{2}(.*)$").find(username)?.groupValues?.get(1)
+        TYPE_IPDEEP -> Regex("^(.+)-res-country-[a-zA-Z]{2}(.*)$").find(username)?.groupValues?.get(1)
         TYPE_GENERIC -> genericParts(username)?.base
         else -> null
+    }
+
+    /**
+     * Rewrites an IpDeep username to a new country, preserving the sticky
+     * session block (`-state-<city>-session-<id>-sessiontime-<t>`) untouched.
+     */
+    fun switchIpDeepCountry(username: String, countryCode: String): String? {
+        val m = Regex("^(.+)-res-country-[a-zA-Z]{2}(-state-.*)?$").find(username) ?: return null
+        return "${m.groupValues[1]}-res-country-${countryCode.lowercase()}${m.groupValues[2]}"
     }
 
     /**
@@ -108,6 +127,7 @@ object ProxyProviders {
         }
         TYPE_RAPID -> "${base}-residential-${countryCode.uppercase()}"
         TYPE_CLIP -> "${base}-region-${countryCode.uppercase()}"
+        TYPE_IPDEEP -> "${base}-res-country-${countryCode.lowercase()}"
         TYPE_GENERIC -> "$base$separator${if (upper) countryCode.uppercase() else countryCode.lowercase()}"
         else -> null
     }

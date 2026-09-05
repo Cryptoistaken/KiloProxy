@@ -144,13 +144,14 @@ fun ProxiesScreen(
                             val user = parts[2].trim()
                             val pass = parts.subList(3, parts.size).joinToString(":").trim()
                             val key = "$host:$port:$user:$pass"
-                            val normUser = Regex("^(.*?_custom_zone_[A-Za-z0-9]+)").find(user)?.groupValues?.get(1) ?: user.replace(Regex("_st__.*$"), "").replace(Regex("_sid_.*$"), "").replace(Regex("_time_.*$"), "").replace(Regex("_city.*$"), "")
+                            val normUser = Regex("^(.*?_custom_zone_[A-Za-z0-9]+)").find(user)?.groupValues?.get(1) ?: Regex("^(.*?-res-country-[A-Za-z]{2})").find(user)?.groupValues?.get(1) ?: user.replace(Regex("_st__.*$"), "").replace(Regex("_sid_.*$"), "").replace(Regex("_time_.*$"), "").replace(Regex("_city.*$"), "")
                             val normKey = "$host:$port:$normUser:$pass"
                             val userPassKey = "$normUser:$pass"
                             if (existing.contains(key) || existing.contains(normKey) || existing.contains(userPassKey)) continue
-                            var name = "OwlProxy ${i + 1}"
+                            val prefix = if (host.trim().lowercase() == "ipdeep.com" || host.trim().lowercase().endsWith(".ipdeep.com")) "IpDeep" else "OwlProxy"
+                            var name = "$prefix ${i + 1}"
                             var suffix = 1
-                            while (pm.getProfile(name) != null) name = "OwlProxy ${i + 1}_${suffix++}"
+                            while (pm.getProfile(name) != null) name = "$prefix ${i + 1}_${suffix++}"
                             val profile = pm.addProfile(name) ?: continue
                             profile.setServer(host)
                             profile.setPort(port)
@@ -437,6 +438,7 @@ private fun AddEditProxySheet(
         if (t != ProxyProviders.TYPE_OWL &&
             t != ProxyProviders.TYPE_RAPID &&
             t != ProxyProviders.TYPE_CLIP &&
+            t != ProxyProviders.TYPE_IPDEEP &&
             t != ProxyProviders.TYPE_GENERIC
         ) return
         if (t == ProxyProviders.TYPE_GENERIC) {
@@ -445,6 +447,14 @@ private fun AddEditProxySheet(
                 parts.base, t, selectedCountry!!.code,
                 separator = parts.separator, upper = parts.upper
             ) ?: return
+            syncing = true
+            username = full
+            syncing = false
+            credsModified = true
+            return
+        }
+        if (t == ProxyProviders.TYPE_IPDEEP) {
+            val full = ProxyProviders.switchIpDeepCountry(username, selectedCountry!!.code) ?: return
             syncing = true
             username = full
             syncing = false
@@ -684,6 +694,7 @@ private fun AddEditProxySheet(
             if (proxyType == ProxyProviders.TYPE_OWL ||
                 proxyType == ProxyProviders.TYPE_RAPID ||
                 proxyType == ProxyProviders.TYPE_CLIP ||
+                proxyType == ProxyProviders.TYPE_IPDEEP ||
                 proxyType == ProxyProviders.TYPE_GENERIC
             ) {
                 Spacer(modifier = Modifier.height(16.dp))

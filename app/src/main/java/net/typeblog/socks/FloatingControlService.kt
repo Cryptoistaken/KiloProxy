@@ -1143,6 +1143,9 @@ class FloatingControlService : Service() {
                     val base = ProxyProviders.extractBase(username, type) ?: return
                     ProxyProviders.buildUsername(base, type, code) ?: return
                 }
+                ProxyProviders.TYPE_IPDEEP -> {
+                    ProxyProviders.switchIpDeepCountry(username, code) ?: return
+                }
                 ProxyProviders.TYPE_GENERIC -> {
                     val parts = ProxyProviders.genericParts(username) ?: return
                     ProxyProviders.buildUsername(
