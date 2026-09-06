@@ -448,6 +448,7 @@ class FloatingControlService : Service() {
 
             timerView = TextView(this).apply {
                 text = "00:00"
+                includeFontPadding = false
                 setTextColor(Color.BLACK)
                 textSize = 11f
                 typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
@@ -674,6 +675,7 @@ class FloatingControlService : Service() {
 
     private fun createStatusLabelView(): TextView {
         val tv = TextView(this)
+        tv.includeFontPadding = false
         tv.textSize = 12f
         tv.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
         tv.letterSpacing = 0.01f
