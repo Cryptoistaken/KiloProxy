@@ -16,43 +16,48 @@
         android:layout_marginStart="0dp"
         android:layout_marginTop="0dp">
 
-        <!-- Search bar and dismiss action -->
+        <!-- Search bar with exit action inside it -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="44dp"
             android:orientation="horizontal"
             android:gravity="center_vertical"
-            android:paddingStart="12dp"
-            android:paddingEnd="4dp">
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp">
 
-            <EditText
-                android:id="@+id/menu_search"
+            <FrameLayout
                 android:layout_width="0dp"
-                android:layout_height="34dp"
-                android:layout_weight="1"
-                android:layout_marginEnd="8dp"
-                android:paddingStart="8dp"
-                android:background="@drawable/search_input_bg"
-                android:hint="Search name, code or +dial…"
-                android:textSize="11sp"
-                android:textColor="#18181B"
-                android:textColorHint="#71717A"
-                android:singleLine="true"
-                android:inputType="text"
-                android:imeOptions="actionSearch"
-                android:importantForAutofill="no"
-                android:alpha="0.9" />
+                android:layout_height="wrap_content"
+                android:layout_weight="1">
 
-            <ImageButton
-                android:id="@+id/menu_dismiss"
-                android:layout_width="40dp"
-                android:layout_height="40dp"
-                android:background="@drawable/bg_dismiss_ripple"
-                android:contentDescription="Turn off floating bubble"
-                android:padding="10dp"
-                android:src="@drawable/ic_exit_fill"
-                android:tint="#CC2D4F"
-                android:tintMode="src_in" />
+                <EditText
+                    android:id="@+id/menu_search"
+                    android:layout_width="match_parent"
+                    android:layout_height="34dp"
+                    android:paddingStart="8dp"
+                    android:paddingEnd="34dp"
+                    android:background="@drawable/search_input_bg"
+                    android:hint="Search countries"
+                    android:textSize="11sp"
+                    android:textColor="#18181B"
+                    android:textColorHint="#71717A"
+                    android:singleLine="true"
+                    android:inputType="text"
+                    android:imeOptions="actionSearch"
+                    android:importantForAutofill="no"
+                    android:alpha="0.9" />
+
+                <ImageButton
+                    android:id="@+id/menu_dismiss"
+                    android:layout_width="30dp"
+                    android:layout_height="30dp"
+                    android:layout_gravity="center_vertical|end"
+                    android:layout_marginEnd="2dp"
+                    android:background="?android:attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="Turn off floating bubble"
+                    android:padding="6dp"
+                    android:src="@drawable/ic_exit_duotone" />
+            </FrameLayout>
         </LinearLayout>
 
         <View

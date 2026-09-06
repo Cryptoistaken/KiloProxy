@@ -674,7 +674,7 @@ class FloatingControlService : Service() {
 
     private fun createStatusLabelView(): TextView {
         val tv = TextView(this)
-        tv.textSize = 14f
+        tv.textSize = 12f
         tv.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
         tv.letterSpacing = 0.01f
         tv.gravity = Gravity.CENTER
@@ -1565,7 +1565,7 @@ class FloatingControlService : Service() {
         // Protected 1.5s - large green
         tv.alpha = 1f
         tv.setTextColor(green)
-        tv.textSize = 15f
+        tv.textSize = 12f
         tv.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
         tv.letterSpacing = 0.01f
         tv.text = "Protected"
