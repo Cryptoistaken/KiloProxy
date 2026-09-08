@@ -21,7 +21,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
@@ -190,7 +190,7 @@ fun UpdateDialog(
         title = {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Image(
-                    painter = painterResource(R.drawable.ic_launcher),
+                    painter = painterResource(R.mipmap.ic_launcher),
                     contentDescription = "KiloProxy",
                     modifier = Modifier
                         .size(52.dp)
@@ -252,10 +252,10 @@ fun UpdateDialog(
                     downloadDone -> {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
-                                imageVector = Icons.Filled.Check,
+                                imageVector = Icons.Filled.CheckCircle,
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.tertiary,
-                                modifier = Modifier.size(20.dp)
+                                modifier = Modifier.size(22.dp)
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(

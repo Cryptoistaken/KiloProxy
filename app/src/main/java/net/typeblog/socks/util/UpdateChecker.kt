@@ -118,8 +118,19 @@ object UpdateChecker {
             tag = tag,
             apkUrl = apkUrl,
             sizeBytes = asset.optLong("size"),
-            body = json.optString("body")
+            body = sanitizeNotes(json.optString("body"))
         )
+    }
+
+    // Release notes follow the app's ASCII-only user-text rule: strip emojis
+    // and decorative unicode (bullets, arrows, etc.) so "What's new" renders
+    // as plain text with no emoji glyphs.
+    fun sanitizeNotes(raw: String): String {
+        return raw.lines()
+            .map { line -> line.replace(Regex("[^\\x20-\\x7E\\t]"), "").trimEnd() }
+            .joinToString("\n")
+            .replace(Regex("\n{3,}"), "\n\n")
+            .trim()
     }
 
     /**
