@@ -8,7 +8,6 @@ import android.net.Uri
 import android.net.VpnService
 import android.os.Build
 import android.provider.Settings
-import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -27,6 +26,7 @@ import androidx.compose.material3.Text
 import android.content.SharedPreferences
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.preference.PreferenceManager
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import net.typeblog.socks.BuildConfig
@@ -87,7 +88,16 @@ fun SettingsScreen(
     }
     var checkingUpdates by remember { mutableStateOf(false) }
     var updateInfo by remember { mutableStateOf<UpdateChecker.UpdateInfo?>(null) }
+    var updateResult by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
+
+    // Update check response shows in the row description for a few seconds.
+    LaunchedEffect(updateResult) {
+        if (updateResult != null) {
+            delay(3000)
+            updateResult = null
+        }
+    }
 
     val themeLabel = when (themeMode) {
         "dark" -> "Dark"
@@ -171,17 +181,20 @@ fun SettingsScreen(
                 SettingsItem(
                     icon = painterResource(R.drawable.ic_update),
                     label = "Update",
-                    description = "Update to the latest version",
+                    description = if (checkingUpdates) "Checking"
+                    else updateResult ?: "Update to the latest version",
+                    iconSpinning = checkingUpdates,
                     onClick = {
                         if (!checkingUpdates) {
                             scope.launch {
                                 checkingUpdates = true
-                                Toast.makeText(context, "Checking for updates", Toast.LENGTH_SHORT).show()
+                                updateResult = null
                                 val info = withContext(Dispatchers.IO) { UpdateChecker.check() }
                                 checkingUpdates = false
                                 if (info == null) {
-                                    Toast.makeText(context, "You're up to date", Toast.LENGTH_SHORT).show()
+                                    updateResult = "You're up to date"
                                 } else {
+                                    updateResult = "Update available"
                                     updateInfo = info
                                 }
                             }

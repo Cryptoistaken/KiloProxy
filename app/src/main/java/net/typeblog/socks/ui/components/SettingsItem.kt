@@ -1,5 +1,10 @@
 package net.typeblog.socks.ui.components
 
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,9 +20,11 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
@@ -41,6 +48,7 @@ fun SettingsItem(
     value: String? = null,
     iconTint: Color? = null,
     showChevron: Boolean = true,
+    iconSpinning: Boolean = false,
     trailing: @Composable RowScope.() -> Unit = {},
     onClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
@@ -60,6 +68,18 @@ fun SettingsItem(
         verticalAlignment = if (description != null) Alignment.Top else Alignment.CenterVertically
     ) {
         // Icon slot — 32dp clear area holding a 24dp single-color icon (no box, no background)
+        // Optionally spins (e.g. update check in progress).
+        var iconAngle = 0f
+        if (iconSpinning) {
+            val spinTransition = rememberInfiniteTransition(label = "iconSpin")
+            val angle by spinTransition.animateFloat(
+                initialValue = 0f,
+                targetValue = 360f,
+                animationSpec = infiniteRepeatable(animation = tween(900, easing = LinearEasing)),
+                label = "iconAngle"
+            )
+            iconAngle = angle
+        }
         Box(
             modifier = Modifier.size(32.dp),
             contentAlignment = Alignment.Center
@@ -67,7 +87,9 @@ fun SettingsItem(
 Icon(
                     painter = icon,
                     contentDescription = null,
-                    modifier = Modifier.size(24.dp),
+                    modifier = Modifier
+                        .size(24.dp)
+                        .graphicsLayer { rotationZ = iconAngle },
                     tint = iconTint ?: MaterialTheme.colorScheme.onSurface
                 )
         }
