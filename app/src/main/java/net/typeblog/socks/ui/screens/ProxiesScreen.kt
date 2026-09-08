@@ -268,6 +268,7 @@ private fun AddEditProxySheet(
     var isDefault by remember { mutableStateOf(false) }
     var testing by remember { mutableStateOf(false) }
     var testStatus by remember { mutableStateOf<String?>(null) }
+    var testFailedFlash by remember { mutableStateOf(false) }
     var credsModified by remember { mutableStateOf(false) }
 
     // Provider state (country picker for owl/rapid/clip/generic; IP mode owl-only)
@@ -417,6 +418,14 @@ private fun AddEditProxySheet(
             testStatus = testProxy(host.trim(), portAfter, username.trim(), password.trim())
         }
         testing = false
+    }
+
+    // Manual-test failure shows red Failed on the Test button for 3s.
+    LaunchedEffect(testFailedFlash) {
+        if (testFailedFlash) {
+            delay(3000)
+            testFailedFlash = false
+        }
     }
 
     // Validation
@@ -657,22 +666,24 @@ private fun AddEditProxySheet(
                             expanded = ipModeMenuExpanded,
                             onDismissRequest = { ipModeMenuExpanded = false }
                         ) {
-                            DropdownMenuItem(
-                                text = { Text("Unique") },
-                                onClick = {
-                                    owlMode = "unique"
-                                    ipModeMenuExpanded = false
-                                    syncUsernameFromUi()
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Sticky") },
-                                onClick = {
-                                    owlMode = "sticky"
-                                    ipModeMenuExpanded = false
-                                    syncUsernameFromUi()
-                                }
-                            )
+                                    DropdownMenuItem(
+                                        text = { Text("Unique") },
+                                        supportingText = { Text("Fresh IP on every connection.") },
+                                        onClick = {
+                                            owlMode = "unique"
+                                            ipModeMenuExpanded = false
+                                            syncUsernameFromUi()
+                                        }
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text("Sticky") },
+                                        supportingText = { Text("Keeps the same IP for the stick time.") },
+                                        onClick = {
+                                            owlMode = "sticky"
+                                            ipModeMenuExpanded = false
+                                            syncUsernameFromUi()
+                                        }
+                                    )
                         }
                     }
                 }
@@ -681,7 +692,7 @@ private fun AddEditProxySheet(
                 if (proxyType == ProxyProviders.TYPE_OWL && owlMode == "sticky") {
                     Spacer(modifier = Modifier.height(12.dp))
                     Text(
-                        text = "IP Stick Time (minutes)",
+                        text = "IP Stick Time in minutes",
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -725,34 +736,12 @@ private fun AddEditProxySheet(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 when {
-                    testing -> {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(14.dp),
-                            strokeWidth = 2.dp,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = "Testing proxy",
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
                     testPassed -> {
                         Text(
                             text = "Proxy is valid, ready to save",
                             fontSize = 13.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.tertiary
-                        )
-                    }
-                    testStatus != null -> {
-                        Text(
-                            text = "Proxy test failed",
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.error
                         )
                     }
                     else -> {
@@ -768,21 +757,27 @@ private fun AddEditProxySheet(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Cancel / Save buttons
+            // Cancel / Test / Save buttons, colored by action
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                TextButton(
+                Button(
                     onClick = {
                         scope.launch { sheetState.hide(); onDismiss() }
                     },
-                    shape = RoundedCornerShape(8.dp)
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(8.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error,
+                        contentColor = MaterialTheme.colorScheme.onError
+                    )
                 ) {
-                    Text("Cancel", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Cancel")
                 }
                 OutlinedButton(
                     onClick = {
+                        if (testing) return@OutlinedButton
                         val port = portText.trim().toIntOrNull()
                         if (port != null && port in 1..65535 &&
                             host.trim().isNotEmpty() && username.trim().isNotEmpty() && password.isNotEmpty()
@@ -798,14 +793,36 @@ private fun AddEditProxySheet(
                                     password.trim()
                                 )
                                 testing = false
+                                if (testStatus?.startsWith("✓") != true) {
+                                    testFailedFlash = true
+                                }
                             }
+                        } else {
+                            testFailedFlash = true
                         }
                     },
-                    enabled = !testing && allFieldsFilled,
+                    enabled = !testing,
+                    modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(8.dp),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                    border = BorderStroke(
+                        1.dp,
+                        if (testFailedFlash) MaterialTheme.colorScheme.error
+                        else MaterialTheme.colorScheme.onSurface
+                    )
                 ) {
-                    Text(if (testing) "Testing" else "Test")
+                    if (testing) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(14.dp),
+                            strokeWidth = 2.dp,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Testing")
+                    } else if (testFailedFlash) {
+                        Text("Failed", color = MaterialTheme.colorScheme.error)
+                    } else {
+                        Text("Test")
+                    }
                 }
                 Button(
                     onClick = {
@@ -827,6 +844,7 @@ private fun AddEditProxySheet(
                         }
                     },
                     enabled = allValid,
+                    modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(8.dp)
                 ) {
                     Text("Save")
