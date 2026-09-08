@@ -7,12 +7,29 @@ import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -23,8 +40,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -34,10 +55,11 @@ import net.typeblog.socks.util.UpdateChecker
 
 /**
  * Update-available dialog shared between the in-app "check updates" flow and the
- * proactive launch-time prompt. Shows the release notes, then live download
- * progress once the user taps Update, and hands off to the package installer
- * when the APK finishes downloading. [onDismiss] is called when the user picks
- * "Later"/"Skip" or after the download+install hand-off completes.
+ * proactive launch-time prompt. One card per state: ask (app icon + capped
+ * scrolling release notes + Later/Update), downloading (icon + progress +
+ * cancel), done (Install/Cancel). Hands off to the package installer only when
+ * the user taps Install. [onDismiss] is called when the user picks
+ * "Later"/"Cancel" or after the install hand-off completes.
  */
 @Composable
 fun UpdateDialog(
@@ -48,21 +70,60 @@ fun UpdateDialog(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var downloading by remember { mutableStateOf(false) }
+    var pausedUi by remember { mutableStateOf(false) }
+    var downloadDone by remember { mutableStateOf(false) }
+    // Atomic flags: polled on the IO thread, flipped from button onClicks.
+    val cancelFlag = remember { java.util.concurrent.atomic.AtomicBoolean(false) }
+    val pauseFlag = remember { java.util.concurrent.atomic.AtomicBoolean(false) }
     var downloadProgress by remember { mutableStateOf(0f) }
     var permissionPending by remember { mutableStateOf(false) }
 
+    val mbTotal = info.sizeBytes / 1048576.0
+    val mbDone = downloadProgress * mbTotal
+
     fun startDownload() {
+        val resume = pausedUi
         downloading = true
-        downloadProgress = 0f
+        pausedUi = false
+        downloadDone = false
+        if (!resume) downloadProgress = 0f
+        cancelFlag.set(false)
+        pauseFlag.set(false)
         scope.launch {
             val err = withContext(Dispatchers.IO) {
-                UpdateChecker.downloadAndInstall(
-                    context, info.apkUrl, info.sizeBytes
-                ) { progress ->
-                    scope.launch { downloadProgress = progress }
-                }
+                UpdateChecker.downloadToCache(
+                    context, info.apkUrl, info.sizeBytes,
+                    onProgress = { progress ->
+                        scope.launch { downloadProgress = progress }
+                    },
+                    isCancelled = { cancelFlag.get() },
+                    isPaused = { pauseFlag.get() }
+                )
             }
             downloading = false
+            when (err) {
+                null -> downloadDone = true
+                "Paused" -> pausedUi = true
+                "Cancelled" -> { }
+                else -> {
+                    onDismiss()
+                    Toast.makeText(context, err, Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+    }
+
+    fun discardPartial() {
+        scope.launch(Dispatchers.IO) {
+            try { java.io.File(context.cacheDir, "update.apk").delete() } catch (_: Exception) { }
+        }
+    }
+
+    fun installNow() {
+        scope.launch {
+            val err = withContext(Dispatchers.IO) {
+                UpdateChecker.installCached(context)
+            }
             onDismiss()
             if (err != null) {
                 Toast.makeText(context, err, Toast.LENGTH_LONG).show()
@@ -74,7 +135,7 @@ fun UpdateDialog(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { _ ->
         if (context.packageManager.canRequestPackageInstalls()) {
-            startDownload()
+            installNow()
         } else {
             Toast.makeText(
                 context,
@@ -84,11 +145,11 @@ fun UpdateDialog(
         }
     }
 
-    fun launchDownload() {
+    fun launchInstall() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !context.packageManager.canRequestPackageInstalls()) {
             permissionPending = true
         } else {
-            startDownload()
+            installNow()
         }
     }
 
@@ -100,7 +161,7 @@ fun UpdateDialog(
                 Text(
                     text = "KiloProxy needs to install the update. " +
                         "You'll be taken to Settings to allow \"Install unknown apps\" for KiloProxy " +
-                        "— this is required only once."
+                        "- this is required only once."
                 )
             },
             confirmButton = {
@@ -127,56 +188,167 @@ fun UpdateDialog(
     AlertDialog(
         onDismissRequest = { if (!downloading) onDismiss() },
         title = {
-            Text(text = if (downloading) "Downloading update…" else "Update available")
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Image(
+                    painter = painterResource(R.drawable.ic_launcher),
+                    contentDescription = "KiloProxy",
+                    modifier = Modifier
+                        .size(52.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = when {
+                            downloadDone -> "Download done"
+                            downloading -> "Downloading update"
+                            pausedUi -> "Download paused"
+                            else -> "Update available"
+                        },
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1
+                    )
+                    Text(
+                        text = "v${info.tag} - ${"%.1f MB".format(mbTotal)}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1
+                    )
+                }
+                if (downloading) {
+                    IconButton(onClick = { pauseFlag.set(true) }) {
+                        Icon(
+                            imageVector = Icons.Filled.Pause,
+                            contentDescription = "Pause download"
+                        )
+                    }
+                    IconButton(onClick = { cancelFlag.set(true) }) {
+                        Icon(
+                            imageVector = Icons.Filled.Close,
+                            contentDescription = "Cancel download"
+                        )
+                    }
+                }
+                if (pausedUi) {
+                    IconButton(onClick = { startDownload() }) {
+                        Icon(
+                            imageVector = Icons.Filled.PlayArrow,
+                            contentDescription = "Resume download"
+                        )
+                    }
+                    IconButton(onClick = { pausedUi = false; discardPartial() }) {
+                        Icon(
+                            imageVector = Icons.Filled.Close,
+                            contentDescription = "Cancel download"
+                        )
+                    }
+                }
+            }
         },
         text = {
             Column {
-                if (downloading) {
-                    LinearProgressIndicator(
-                        progress = { downloadProgress },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    val mb = info.sizeBytes / 1048576.0
-                    Text(
-                        text = "${(downloadProgress * 100).toInt()}% · " +
-                            "%.1f / %.1f MB".format(downloadProgress * mb, mb),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                } else {
-                    Text(
-                        text = "v${info.tag} · ${"%.1f MB".format(info.sizeBytes / 1048576.0)} — " +
-                            "install over the current version. Profiles and app data are preserved."
-                    )
-                    if (info.body.isNotBlank()) {
-                        Spacer(modifier = Modifier.height(12.dp))
-                        HorizontalDivider(
-                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
-                        )
-                        Spacer(modifier = Modifier.height(12.dp))
+                when {
+                    downloadDone -> {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Filled.Check,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.tertiary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "Completed - ${"%.1f MB".format(mbTotal)} ready to install.",
+                                maxLines = 2
+                            )
+                        }
+                    }
+                    downloading -> {
                         Text(
-                            text = context.getString(R.string.whats_new_dialog_title),
-                            style = MaterialTheme.typography.labelLarge,
+                            text = "Downloading ${(downloadProgress * 100).toInt()}% - " +
+                                "%.1f / %.1f MB".format(mbDone, mbTotal),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        LinearProgressIndicator(
+                            progress = { downloadProgress },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Do not close the app.",
+                            style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(text = info.body)
+                    }
+                    pausedUi -> {
+                        Text(
+                            text = "Paused ${(downloadProgress * 100).toInt()}% - " +
+                                "%.1f / %.1f MB".format(mbDone, mbTotal),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        LinearProgressIndicator(
+                            progress = { downloadProgress },
+                            modifier = Modifier.fillMaxWidth(),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    else -> {
+                        Text(
+                            text = "Install over the current version. " +
+                                "Profiles and app data are preserved."
+                        )
+                        if (info.body.isNotBlank()) {
+                            Spacer(modifier = Modifier.height(12.dp))
+                            HorizontalDivider(
+                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text(
+                                text = context.getString(R.string.whats_new_dialog_title),
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = info.body,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(max = 160.dp)
+                                    .verticalScroll(rememberScrollState())
+                            )
+                        }
                     }
                 }
             }
         },
         confirmButton = {
-            if (!downloading) {
-                TextButton(onClick = { launchDownload() }) {
-                    Text(text = "Update")
+            when {
+                downloadDone -> {
+                    Button(onClick = { launchInstall() }) {
+                        Text(text = "Install", maxLines = 1)
+                    }
+                }
+                !downloading -> {
+                    Button(onClick = { startDownload() }) {
+                        Text(text = "Update", maxLines = 1)
+                    }
                 }
             }
         },
         dismissButton = {
             if (!downloading) {
                 TextButton(onClick = onDismiss) {
-                    Text(text = dismissLabel)
+                    Text(
+                        text = if (downloadDone) "Cancel" else dismissLabel,
+                        maxLines = 1
+                    )
                 }
             }
         }

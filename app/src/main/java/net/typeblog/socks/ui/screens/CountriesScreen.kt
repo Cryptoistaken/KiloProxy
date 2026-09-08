@@ -242,7 +242,7 @@ fun CountriesScreen(
             OutlinedTextField(
                 value = query,
                 onValueChange = { query = it },
-                placeholder = { Text("Search countries...") },
+                placeholder = { Text("Search countries") },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(start = 16.dp, end = 16.dp, bottom = 8.dp),

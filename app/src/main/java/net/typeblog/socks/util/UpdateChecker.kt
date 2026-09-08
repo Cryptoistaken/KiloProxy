@@ -137,26 +137,76 @@ object UpdateChecker {
         totalBytes: Long = 0L,
         onProgress: ((Float) -> Unit)? = null
     ): String? {
+        downloadToCache(context, url, totalBytes, onProgress) { false }?.let { return it }
+        return installCached(context)
+    }
+
+    /**
+     * Downloads the APK to cache without launching the installer, so the UI
+     * can show a separate done screen with Install/Cancel. [isCancelled] and
+     * [isPaused] are polled while bytes stream in: cancel aborts and deletes
+     * the partial file ("Cancelled"), pause aborts but keeps it ("Paused") so
+     * the next call resumes with an HTTP Range request. Both results should
+     * be swallowed by the caller (no toast).
+     * Synchronous, MUST be called from a background thread.
+     */
+    fun downloadToCache(
+        context: Context,
+        url: String,
+        totalBytes: Long = 0L,
+        onProgress: ((Float) -> Unit)? = null,
+        isCancelled: (() -> Boolean)? = null,
+        isPaused: (() -> Boolean)? = null
+    ): String? {
         if (!url.startsWith("https://")) return "Update URL must use HTTPS"
         var lastException: Exception? = null
         repeat(MAX_RETRIES) { attempt ->
             var connection: HttpURLConnection? = null
             try {
                 val file = File(context.cacheDir, "update.apk")
-                if (file.exists()) file.delete()
+                // Resume offset from a previous paused attempt.
+                var offset = 0L
+                if (totalBytes > 0 && file.exists()) {
+                    val len = file.length()
+                    when {
+                        len >= totalBytes -> {
+                            onProgress?.invoke(1f)
+                            return null
+                        }
+                        len > 0 -> offset = len
+                    }
+                }
 
-                Log.d(TAG, "downloadAndInstall() -> attempt ${attempt + 1}/$MAX_RETRIES, GET $url")
+                Log.d(TAG, "downloadToCache() -> attempt ${attempt + 1}/$MAX_RETRIES, GET $url (offset=$offset)")
                 connection = URL(url).openConnection() as HttpURLConnection
                 connection.connectTimeout = DOWNLOAD_CONNECT_TIMEOUT
                 connection.readTimeout = DOWNLOAD_READ_TIMEOUT
                 connection.setRequestProperty("User-Agent", USER_AGENT)
+                if (offset > 0) connection.setRequestProperty("Range", "bytes=$offset-")
 
                 val status = connection.responseCode
-                Log.d(TAG, "downloadAndInstall() -> HTTP $status")
-                if (status != HttpURLConnection.HTTP_OK) {
+                Log.d(TAG, "downloadToCache() -> HTTP $status")
+                val append = offset > 0 && status == HttpURLConnection.HTTP_PARTIAL
+                if (offset > 0 && !append) {
+                    // Server ignored the Range request: restart from scratch.
+                    Log.w(TAG, "downloadToCache() -> Range not honored (HTTP $status), restarting full download")
+                    file.delete()
+                    offset = 0
+                    if (status != HttpURLConnection.HTTP_OK) {
+                        val err = "HTTP $status"
+                        val body = connection.errorStream?.bufferedReader(Charsets.UTF_8)?.readText()
+                        Log.e(TAG, "downloadToCache() -> $err, body: ${body?.take(300)}")
+                        connection.disconnect()
+                        if (attempt < MAX_RETRIES - 1) {
+                            Thread.sleep(1000L * (attempt + 1))
+                            return@repeat
+                        }
+                        return "Download failed ($err)"
+                    }
+                } else if (offset == 0L && status != HttpURLConnection.HTTP_OK) {
                     val err = "HTTP $status"
                     val body = connection.errorStream?.bufferedReader(Charsets.UTF_8)?.readText()
-                    Log.e(TAG, "downloadAndInstall() -> $err, body: ${body?.take(300)}")
+                    Log.e(TAG, "downloadToCache() -> $err, body: ${body?.take(300)}")
                     connection.disconnect()
                     if (attempt < MAX_RETRIES - 1) {
                         Thread.sleep(1000L * (attempt + 1))
@@ -165,13 +215,23 @@ object UpdateChecker {
                     return "Download failed ($err)"
                 }
 
-                var downloaded = 0L
-                var lastReportedPct = -1
+                var downloaded = offset
+                if (offset > 0) onProgress?.invoke((offset * 100 / totalBytes.coerceAtLeast(1) / 100f).coerceIn(0f, 1f))
+                var lastReportedPct = if (totalBytes > 0) (downloaded * 100 / totalBytes).toInt() else -1
                 connection.inputStream.use { input ->
-                    file.outputStream().use { output ->
+                    java.io.FileOutputStream(file, append).use { output ->
                         val buffer = ByteArray(BUFFER_SIZE)
                         var read = input.read(buffer)
                         while (read != -1) {
+                            if (isCancelled?.invoke() == true) {
+                                Log.d(TAG, "downloadToCache() -> cancelled by user")
+                                try { file.delete() } catch (_: Exception) { }
+                                return "Cancelled"
+                            }
+                            if (isPaused?.invoke() == true) {
+                                Log.d(TAG, "downloadToCache() -> paused by user at $downloaded bytes")
+                                return "Paused"
+                            }
                             output.write(buffer, 0, read)
                             downloaded += read
                             if (totalBytes > 0) {
@@ -186,22 +246,11 @@ object UpdateChecker {
                     }
                 }
 
-                val uri = FileProvider.getUriForFile(context, "${context.packageName}.provider", file)
-                Log.d(TAG, "downloadAndInstall() -> downloaded ${file.length()} bytes to $file, launching installer")
-                val intent = Intent(Intent.ACTION_VIEW).apply {
-                    setDataAndType(uri, "application/vnd.android.package-archive")
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                }
-                try {
-                    context.startActivity(intent)
-                } catch (e: Exception) {
-                    Log.e(TAG, "downloadAndInstall() -> startActivity(installer) threw: ${e::class.simpleName}: ${e.message}", e)
-                    return "Could not open installer: ${e.message}"
-                }
+                Log.d(TAG, "downloadToCache() -> downloaded ${file.length()} bytes to $file")
                 return null
             } catch (e: Exception) {
                 lastException = e
-                Log.w(TAG, "downloadAndInstall() -> attempt ${attempt + 1} failed: ${e::class.simpleName}: ${e.message}", e)
+                Log.w(TAG, "downloadToCache() -> attempt ${attempt + 1} failed: ${e::class.simpleName}: ${e.message}", e)
                 connection?.disconnect()
                 if (attempt < MAX_RETRIES - 1) {
                     Thread.sleep(1000L * (attempt + 1))
@@ -209,5 +258,24 @@ object UpdateChecker {
             }
         }
         return lastException?.message ?: "Update failed"
+    }
+
+    /** Launches the package installer for the previously downloaded update.apk. */
+    fun installCached(context: Context): String? {
+        val file = File(context.cacheDir, "update.apk")
+        if (!file.exists()) return "Downloaded file is missing"
+        val uri = FileProvider.getUriForFile(context, "${context.packageName}.provider", file)
+        Log.d(TAG, "installCached() -> launching installer for $file (${file.length()} bytes)")
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(uri, "application/vnd.android.package-archive")
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        return try {
+            context.startActivity(intent)
+            null
+        } catch (e: Exception) {
+            Log.e(TAG, "installCached() -> startActivity(installer) threw: ${e::class.simpleName}: ${e.message}", e)
+            "Could not open installer: ${e.message}"
+        }
     }
 }
