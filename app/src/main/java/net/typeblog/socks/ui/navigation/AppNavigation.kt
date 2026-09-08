@@ -11,7 +11,10 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.painter.Painter
@@ -67,6 +70,18 @@ fun AppNavigation() {
     val currentDestination = navBackStackEntry?.destination
     val showBottomBar = currentDestination?.route in bottomNavRoutes
     val vpnViewModel: VpnViewModel = viewModel()
+    var profilePickMode by rememberSaveable { mutableStateOf(false) }
+    var countryPickMode by rememberSaveable { mutableStateOf(false) }
+
+    fun navigateToTab(route: String) {
+        navController.navigate(route) {
+            popUpTo(navController.graph.findStartDestination().id) {
+                saveState = true
+            }
+            launchSingleTop = true
+            restoreState = true
+        }
+    }
 
     val bottomNavItems = listOf(
         BottomNavItem(Screen.Connect, painterResource(R.drawable.ic_proton_house), painterResource(R.drawable.ic_proton_house_filled), "Home"),
@@ -99,13 +114,9 @@ fun AppNavigation() {
                                     interactionSource = remember { MutableInteractionSource() },
                                     indication = null,
                                     onClick = {
-                                        navController.navigate(item.screen.route) {
-                                            popUpTo(navController.graph.findStartDestination().id) {
-                                                saveState = true
-                                            }
-                                            launchSingleTop = true
-                                            restoreState = true
-                                        }
+                                        profilePickMode = false
+                                        countryPickMode = false
+                                        navigateToTab(item.screen.route)
                                     }
                                 )
                                 .padding(vertical = 8.dp),
@@ -133,10 +144,28 @@ fun AppNavigation() {
             modifier = Modifier.padding(innerPadding)
         ) {
             composable(Screen.Profiles.route) {
-                ProxiesScreen(viewModel = vpnViewModel)
+                ProxiesScreen(
+                    viewModel = vpnViewModel,
+                    pickMode = profilePickMode,
+                    onPickProfile = { name ->
+                        vpnViewModel.pickProfile(name)
+                        profilePickMode = false
+                        navigateToTab(Screen.Connect.route)
+                    },
+                    onPickCountryClick = {
+                        countryPickMode = true
+                        navigateToTab(Screen.Countries.route)
+                    }
+                )
             }
             composable(Screen.Connect.route) {
-                StatusScreen(viewModel = vpnViewModel)
+                StatusScreen(
+                    viewModel = vpnViewModel,
+                    onPickProfileClick = {
+                        profilePickMode = true
+                        navigateToTab(Screen.Profiles.route)
+                    }
+                )
             }
             composable(Screen.Countries.route) {
                 CountriesScreen(
@@ -145,6 +174,12 @@ fun AppNavigation() {
                         navController.navigate(Screen.Connect.route) {
                             popUpTo(Screen.Countries.route) { inclusive = true }
                         }
+                    },
+                    pickMode = countryPickMode,
+                    onPickCountry = { code ->
+                        vpnViewModel.pickCountry(code)
+                        countryPickMode = false
+                        navigateToTab(Screen.Profiles.route)
                     }
                 )
             }

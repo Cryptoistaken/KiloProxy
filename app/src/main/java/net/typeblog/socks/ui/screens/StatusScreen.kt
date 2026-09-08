@@ -8,6 +8,9 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -19,12 +22,11 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -62,7 +64,8 @@ import net.typeblog.socks.util.Utility
 @Composable
 fun StatusScreen(
     modifier: Modifier = Modifier,
-    viewModel: VpnViewModel
+    viewModel: VpnViewModel,
+    onPickProfileClick: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val isRunning by viewModel.isRunning.collectAsState()
@@ -85,7 +88,15 @@ fun StatusScreen(
     val isConnecting by viewModel.isConnecting.collectAsState()
 
     var selectedProfile by rememberSaveable { mutableStateOf<String?>(null) }
-    var menuExpanded by remember { mutableStateOf(false) }
+
+    // Profile picked on the Profiles tab: apply as selection, then consume.
+    val pickedProfile by viewModel.pickedProfile.collectAsState()
+    LaunchedEffect(pickedProfile) {
+        if (pickedProfile != null) {
+            selectedProfile = pickedProfile
+            viewModel.pickProfile(null)
+        }
+    }
 
     var connectStartMs by rememberSaveable { mutableStateOf(0L) }
     LaunchedEffect(isConnecting) {
@@ -266,38 +277,33 @@ fun StatusScreen(
                 )
             }
         } else {
-            ExposedDropdownMenuBox(
-                expanded = menuExpanded,
-                onExpandedChange = { if (!isRunning) menuExpanded = !menuExpanded }
+            // Tapping opens the Profiles tab for selection; the picked
+            // profile comes back through viewModel.pickedProfile.
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        enabled = !isRunning,
+                        onClick = onPickProfileClick
+                    )
             ) {
                 OutlinedTextField(
                     value = selectedProfile ?: "",
                     onValueChange = {},
                     readOnly = true,
+                    enabled = false,
                     label = { Text("Profile") },
                     trailingIcon = {
-                        ExposedDropdownMenuDefaults.TrailingIcon(expanded = menuExpanded)
-                    },
-                    enabled = !isRunning,
-                    shape = RoundedCornerShape(10.dp),
-                    modifier = Modifier
-                        .menuAnchor(MenuAnchorType.PrimaryNotEditable, enabled = true)
-                        .fillMaxWidth()
-                )
-                ExposedDropdownMenu(
-                    expanded = menuExpanded,
-                    onDismissRequest = { menuExpanded = false }
-                ) {
-                    profiles.forEach { name ->
-                        DropdownMenuItem(
-                            text = { Text(name) },
-                            onClick = {
-                                selectedProfile = name
-                                menuExpanded = false
-                            }
+                        Icon(
+                            imageVector = Icons.Filled.ArrowDropDown,
+                            contentDescription = null
                         )
-                    }
-                }
+                    },
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
             Spacer(modifier = Modifier.height(16.dp))
 

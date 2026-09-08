@@ -108,6 +108,34 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
     private val _activeProfileName = MutableStateFlow<String?>(null)
     val activeProfileName: StateFlow<String?> = _activeProfileName.asStateFlow()
 
+    // Profile chosen on the Profiles tab in pick mode. StatusScreen applies it
+    // as its selected profile, then consumes it back to null.
+    private val _pickedProfile = MutableStateFlow<String?>(null)
+    val pickedProfile: StateFlow<String?> = _pickedProfile.asStateFlow()
+
+    fun pickProfile(name: String?) {
+        _pickedProfile.value = name
+    }
+
+    // Country code picked on the Countries tab in pick mode. The add/edit
+    // proxy sheet applies it to its draft, then consumes it back to null.
+    private val _pickedCountry = MutableStateFlow<String?>(null)
+    val pickedCountry: StateFlow<String?> = _pickedCountry.asStateFlow()
+
+    fun pickCountry(code: String?) {
+        _pickedCountry.value = code
+    }
+
+    // In-progress add/edit proxy form, snapshotted before leaving to the
+    // Countries tab for country picking so the sheet can restore it untouched
+    // when navigation back recreates it.
+    private val _pendingDraft = MutableStateFlow<ProxyDraft?>(null)
+    val pendingDraft: StateFlow<ProxyDraft?> = _pendingDraft.asStateFlow()
+
+    fun setPendingDraft(draft: ProxyDraft?) {
+        _pendingDraft.value = draft
+    }
+
     // Profile whose session totals _receivedBytes/_sentBytes currently belong
     // to. Unlike activeProfileName it survives a disconnect so the profiles
     // cards can keep showing the last session's usage instead of a stale prefs
@@ -509,3 +537,25 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
         vpnService = null
     }
 }
+
+// Snapshot of the add/edit proxy sheet form. All primitives so it survives
+// in a StateFlow while the sheet is off-composition during country picking.
+data class ProxyDraft(
+    val profileName: String? = null,
+    val provider: String = "custom",
+    val initialName: String = "",
+    val name: String = "",
+    val host: String = "",
+    val portText: String = "",
+    val username: String = "",
+    val password: String = "",
+    val isDefault: Boolean = false,
+    val credsModified: Boolean = false,
+    val proxyType: String = "custom",
+    val countryCode: String? = null,
+    val owlMode: String = "unique",
+    val owlTime: Int = 5,
+    val ipdeepMode: String = "unique",
+    val ipdeepTime: Int = 5,
+    val page: Int = 0
+)

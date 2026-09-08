@@ -15,11 +15,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -43,6 +41,7 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import net.typeblog.socks.R
+import net.typeblog.socks.ui.components.SearchInput
 import net.typeblog.socks.ui.viewmodel.VpnViewModel
 import net.typeblog.socks.util.Countries
 import net.typeblog.socks.util.ProfileManager
@@ -60,7 +59,9 @@ import net.typeblog.socks.util.Utility
 fun CountriesScreen(
     viewModel: VpnViewModel,
     onConnected: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    pickMode: Boolean = false,
+    onPickCountry: ((String) -> Unit)? = null
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -121,6 +122,17 @@ fun CountriesScreen(
         } else {
             onConnected()
         }
+    }
+
+    // Pick mode (from the add/edit proxy sheet): tapping a country only
+    // records it as recent and hands the code back, no connecting.
+    fun pickCountry(code: String) {
+        try {
+            Utility.addRecentCountry(context, code)
+            recentCountries = Utility.getRecentCountries(context)
+        } catch (_: Exception) {
+        }
+        onPickCountry?.invoke(code)
     }
 
     // Replicates FloatingControlService.onBubbleCountrySelected: rewrite the
@@ -209,14 +221,14 @@ fun CountriesScreen(
 
     Column(modifier = modifier.fillMaxSize()) {
         Text(
-            text = "Countries",
+            text = if (pickMode) "Select Country" else "Countries",
             style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.padding(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 4.dp)
         )
 
-        if (profiles.isEmpty()) {
+        if (profiles.isEmpty() && !pickMode) {
             Box(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
@@ -239,15 +251,12 @@ fun CountriesScreen(
                 }
             }
         } else {
-            OutlinedTextField(
+            SearchInput(
                 value = query,
                 onValueChange = { query = it },
-                placeholder = { Text("Search countries") },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = 16.dp, end = 16.dp, bottom = 8.dp),
-                shape = RoundedCornerShape(8.dp),
-                singleLine = true
+                placeholder = "Search countries",
+                description = "Search countries",
+                modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp)
             )
 
             LazyColumn(modifier = Modifier.fillMaxSize()) {
@@ -265,7 +274,10 @@ fun CountriesScreen(
                         CountryRow(
                             country = country,
                             isConnected = connectedCountryCode == country.code,
-                            onClick = { onCountryTap(country.code) }
+                            onClick = {
+                                if (pickMode) pickCountry(country.code)
+                                else onCountryTap(country.code)
+                            }
                         )
                     }
                     item(key = "all_header") {
@@ -295,7 +307,10 @@ fun CountriesScreen(
                         CountryRow(
                             country = country,
                             isConnected = connectedCountryCode == country.code,
-                            onClick = { onCountryTap(country.code) }
+                            onClick = {
+                                if (pickMode) pickCountry(country.code)
+                                else onCountryTap(country.code)
+                            }
                         )
                     }
                 }

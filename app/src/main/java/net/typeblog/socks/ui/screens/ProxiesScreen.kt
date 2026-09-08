@@ -1,6 +1,8 @@
 package net.typeblog.socks.ui.screens
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,7 +12,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -21,6 +22,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -47,6 +50,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -66,18 +70,22 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import net.typeblog.socks.R
 import net.typeblog.socks.ui.components.ProxyCard
+import net.typeblog.socks.ui.components.SearchInput
+import net.typeblog.socks.ui.viewmodel.ProxyDraft
 import net.typeblog.socks.ui.viewmodel.VpnViewModel
 import net.typeblog.socks.util.Countries
 import net.typeblog.socks.util.ProfileManager
 import net.typeblog.socks.util.ProxyProviders
 import net.typeblog.socks.util.SocksTester
-import net.typeblog.socks.util.Utility
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProxiesScreen(
     modifier: Modifier = Modifier,
-    viewModel: VpnViewModel
+    viewModel: VpnViewModel,
+    pickMode: Boolean = false,
+    onPickProfile: ((String) -> Unit)? = null,
+    onPickCountryClick: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val profiles by viewModel.profiles.collectAsState()
@@ -88,10 +96,13 @@ fun ProxiesScreen(
     val receivedBytes by viewModel.receivedBytes.collectAsState()
     val sentBytes by viewModel.sentBytes.collectAsState()
 
-    var showAddSheet by remember { mutableStateOf(false) }
-    var selectedProvider by remember { mutableStateOf<String?>(null) }
-    var editTargetProfile by remember { mutableStateOf<String?>(null) }
+    // Sheet controls are saveable so an open sheet survives the round-trip
+    // to the Countries tab for country picking.
+    var showAddSheet by rememberSaveable { mutableStateOf(false) }
+    var selectedProvider by rememberSaveable { mutableStateOf<String?>(null) }
+    var editTargetProfile by rememberSaveable { mutableStateOf<String?>(null) }
     var deleteTarget by remember { mutableStateOf<String?>(null) }
+    var profileSearch by remember { mutableStateOf("") }
 
     // Proxy auto-sync is paused — proxies are managed manually on this screen.
     val scope = rememberCoroutineScope()
@@ -99,19 +110,21 @@ fun ProxiesScreen(
     Scaffold(
         modifier = modifier,
         floatingActionButton = {
-            IconButton(
-                onClick = {
-                    selectedProvider = "custom"
-                    showAddSheet = true
-                },
-                modifier = Modifier.size(56.dp)
-            ) {
-                Icon(
-                    painter = painterResource(R.drawable.fab_stack),
-                    contentDescription = "Add proxy",
-                    modifier = Modifier.size(42.dp),
-                    tint = MaterialTheme.colorScheme.onSurface
-                )
+            if (!pickMode) {
+                IconButton(
+                    onClick = {
+                        selectedProvider = "custom"
+                        showAddSheet = true
+                    },
+                    modifier = Modifier.size(56.dp)
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.fab_stack),
+                        contentDescription = "Add proxy",
+                        modifier = Modifier.size(42.dp),
+                        tint = MaterialTheme.colorScheme.onSurface
+                    )
+                }
             }
         }
     ) { padding ->
@@ -141,31 +154,59 @@ fun ProxiesScreen(
                 }
             }
         } else {
-            LazyColumn(
+            val filteredProfiles = remember(profiles, profileSearch) {
+                val q = profileSearch.trim().lowercase()
+                if (q.isEmpty()) profiles
+                else profiles.filter { it.lowercase().contains(q) }
+            }
+            Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding)
-                    .padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                    .padding(horizontal = 16.dp)
             ) {
-                items(profiles, key = { it }) { profileName ->
-                    val pm = remember { ProfileManager.getInstance(context) }
-                    val profile = remember(profileName, profileVersion) { pm.getProfile(profileName) }
-                    ProxyCard(
-                        profileName = profileName,
-                        server = profile?.getServer() ?: "",
-                        port = profile?.getPort() ?: 0,
-                        username = profile?.getUsername() ?: "",
-                        password = profile?.getPassword() ?: "",
-                        isConnected = isRunning && activeProfileName == profileName,
-                        liveUsageRx = if (lastProfileName == profileName) receivedBytes else 0L,
-                        liveUsageTx = if (lastProfileName == profileName) sentBytes else 0L,
-                        onEdit = { editTargetProfile = profileName },
-                        onDelete = { deleteTarget = profileName }
+                if (pickMode) {
+                    Text(
+                        text = "Select a profile",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.padding(bottom = 8.dp)
                     )
                 }
-                // Bottom spacer for FAB
-                item { Spacer(modifier = Modifier.height(72.dp)) }
+                SearchInput(
+                    value = profileSearch,
+                    onValueChange = { profileSearch = it },
+                    placeholder = "Search profiles",
+                    description = "Search profiles",
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    items(filteredProfiles, key = { it }) { profileName ->
+                        val pm = remember { ProfileManager.getInstance(context) }
+                        val profile = remember(profileName, profileVersion) { pm.getProfile(profileName) }
+                        ProxyCard(
+                            profileName = profileName,
+                            server = profile?.getServer() ?: "",
+                            port = profile?.getPort() ?: 0,
+                            username = profile?.getUsername() ?: "",
+                            password = profile?.getPassword() ?: "",
+                            isConnected = isRunning && activeProfileName == profileName,
+                            liveUsageRx = if (lastProfileName == profileName) receivedBytes else 0L,
+                            liveUsageTx = if (lastProfileName == profileName) sentBytes else 0L,
+                        onEdit = { editTargetProfile = profileName },
+                        onDelete = { deleteTarget = profileName },
+                        onSelect = if (pickMode) {
+                            { onPickProfile?.invoke(profileName) }
+                        } else null
+                        )
+                    }
+                    // Bottom spacer for FAB
+                    item { Spacer(modifier = Modifier.height(72.dp)) }
+                }
             }
         }
     }
@@ -209,6 +250,8 @@ fun ProxiesScreen(
                 profileName = null,
                 provider = selectedProvider ?: "custom",
                 initialName = "Profile ${profiles.size + 1}",
+                viewModel = viewModel,
+                onPickCountryClick = onPickCountryClick,
                 onDismiss = {
                     showAddSheet = false
                     selectedProvider = null
@@ -231,6 +274,8 @@ fun ProxiesScreen(
             AddEditProxySheet(
                 profileName = editProfileTarget,
                 provider = if (isOwl) "owl" else "custom",
+                viewModel = viewModel,
+                onPickCountryClick = onPickCountryClick,
                 onProfileRenamed = { old, new -> viewModel.updateActiveProfileName(old, new) },
                 onDismiss = {
                     editTargetProfile = null
@@ -254,6 +299,8 @@ private fun AddEditProxySheet(
     provider: String = "custom",
     onDismiss: () -> Unit,
     onSaved: () -> Unit,
+    viewModel: VpnViewModel,
+    onPickCountryClick: () -> Unit = {},
     onProfileRenamed: (oldName: String, newName: String) -> Unit = { _, _ -> },
     initialName: String = ""
 ) {
@@ -281,13 +328,48 @@ private fun AddEditProxySheet(
     var owlTime by remember { mutableStateOf(5) }
     var ipdeepMode by remember { mutableStateOf("unique") }
     var ipdeepTime by remember { mutableStateOf(5) }
-    var showCountryDropdown by remember { mutableStateOf(false) }
-    var countrySearch by remember { mutableStateOf("") }
-    var recentCountries by remember { mutableStateOf(Utility.getRecentCountries(context)) }
     var syncing by remember { mutableStateOf(false) }
     var ipModeMenuExpanded by remember { mutableStateOf(false) }
-    var countryMenuExpanded by remember { mutableStateOf(false) }
     var page by remember { mutableStateOf(0) }
+
+    // Snapshot/restore the whole draft so a country-pick round-trip through
+    // the Countries tab returns to the sheet untouched.
+    fun snapshotDraft(): ProxyDraft = ProxyDraft(
+        profileName = profileName,
+        provider = provider,
+        initialName = initialName,
+        name = name,
+        host = host,
+        portText = portText,
+        username = username,
+        password = password,
+        isDefault = isDefault,
+        credsModified = credsModified,
+        proxyType = proxyType,
+        countryCode = selectedCountry?.code,
+        owlMode = owlMode,
+        owlTime = owlTime,
+        ipdeepMode = ipdeepMode,
+        ipdeepTime = ipdeepTime,
+        page = page
+    )
+
+    fun restoreDraft(d: ProxyDraft) {
+        name = d.name
+        host = d.host
+        portText = d.portText
+        username = d.username
+        password = d.password
+        isDefault = d.isDefault
+        credsModified = d.credsModified
+        proxyType = d.proxyType
+        selectedCountry = d.countryCode?.let { code -> Countries.fromCode(code) }
+        owlMode = d.owlMode
+        owlTime = d.owlTime
+        ipdeepMode = d.ipdeepMode
+        ipdeepTime = d.ipdeepTime
+        page = d.page
+    }
 
     // Detect provider + country from the username (host influences type too).
     fun detectFromUsername(newVal: String) {
@@ -340,6 +422,31 @@ private fun AddEditProxySheet(
             } catch (_: Exception) {
                 // Ignore
             }
+        }
+    }
+
+    // Restore the draft snapshotted before leaving to the Countries tab.
+    // Declared after the load above so it wins on the way back.
+    val pendingDraft by viewModel.pendingDraft.collectAsState()
+    LaunchedEffect(pendingDraft) {
+        val d = pendingDraft
+        if (d != null && d.profileName == profileName && d.provider == provider &&
+            d.initialName == initialName
+        ) {
+            restoreDraft(d)
+            viewModel.setPendingDraft(null)
+        }
+    }
+
+    // Country picked on the Countries tab: apply to the draft, then consume.
+    // Declared after the restore above so it wins over the snapshotted value.
+    val pickedCountry by viewModel.pickedCountry.collectAsState()
+    LaunchedEffect(pickedCountry) {
+        val code = pickedCountry
+        if (code != null) {
+            selectedCountry = Countries.fromCode(code)
+            syncUsernameFromUi()
+            viewModel.pickCountry(null)
         }
     }
 
@@ -697,13 +804,19 @@ private fun AddEditProxySheet(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(bottom = 4.dp)
                 )
-                // Country (own line)
-                ExposedDropdownMenuBox(
-                    expanded = countryMenuExpanded,
-                    onExpandedChange = {
-                        showCountryDropdown = true
-                        countryMenuExpanded = false
-                    }
+                // Country (own line) - tapping opens the Countries tab;
+                // the draft is snapshotted first so the sheet restores untouched.
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = {
+                                viewModel.setPendingDraft(snapshotDraft())
+                                onPickCountryClick()
+                            }
+                        )
                 ) {
                     OutlinedTextField(
                         value = if (selectedCountry != null) {
@@ -713,14 +826,16 @@ private fun AddEditProxySheet(
                         },
                         onValueChange = {},
                         readOnly = true,
+                        enabled = false,
                         singleLine = true,
                         maxLines = 1,
                         trailingIcon = {
-                            ExposedDropdownMenuDefaults.TrailingIcon(expanded = countryMenuExpanded)
+                            Icon(
+                                imageVector = Icons.Filled.ArrowDropDown,
+                                contentDescription = null
+                            )
                         },
-                        modifier = Modifier
-                            .menuAnchor(MenuAnchorType.PrimaryNotEditable, enabled = true)
-                            .fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(8.dp),
                         textStyle = MaterialTheme.typography.bodyLarge.copy(
                             color = if (selectedCountry != null) MaterialTheme.colorScheme.onSurface
@@ -994,162 +1109,6 @@ private fun AddEditProxySheet(
 
             Spacer(modifier = Modifier.height(8.dp))
         }
-    }
-
-    // ── Country Selection Dialog ──
-    if (showCountryDropdown) {
-        val filteredCountries = remember(countrySearch) {
-            if (countrySearch.isEmpty()) {
-                Countries.ALL
-            } else {
-                val query = countrySearch.lowercase()
-                val digits = countrySearch.filter { it.isDigit() }
-                Countries.ALL.filter { country ->
-                    country.name.lowercase().contains(query) ||
-                    country.code.lowercase().contains(query) ||
-                    (digits.isNotEmpty() && (country.phone.startsWith(digits) || digits.startsWith(country.phone)))
-                }
-            }
-        }
-        val recentCountryList = remember(recentCountries) {
-            recentCountries.mapNotNull { code -> Countries.ALL.find { it.code == code } }
-        }
-
-        AlertDialog(
-            onDismissRequest = {
-                showCountryDropdown = false
-                countrySearch = ""
-            },
-            title = { Text("Select Country") },
-            text = {
-                Column(
-                    modifier = Modifier.imePadding()
-                ) {
-                    // Search field
-                    OutlinedTextField(
-                        value = countrySearch,
-                        onValueChange = { countrySearch = it },
-                        placeholder = { Text("Search countries...") },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(8.dp),
-                        singleLine = true
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    // Country list
-                    LazyColumn(
-                        modifier = Modifier.heightIn(max = 300.dp)
-                    ) {
-                        val showRecents = countrySearch.isEmpty() && recentCountryList.isNotEmpty()
-                        if (showRecents) {
-                            item {
-                                Text(
-                                    text = "Recently Used",
-                                    style = MaterialTheme.typography.titleSmall,
-                                    fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
-                                )
-                            }
-                            items(recentCountryList) { country ->
-                                OutlinedButton(
-                                    onClick = {
-                                        selectedCountry = country
-                                        syncUsernameFromUi()
-                                        Utility.addRecentCountry(context, country.code)
-                                        recentCountries = Utility.getRecentCountries(context)
-                                        showCountryDropdown = false
-                                        countrySearch = ""
-                                    },
-                                    modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
-                                    shape = RoundedCornerShape(8.dp),
-                                    border = BorderStroke(
-                                        1.dp,
-                                        if (selectedCountry?.code == country.code) MaterialTheme.colorScheme.primary
-                                        else MaterialTheme.colorScheme.outline
-                                    )
-                                ) {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Text(
-                                            text = country.flag,
-                                            fontSize = 18.sp,
-                                            modifier = Modifier.padding(end = 8.dp)
-                                        )
-                                        Text(
-                                            text = country.name,
-                                            modifier = Modifier.weight(1f)
-                                        )
-                                        Text(
-                                            text = country.code,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            fontSize = 12.sp
-                                        )
-                                    }
-                                }
-                            }
-                            item {
-                                Text(
-                                    text = "All Countries",
-                                    style = MaterialTheme.typography.titleSmall,
-                                    fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
-                                )
-                            }
-                        }
-                        items(filteredCountries) { country ->
-                            OutlinedButton(
-                                onClick = {
-                                    selectedCountry = country
-                                    syncUsernameFromUi()
-                                    Utility.addRecentCountry(context, country.code)
-                                    recentCountries = Utility.getRecentCountries(context)
-                                    showCountryDropdown = false
-                                    countrySearch = ""
-                                },
-                                modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
-                                shape = RoundedCornerShape(8.dp),
-                                border = BorderStroke(
-                                    1.dp,
-                                    if (selectedCountry?.code == country.code) MaterialTheme.colorScheme.primary
-                                    else MaterialTheme.colorScheme.outline
-                                )
-                            ) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text(
-                                        text = country.flag,
-                                        fontSize = 18.sp,
-                                        modifier = Modifier.padding(end = 8.dp)
-                                    )
-                                    Text(
-                                        text = country.name,
-                                        modifier = Modifier.weight(1f)
-                                    )
-                                    Text(
-                                        text = country.code,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        fontSize = 12.sp
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        showCountryDropdown = false
-                        countrySearch = ""
-                    }
-                ) {
-                    Text("Cancel")
-                }
-            }
-        )
     }
 }
 
