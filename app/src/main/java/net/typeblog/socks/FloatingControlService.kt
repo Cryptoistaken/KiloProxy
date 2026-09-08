@@ -17,6 +17,7 @@ import android.content.IntentFilter
 import android.content.ServiceConnection
 import android.content.pm.ServiceInfo
 import android.content.res.Configuration
+import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.Rect
@@ -1049,7 +1050,8 @@ class FloatingControlService : Service() {
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(title)
             .setContentText(text)
-            .setSmallIcon(R.drawable.ic_launcher)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setLargeIcon(BitmapFactory.decodeResource(resources, R.mipmap.ic_launcher))
             .setOngoing(true)
             .addAction(0, buttonText, buttonPending)
             .build()

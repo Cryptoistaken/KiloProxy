@@ -9,6 +9,7 @@ import android.content.Context.RECEIVER_EXPORTED
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.ServiceInfo
+import android.graphics.BitmapFactory
 import android.net.VpnService
 import android.net.VpnService.Builder
 import android.os.Build
@@ -614,7 +615,8 @@ class SocksVpnService : VpnService() {
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(getString(R.string.notify_title))
             .setContentText(getString(R.string.notify_msg, mProfileName ?: ""))
-            .setSmallIcon(R.drawable.ic_launcher)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setLargeIcon(BitmapFactory.decodeResource(resources, R.mipmap.ic_launcher))
             .setOngoing(true)
             .build()
 
@@ -637,7 +639,8 @@ class SocksVpnService : VpnService() {
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(getString(R.string.notify_title))
             .setContentText(notificationText)
-            .setSmallIcon(R.drawable.ic_launcher)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setLargeIcon(BitmapFactory.decodeResource(resources, R.mipmap.ic_launcher))
             .setOngoing(true)
             .build()
 

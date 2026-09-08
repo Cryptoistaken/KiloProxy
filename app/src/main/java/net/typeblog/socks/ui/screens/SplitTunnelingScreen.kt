@@ -362,17 +362,17 @@ private fun ModeDialog(
                 )
                 Spacer(modifier = Modifier.height(12.dp))
                 ProtonDialogRadioRow(
-                    title = "Exclude",
-                    description = "Selected apps are excluded from the VPN connection.",
-                    selected = bypassMode,
-                    onClick = { onSelect(true) }
-                )
-                HorizontalHairline()
-                ProtonDialogRadioRow(
                     title = "Include",
                     description = "Only selected apps connect through the VPN; all other traffic is unprotected.",
                     selected = !bypassMode,
                     onClick = { onSelect(false) }
+                )
+                HorizontalHairline()
+                ProtonDialogRadioRow(
+                    title = "Exclude",
+                    description = "Selected apps are excluded from the VPN connection.",
+                    selected = bypassMode,
+                    onClick = { onSelect(true) }
                 )
             }
         }
