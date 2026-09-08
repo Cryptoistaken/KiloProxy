@@ -3,6 +3,7 @@ package net.typeblog.socks.ui.screens
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -224,6 +225,37 @@ fun SplitTunnelingScreen(
                 .padding(paddingValues)
                 .imePadding()
         ) {
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                shape = RoundedCornerShape(16.dp),
+                color = MaterialTheme.colorScheme.surfaceContainerLow
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Image(
+                        painter = painterResource(
+                            if (splitEnabled) R.drawable.feature_splittunneling_on
+                            else R.drawable.feature_splittunneling_off
+                        ),
+                        contentDescription = "Split tunneling",
+                        modifier = Modifier.size(64.dp)
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        text = "Split tunneling",
+                        style = MaterialTheme.typography.headlineSmall,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Choose which apps are protected by the VPN connection.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
             // ── Master switch ──
             Surface(
                 modifier = Modifier

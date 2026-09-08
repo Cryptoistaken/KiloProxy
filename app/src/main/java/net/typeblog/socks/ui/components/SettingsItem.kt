@@ -40,7 +40,7 @@ fun SettingsItem(
     description: String? = null,
     value: String? = null,
     iconTint: Color? = null,
-    showChevron: Boolean = true,
+    showChevron: Boolean = false,
     trailing: @Composable RowScope.() -> Unit = {},
     onClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier,

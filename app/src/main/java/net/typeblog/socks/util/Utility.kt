@@ -2,6 +2,8 @@ package net.typeblog.socks.util
 
 import android.content.Context
 import android.content.Intent
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.os.Build
 import android.util.Log
 import androidx.preference.PreferenceManager
@@ -55,6 +57,20 @@ data class IpInfo(
 
 object Utility {
     private val TAG = Utility::class.java.simpleName
+
+    @JvmStatic
+    fun isOnline(context: Context): Boolean {
+        val manager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+            ?: return false
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
+            @Suppress("DEPRECATION")
+            return manager.activeNetworkInfo?.isConnected == true
+        }
+        val network = manager.activeNetwork ?: return false
+        val capabilities = manager.getNetworkCapabilities(network) ?: return false
+        return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+            capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+    }
 
     @JvmStatic
     fun extractFile(context: Context) {

@@ -116,7 +116,7 @@ object SocksTester {
     }
 
     /**
-     * Returns a short "✓ …" / "✗ …" status string for display.
+     * Returns a short status string for display.
      * Safe to call from any thread; runs on the IO dispatcher.
      */
     suspend fun testProxy(
@@ -126,11 +126,11 @@ object SocksTester {
         password: String
     ): String = withContext(Dispatchers.IO) {
         when (probeProxy(server, port, username, password)) {
-            ProxyProbe.OK -> "✓ Proxy works"
-            ProxyProbe.AUTH_FAILED -> "✗ Auth failed"
-            ProxyProbe.NOT_SOCKS5 -> "✗ Not a SOCKS5 proxy"
-            ProxyProbe.CONNECT_FAILED -> "✗ Connection failed"
-            ProxyProbe.UNREACHABLE -> "✗ Proxy unreachable"
+            ProxyProbe.OK -> "Proxy works"
+            ProxyProbe.AUTH_FAILED -> "Auth failed"
+            ProxyProbe.NOT_SOCKS5 -> "Not a SOCKS5 proxy"
+            ProxyProbe.CONNECT_FAILED -> "Connection failed"
+            ProxyProbe.UNREACHABLE -> "Proxy unreachable"
         }
     }
 }

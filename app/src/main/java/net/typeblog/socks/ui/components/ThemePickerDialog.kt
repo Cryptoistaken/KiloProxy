@@ -1,10 +1,14 @@
 package net.typeblog.socks.ui.components
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.selection.selectable
@@ -15,6 +19,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
@@ -100,6 +106,7 @@ private fun ThemeRow(
                 .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            ThemePreview(label)
             Text(
                 text = label,
                 style = MaterialTheme.typography.bodyLarge,
@@ -111,5 +118,27 @@ private fun ThemeRow(
                 onClick = null
             )
         }
+    }
+}
+
+@Composable
+private fun ThemePreview(label: String) {
+    val dark = label == "Dark"
+    val auto = label == "Device theme"
+    if (auto) {
+        Row(
+            modifier = Modifier
+                .size(width = 48.dp, height = 68.dp)
+                .clip(RoundedCornerShape(8.dp))
+        ) {
+            Box(Modifier.weight(1f).fillMaxHeight().background(Color(0xFFF4F4F4)))
+            Box(Modifier.weight(1f).fillMaxHeight().background(Color(0xFF202024)))
+        }
+    } else {
+        Box(
+            modifier = Modifier
+                .size(width = 48.dp, height = 68.dp)
+                .background(if (dark) Color(0xFF202024) else Color(0xFFF4F4F4), RoundedCornerShape(8.dp))
+        )
     }
 }

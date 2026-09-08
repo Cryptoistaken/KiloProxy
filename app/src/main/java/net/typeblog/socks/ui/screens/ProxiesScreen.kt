@@ -423,7 +423,7 @@ private fun AddEditProxySheet(
     val hostValid = host.trim().isNotEmpty()
     val portValid = portText.trim().toIntOrNull()?.let { it in 1..65535 } ?: false
     val allFieldsFilled = hostValid && portValid && username.isNotEmpty() && password.isNotEmpty() && name.trim().isNotEmpty()
-    val testPassed = testStatus?.startsWith("✓") == true
+    val testPassed = testStatus == "Proxy works"
     // Editing an existing profile whose credentials were left untouched (e.g. a
     // pure rename) should save without re-running the connectivity test — the
     // proxy was presumably already reachable. Only a credential edit triggers the
@@ -757,14 +757,7 @@ private fun AddEditProxySheet(
                     }
                     testPassed -> {
                         Text(
-                            text = "✓",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.tertiary
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = "Proxy is valid — ready to save",
+                            text = "Proxy is valid, ready to save",
                             fontSize = 13.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.tertiary
@@ -772,14 +765,7 @@ private fun AddEditProxySheet(
                     }
                     testStatus != null -> {
                         Text(
-                            text = "✗",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.error
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = "Proxy test failed",
+                            text = "Proxy test failed: $testStatus",
                             fontSize = 13.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.error

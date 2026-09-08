@@ -57,9 +57,7 @@ fun DebugLogsScreen(onNavigateBack: () -> Unit) {
     val copied = remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
-        withContext(Dispatchers.IO) {
-            logs.value = LogCollector.collectLogs(context)
-        }
+        logs.value = withContext(Dispatchers.IO) { LogCollector.collectLogs(context) }
     }
 
     Scaffold(
