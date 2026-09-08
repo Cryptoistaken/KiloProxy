@@ -1,7 +1,6 @@
 package net.typeblog.socks.ui.navigation
 
 import androidx.compose.foundation.Indication
-import androidx.compose.foundation.IndicationInstance
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.interaction.InteractionSource
 import androidx.compose.foundation.layout.padding
@@ -16,8 +15,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.node.DelegatableNode
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.ContentDrawScope
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
@@ -64,19 +63,18 @@ private val bottomNavRoutes = listOf(
     Screen.Settings.route
 ).toSet()
 
-// No-op indication: LocalIndication is non-null in this Compose version,
-// so the tap ripple is disabled with an empty indication instead of null.
+// No-op indication: disables the tap ripple. Uses the Modifier.Node API
+// (IndicationNodeFactory#create) as required by this Compose version.
 private object NoRippleIndication : Indication {
-    private object NoIndicationInstance : IndicationInstance {
-        override fun ContentDrawScope.drawIndication() {
-            drawContent()
-        }
+    private class NoRippleNode : Modifier.Node()
+
+    override fun create(interactionSource: InteractionSource): DelegatableNode {
+        return NoRippleNode()
     }
 
-    @Composable
-    override fun rememberUpdatedInstance(interactionSource: InteractionSource): IndicationInstance {
-        return NoIndicationInstance
-    }
+    override fun hashCode(): Int = -1
+
+    override fun equals(other: Any?): Boolean = other === this
 }
 
 @Composable

@@ -4,6 +4,11 @@ import android.content.SharedPreferences
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -22,7 +27,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.animateItem
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -508,7 +512,13 @@ private fun AppsPage(
                     )
                 }
                 items(selectedApps, key = { it.packageName }) { app ->
-                    AppRow(app = app, trailingIcon = R.drawable.ic_proton_minus_circle_filled, modifier = Modifier.animateItem()) { onSetApp(app.packageName, false) }
+                    AnimatedVisibility(
+                        visible = true,
+                        enter = fadeIn() + expandVertically(),
+                        exit = fadeOut() + shrinkVertically()
+                    ) {
+                        AppRow(app = app, trailingIcon = R.drawable.ic_proton_minus_circle_filled) { onSetApp(app.packageName, false) }
+                    }
                 }
                 item {
                     SectionHeader(
@@ -517,7 +527,13 @@ private fun AppsPage(
                     )
                 }
                 items(otherApps, key = { it.packageName }) { app ->
-                    AppRow(app = app, trailingIcon = R.drawable.ic_proton_plus_circle, modifier = Modifier.animateItem()) { onSetApp(app.packageName, true) }
+                    AnimatedVisibility(
+                        visible = true,
+                        enter = fadeIn() + expandVertically(),
+                        exit = fadeOut() + shrinkVertically()
+                    ) {
+                        AppRow(app = app, trailingIcon = R.drawable.ic_proton_plus_circle) { onSetApp(app.packageName, true) }
+                    }
                 }
             }
         }
@@ -549,11 +565,10 @@ private fun SectionHeader(title: String, description: String?) {
 private fun AppRow(
     app: InstalledApp,
     trailingIcon: Int,
-    modifier: Modifier = Modifier,
     onAction: () -> Unit
 ) {
     Row(
-        modifier = modifier
+        modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = 56.dp)
             .padding(horizontal = 20.dp, vertical = 10.dp),
