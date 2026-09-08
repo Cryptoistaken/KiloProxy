@@ -1,22 +1,19 @@
 package net.typeblog.socks.ui.navigation
 
-import androidx.compose.foundation.Indication
-import androidx.compose.foundation.LocalIndication
-import androidx.compose.foundation.interaction.InteractionSource
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.node.DelegatableNode
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
@@ -63,20 +60,6 @@ private val bottomNavRoutes = listOf(
     Screen.Settings.route
 ).toSet()
 
-// No-op indication: disables the tap ripple. Uses the Modifier.Node API
-// (IndicationNodeFactory#create) as required by this Compose version.
-private object NoRippleIndication : Indication {
-    private class NoRippleNode : Modifier.Node()
-
-    override fun create(interactionSource: InteractionSource): DelegatableNode {
-        return NoRippleNode()
-    }
-
-    override fun hashCode(): Int = -1
-
-    override fun equals(other: Any?): Boolean = other === this
-}
-
 @Composable
 fun AppNavigation() {
     val navController = rememberNavController()
@@ -95,46 +78,48 @@ fun AppNavigation() {
     Scaffold(
         bottomBar = {
             if (showBottomBar) {
-                CompositionLocalProvider(LocalIndication provides NoRippleIndication) {
-                    NavigationBar(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                        tonalElevation = 0.dp
-                    ) {
-                        bottomNavItems.forEach { item ->
-                            val selected = currentDestination?.hierarchy?.any {
-                                it.route == item.screen.route
-                            } == true
+                NavigationBar(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                    tonalElevation = 0.dp
+                ) {
+                    // Custom items instead of NavigationBarItem: same look
+                    // (filled icon + label, no pill), and clickable with
+                    // indication = null so taps have no ripple flash.
+                    bottomNavItems.forEach { item ->
+                        val selected = currentDestination?.hierarchy?.any {
+                            it.route == item.screen.route
+                        } == true
+                        val contentColor = if (selected) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.onSurfaceVariant
 
-                            NavigationBarItem(
-                                selected = selected,
-                                onClick = {
-                                    navController.navigate(item.screen.route) {
-                                        popUpTo(navController.graph.findStartDestination().id) {
-                                            saveState = true
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null,
+                                    onClick = {
+                                        navController.navigate(item.screen.route) {
+                                            popUpTo(navController.graph.findStartDestination().id) {
+                                                saveState = true
+                                            }
+                                            launchSingleTop = true
+                                            restoreState = true
                                         }
-                                        launchSingleTop = true
-                                        restoreState = true
                                     }
-                                },
-                                icon = {
-                                    Icon(
-                                        painter = if (selected) item.selectedIcon else item.icon,
-                                        contentDescription = item.label
-                                    )
-                                },
-                                label = {
-                                    Text(
-                                        text = item.label,
-                                        style = MaterialTheme.typography.labelSmall
-                                    )
-                                },
-                                colors = NavigationBarItemDefaults.colors(
-                                    selectedIconColor = MaterialTheme.colorScheme.primary,
-                                    selectedTextColor = MaterialTheme.colorScheme.primary,
-                                    unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    indicatorColor = Color.Transparent
                                 )
+                                .padding(vertical = 8.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Icon(
+                                painter = if (selected) item.selectedIcon else item.icon,
+                                contentDescription = item.label,
+                                tint = contentColor
+                            )
+                            Text(
+                                text = item.label,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = contentColor
                             )
                         }
                     }
