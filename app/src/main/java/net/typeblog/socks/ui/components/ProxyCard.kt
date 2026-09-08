@@ -245,7 +245,7 @@ fun ProxyCard(
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
                 ) {
                     Text(
-                        text = if (testing) "Testing…" else "Test",
+                        text = if (testing) "Testing" else "Test",
                         fontSize = 13.sp
                     )
                 }

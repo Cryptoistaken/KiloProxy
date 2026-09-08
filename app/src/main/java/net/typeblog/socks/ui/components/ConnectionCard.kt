@@ -169,7 +169,7 @@ fun ConnectionCard(
                     }
                     Text(
                         text = when {
-                            isConnecting -> "Connecting…"
+                            isConnecting -> "Connecting"
                             isConnected -> "Disconnect"
                             else -> "Connect"
                         },
@@ -199,7 +199,7 @@ fun ConnectionCard(
                     "${(totalSeconds % 60).toString().padStart(2, '0')}"
             Text(
                 text = when {
-                    isConnecting -> "Establishing secure connection…"
+                    isConnecting -> "Establishing secure connection"
                     isConnected && connectedSince > 0 -> "Connected $elapsedText"
                     isConnected -> "Connected"
                     else -> "Tap to connect"

@@ -749,7 +749,7 @@ private fun AddEditProxySheet(
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = "Testing proxy…",
+                            text = "Testing proxy",
                             fontSize = 13.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -835,7 +835,7 @@ private fun AddEditProxySheet(
                     shape = RoundedCornerShape(8.dp),
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
                 ) {
-                    Text(if (testing) "Testing…" else "Test")
+                    Text(if (testing) "Testing" else "Test")
                 }
                 Button(
                     onClick = {

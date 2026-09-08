@@ -633,7 +633,7 @@ class SocksVpnService : VpnService() {
         val notificationText = if (!mCurrentIp.isNullOrEmpty()) {
             getString(R.string.notify_msg, mProfileName ?: "")
         } else {
-            "Connecting..."
+            "Connecting"
         }
 
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)

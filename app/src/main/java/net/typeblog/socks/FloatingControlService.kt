@@ -725,7 +725,7 @@ class FloatingControlService : Service() {
                 updateStatusLabelPosition()
             }
             BubbleState.CONNECTING -> {
-                tv.text = "Connecting…"
+                tv.text = "Connecting"
                 tv.setTextColor(Color.BLACK)
                 tv.visibility = View.VISIBLE
                 updateStatusLabelPosition()
@@ -1032,7 +1032,7 @@ class FloatingControlService : Service() {
                     if (country.isNotEmpty()) "$flag $country · $ip" else "Connected · $ip"
                 }
                 state == BubbleState.CONNECTED -> "Connected"
-                state == BubbleState.CONNECTING -> "Connecting..."
+                state == BubbleState.CONNECTING -> "Connecting"
                 else -> "Not connected"
             }
         } catch (e: Exception) {
