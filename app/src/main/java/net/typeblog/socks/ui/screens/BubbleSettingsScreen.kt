@@ -177,12 +177,14 @@ fun BubbleSettingsScreen(
             SelectableStyleRow(
                 selected = bubbleStyle == BUBBLE_STYLE_LOCK,
                 onClick = { setStyle(BUBBLE_STYLE_LOCK) },
+                icon = painterResource(R.drawable.ic_proton_lock_filled),
                 title = "Lock"
             )
             Spacer(Modifier.height(8.dp))
             SelectableStyleRow(
                 selected = bubbleStyle == BUBBLE_STYLE_CLASSIC,
                 onClick = { setStyle(BUBBLE_STYLE_CLASSIC) },
+                icon = painterResource(R.drawable.ic_bubble_play),
                 title = "Classic"
             )
         }
@@ -193,6 +195,7 @@ fun BubbleSettingsScreen(
 private fun SelectableStyleRow(
     selected: Boolean,
     onClick: () -> Unit,
+    icon: androidx.compose.ui.graphics.painter.Painter,
     title: String
 ) {
     Surface(
@@ -202,6 +205,8 @@ private fun SelectableStyleRow(
         tonalElevation = if (selected) 2.dp else 0.dp
     ) {
         Row(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(painter = icon, contentDescription = null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onSurface)
+            Spacer(Modifier.width(12.dp))
             Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
             RadioButton(selected = selected, onClick = onClick)
         }

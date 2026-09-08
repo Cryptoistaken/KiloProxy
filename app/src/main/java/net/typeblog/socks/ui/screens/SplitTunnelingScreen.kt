@@ -254,7 +254,7 @@ fun SplitTunnelingScreen(
                         ),
                         contentDescription = null,
                         modifier = Modifier.size(64.dp),
-                        tint = MaterialTheme.colorScheme.onSurface
+                        tint = Color.Unspecified
                     )
                     Text(
                         text = "Split tunneling",
@@ -473,7 +473,7 @@ private fun AppsPage(
                     )
                 }
                 items(selectedApps, key = { it.packageName }) { app ->
-                    AppRow(app = app, trailingIcon = R.drawable.lucide_minus) { onSetApp(app.packageName, false) }
+                    AppRow(app = app, trailingIcon = R.drawable.ic_proton_minus_circle_filled) { onSetApp(app.packageName, false) }
                 }
                 item {
                     SectionHeader(
@@ -482,7 +482,7 @@ private fun AppsPage(
                     )
                 }
                 items(otherApps, key = { it.packageName }) { app ->
-                    AppRow(app = app, trailingIcon = R.drawable.lucide_plus) { onSetApp(app.packageName, true) }
+                    AppRow(app = app, trailingIcon = R.drawable.ic_proton_plus_circle) { onSetApp(app.packageName, true) }
                 }
             }
         }

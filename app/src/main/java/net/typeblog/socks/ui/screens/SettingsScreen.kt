@@ -11,6 +11,7 @@ import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -34,6 +35,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -93,6 +95,14 @@ fun SettingsScreen(
         else -> "Light"
     }
 
+    val useDarkTheme = when (themeMode) {
+        "dark" -> true
+        "light" -> false
+        else -> isSystemInDarkTheme()
+    }
+    val bubbleGreen = if (useDarkTheme) Color(0xFF2CFFCC) else Color(0xFF1C9C7C)
+    val bubbleRed = if (useDarkTheme) Color(0xFFF08FA4) else Color(0xFFCC2D4F)
+
     updateInfo?.let { info ->
         UpdateDialog(info = info, onDismiss = { updateInfo = null })
     }
@@ -124,6 +134,7 @@ fun SettingsScreen(
                     label = "Split tunneling",
                     description = if (splitEnabled) "On" else "Off",
                     showChevron = false,
+                    iconTint = Color.Unspecified,
                     onClick = onNavigateToSplitTunneling
                 )
             }
@@ -141,9 +152,13 @@ fun SettingsScreen(
                     onClick = onNavigateToTheme
                 )
                 SettingsItem(
-                    icon = painterResource(R.drawable.ic_proton_mobile),
+                    icon = painterResource(
+                        if (floatingControl) R.drawable.ic_proton_lock_filled
+                        else R.drawable.ic_proton_lock_open_filled_2
+                    ),
                     label = "Floating Bubble",
                     description = if (floatingControl) "On" else "Off",
+                    iconTint = if (floatingControl) bubbleGreen else bubbleRed,
                     onClick = onNavigateToBubbleSettings
                 )
             }
@@ -154,9 +169,9 @@ fun SettingsScreen(
             SectionTitle(text = "Support")
             SettingsGroup {
                 SettingsItem(
-                    icon = painterResource(R.drawable.ic_proton_arrow_out_square),
-                    label = "Updates",
-                    description = "Check for updates",
+                    icon = painterResource(R.drawable.ic_update),
+                    label = "Update",
+                    description = "Update to the latest version",
                     onClick = {
                         if (!checkingUpdates) {
                             scope.launch {
@@ -180,9 +195,10 @@ fun SettingsScreen(
                     onClick = onNavigateToDebugLogs
                 )
                 SettingsItem(
-                    icon = painterResource(R.drawable.lucide_send),
+                    icon = painterResource(R.drawable.ic_telegram),
                     label = context.getString(R.string.settings_report_issue),
                     description = "Telegram",
+                    iconTint = Color.Unspecified,
                     onClick = {
                         context.startActivity(
                             Intent(Intent.ACTION_VIEW, Uri.parse("https://t.me/Cryptoistaken"))
