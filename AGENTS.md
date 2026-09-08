@@ -2,7 +2,7 @@
 
 ## Build (mandatory)
 - Use ONLY the GitHub builder (`.github/workflows/build.yml`). Never build locally on this machine.
-- After pushing code to `master`, check the workflow run status ONCE every 30 seconds until it finishes.
+- After pushing code to `master`, check past successful build durations (`gh run list` — recent successful runs took ~4-5 min) and wait about that long in ONE `sleep`, then check the run status once. If still running, keep waiting in longer sleeps (~2-5 min, sized to the observed duration) — do NOT poll every 30 seconds.
 - On failure: read the failing step, fix the code, commit, and push again.
 - On success: proceed with download/install per below.
 
