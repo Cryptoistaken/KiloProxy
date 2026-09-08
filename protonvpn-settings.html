@@ -1,0 +1,1307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ProtonVPN Settings</title>
+<style>
+  :root {
+    --bg-norm: #1C1B24;
+    --bg-secondary: #2A2937;
+    --bg-elevated: #32313D;
+    --text-norm: #FFFFFF;
+    --text-weak: #8E8BA0;
+    --text-accent: #2DDCCC;
+    --border: #3B3747;
+    --icon-norm: #FFFFFF;
+    --icon-weak: #8E8BA0;
+    --switch-on-bg: #2DDCCC;
+    --switch-off-bg: #5E5C6E;
+    --radio-selected: #2DDCCC;
+    --radio-unselected: #5E5C6E;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  .phone-frame, .phone-frame * { transition: background 0.3s, color 0.3s, border-color 0.3s; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: #111;
+    display: flex;
+    justify-content: center;
+    padding: 32px 16px;
+    min-height: 100vh;
+  }
+
+  .phone-frame {
+    width: 390px;
+    min-height: 844px;
+    background: var(--bg-norm);
+    border-radius: 40px;
+    overflow: hidden;
+    position: relative;
+    box-shadow: 0 0 60px rgba(0,0,0,0.5);
+    flex-shrink: 0;
+    transition: background 0.3s;
+  }
+  .phone-frame[data-theme="light"] {
+    --bg-norm: #FFFFFF;
+    --bg-secondary: #F4F4F7;
+    --bg-elevated: #FFFFFF;
+    --text-norm: #1B1B1B;
+    --text-weak: #6D6D6D;
+    --text-accent: #1C9C7C;
+    --border: #D8D8DD;
+    --icon-norm: #1B1B1B;
+    --icon-weak: #6D6D6D;
+    --switch-on-bg: #1C9C7C;
+    --switch-off-bg: #B0B0B8;
+    --radio-selected: #1C9C7C;
+    --radio-unselected: #B0B0B8;
+  }
+  .phone-frame[data-theme="light"] .top-bar { background: var(--bg-norm); }
+  .phone-frame[data-theme="light"] .top-bar .title { color: var(--text-norm); }
+  .phone-frame[data-theme="light"] .top-bar .back-btn svg path { fill: var(--text-norm); }
+  .phone-frame[data-theme="light"] .setting-row .row-title { color: var(--text-norm); }
+  .phone-frame[data-theme="light"] .setting-row .row-subtitle { color: var(--text-weak); }
+  .phone-frame[data-theme="light"] .feature-header h2 { color: var(--text-norm); }
+  .phone-frame[data-theme="light"] .feature-header .desc { color: var(--text-weak); }
+  .phone-frame[data-theme="light"] .toggle-row .label { color: var(--text-norm); }
+  .phone-frame[data-theme="light"] .app-name { color: var(--text-norm); }
+  .phone-frame[data-theme="light"] .section-header-desc { color: var(--text-weak); }
+  .phone-frame[data-theme="light"] .switch { background: var(--switch-off-bg); }
+  .phone-frame[data-theme="light"] .switch.on { background: var(--switch-on-bg); }
+  .phone-frame[data-theme="light"] .switch .thumb { background: white; }
+  .phone-frame[data-theme="light"] .notch { background: #F4F4F7; }
+  .phone-frame[data-theme="light"] .mode-dialog-content { background: var(--bg-elevated); }
+  .phone-frame[data-theme="light"] .mode-dialog-overlay { background: rgba(0,0,0,0.4); }
+  .phone-frame[data-theme="light"] .mode-dialog .radio-circle { border-color: var(--radio-unselected); }
+  .phone-frame[data-theme="light"] .mode-dialog .radio-circle.selected { border-color: var(--radio-selected); background: var(--radio-selected); }
+  .phone-frame[data-theme="light"] .mode-option { color: var(--text-norm); }
+  .phone-frame[data-theme="light"] .mode-description { color: var(--text-weak); }
+  .phone-frame[data-theme="light"] .ip-input { background: var(--bg-secondary); color: var(--text-norm); border-color: var(--border); }
+  .phone-frame[data-theme="light"] .search-bar { background: var(--bg-secondary); }
+  .phone-frame[data-theme="light"] .search-input { color: var(--text-norm); }
+  .phone-frame[data-theme="light"] .search-input::placeholder { color: var(--text-weak); }
+  .phone-frame[data-theme="light"] .app-remove svg circle, .phone-frame[data-theme="light"] .app-remove svg path { fill: var(--text-weak); }
+  .phone-frame[data-theme="light"] .app-remove svg circle { stroke: none; }
+  .phone-frame[data-theme="light"] .app-remove svg path { stroke: white; }
+
+  .status-bar {
+    height: 54px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    padding: 0 28px 8px;
+    color: var(--text-norm);
+    font-size: 15px;
+    font-weight: 600;
+  }
+  .status-bar .notch {
+    width: 126px;
+    height: 34px;
+    background: #000;
+    border-radius: 0 0 20px 20px;
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10;
+  }
+  .status-icons { display: flex; gap: 6px; align-items: center; }
+  .status-icons svg { width: 18px; height: 12px; }
+
+  .page {
+    display: none;
+    position: absolute;
+    inset: 0;
+    padding-top: 54px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    background: var(--bg-norm);
+    scrollbar-width: none;
+  }
+  .page::-webkit-scrollbar { display: none; }
+  .page.active { display: block; }
+
+  .top-bar {
+    height: 56px;
+    display: flex;
+    align-items: center;
+    padding: 0 4px;
+    gap: 4px;
+    position: sticky;
+    top: 0;
+    background: var(--bg-norm);
+    z-index: 5;
+  }
+  .top-bar .back-btn {
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background: none;
+    cursor: pointer;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .top-bar .back-btn:active { background: rgba(255,255,255,0.08); }
+  .top-bar .back-btn svg { fill: var(--text-norm); }
+  .top-bar .title {
+    font-size: 22px;
+    font-weight: 400;
+    color: var(--text-norm);
+    flex: 1;
+    white-space: nowrap;
+  }
+
+  .setting-row {
+    display: flex;
+    align-items: center;
+    padding: 14px 20px;
+    cursor: pointer;
+    border-radius: 8px;
+    margin: 0 16px;
+  }
+  .setting-row:active { background: rgba(255,255,255,0.06); }
+
+  .row-icon {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 16px;
+    flex-shrink: 0;
+    color: var(--text-norm);
+  }
+
+  .row-content { flex: 1; min-width: 0; }
+  .row-title { font-size: 16px; color: var(--text-norm); }
+  .row-subtitle { font-size: 14px; color: var(--text-weak); margin-top: 2px; }
+
+  .row-trailing {
+    margin-left: 8px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .switch {
+    width: 51px;
+    height: 30px;
+    border-radius: 15px;
+    position: relative;
+    cursor: pointer;
+    transition: background 0.2s;
+    flex-shrink: 0;
+  }
+  .switch.on { background: var(--switch-on-bg); }
+  .switch.off { background: var(--switch-off-bg); }
+  .switch .thumb {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: white;
+    position: absolute;
+    top: 2px;
+    transition: left 0.2s;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+  }
+  .switch.on .thumb { left: 23px; }
+  .switch.off .thumb { left: 2px; }
+
+  .toggle-row {
+    display: flex;
+    align-items: center;
+    padding: 14px 20px;
+    margin: 12px 16px 0;
+    background: var(--bg-secondary);
+    border-radius: 16px;
+    cursor: pointer;
+  }
+  .toggle-row .label { flex: 1; font-size: 16px; color: var(--text-norm); }
+
+  /* Split Tunneling feature header */
+  .feature-header { padding: 16px 20px 0; }
+  .feature-illustration {
+    width: 100%;
+    height: 200px;
+    background: var(--bg-secondary);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 16px;
+  }
+  .feature-header h2 {
+    font-size: 20px;
+    font-weight: 500;
+    color: var(--text-norm);
+    margin-bottom: 8px;
+  }
+  .feature-header .desc {
+    font-size: 14px;
+    line-height: 20px;
+    color: var(--text-weak);
+  }
+  .feature-header .desc a { color: var(--text-accent); text-decoration: none; }
+
+  /* Theme */
+  .theme-options { display: flex; gap: 12px; padding: 16px 20px; }
+
+  .theme-card {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 10px 4px;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: background 0.15s;
+    gap: 8px;
+  }
+  .theme-card:active, .theme-card.selected { background: rgba(255,255,255,0.05); }
+
+  .theme-phone {
+    width: 72px;
+    height: 130px;
+    border-radius: 10px;
+    position: relative;
+    overflow: hidden;
+    flex-shrink: 0;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  }
+
+  .theme-phone.light { background: #DBD7D3; }
+  .theme-phone .phone-screen {
+    position: absolute;
+    inset: 4px;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .theme-phone.light .phone-screen {
+    background: linear-gradient(180deg, #ECECEC 0%, #FFF 100%);
+    padding: 14px 6px 6px;
+    gap: 6px;
+  }
+  .phone-notch-bar {
+    width: 28px;
+    height: 2px;
+    border-radius: 1px;
+    margin: 0 auto 4px;
+    flex-shrink: 0;
+  }
+  .theme-phone.light .phone-notch-bar { background: #1C9C7C; }
+  .theme-phone.dark .phone-notch-bar { background: #2DDCCC; }
+  .theme-phone.auto .phone-screen { flex-direction: row; padding: 0; gap: 0; }
+  .theme-phone.auto .phone-half {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 14px 3px 6px;
+    gap: 6px;
+  }
+  .theme-phone.auto .phone-half.left { background: linear-gradient(180deg, #ECECEC 0%, #FFF 100%); }
+  .theme-phone.auto .phone-half.right { background: linear-gradient(180deg, #736F83 0%, #201F25 100%); }
+  .theme-phone.auto .phone-half.left .phone-notch-bar { background: #1C9C7C; }
+  .theme-phone.auto .phone-half.right .phone-notch-bar { background: #2DDCCC; }
+
+  .phone-block {
+    width: 100%;
+    height: 8px;
+    border-radius: 4px;
+    flex-shrink: 0;
+  }
+  .theme-phone.light .phone-block { background: rgba(28,156,124,0.35); }
+  .theme-phone.dark .phone-block { background: rgba(45,220,204,0.35); }
+  .theme-phone.auto .phone-half.left .phone-block { background: rgba(28,156,124,0.35); }
+  .theme-phone.auto .phone-half.right .phone-block { background: rgba(45,220,204,0.35); }
+
+  .phone-block.large {
+    margin-top: auto;
+    height: 38px;
+    border-radius: 5px;
+    position: relative;
+  }
+  .theme-phone.light .phone-block.large { background: #F5F4F2; }
+  .theme-phone.dark .phone-block.large { background: rgba(105,102,120,0.5); }
+  .theme-phone.auto .phone-half.left .phone-block.large { background: #F5F4F2; }
+  .theme-phone.auto .phone-half.right .phone-block.large { background: rgba(105,102,120,0.5); }
+
+  .phone-block.large .inner-bar {
+    position: absolute;
+    left: 5px;
+    right: 5px;
+    height: 8px;
+    border-radius: 3px;
+  }
+  .phone-block.large .inner-bar.t1 { top: 6px; }
+  .phone-block.large .inner-bar.t2 { top: 18px; width: 55%; }
+  .theme-phone.light .inner-bar { background: #FFF; }
+  .theme-phone.dark .inner-bar { background: #696678; }
+  .theme-phone.auto .phone-half.left .inner-bar { background: #FFF; }
+  .theme-phone.auto .phone-half.right .inner-bar { background: #696678; }
+
+  .phone-home-bar {
+    position: absolute;
+    bottom: 5px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 22px;
+    height: 2px;
+    border-radius: 1px;
+  }
+  .theme-phone.light .phone-home-bar { background: #1C1B24; }
+  .theme-phone.dark .phone-home-bar { background: #FFF; }
+  .theme-phone.auto .phone-home-bar { background: linear-gradient(90deg, #1C1B24 50%, #FFF 50%); }
+
+  .theme-phone.auto {
+    background: linear-gradient(90deg, #DBD7D3 50%, #3B3747 50%);
+  }
+
+  .theme-label { font-size: 14px; color: var(--text-norm); text-align: center; line-height: 18px; }
+
+  .radio {
+    width: 22px;
+    height: 22px;
+    min-width: 22px;
+    max-width: 22px;
+    border-radius: 50%;
+    border: 2px solid var(--radio-unselected);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: border-color 0.15s;
+  }
+  .radio.selected { border-color: var(--radio-selected); }
+  .radio.selected::after {
+    content: '';
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--radio-selected);
+  }
+
+  .dialog-overlay {
+    display: none;
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 20;
+    align-items: center;
+    justify-content: center;
+  }
+  .dialog-overlay.show { display: flex; }
+  .dialog {
+    background: var(--bg-elevated);
+    border-radius: 24px;
+    padding: 24px;
+    width: 360px;
+    max-width: 90vw;
+  }
+  .dialog h3 {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-norm);
+    margin-bottom: 20px;
+    padding: 0 4px;
+  }
+  .dialog-radio {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    padding: 16px 4px;
+    cursor: pointer;
+    gap: 16px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+  }
+  .dialog-radio:last-child { border-bottom: none; }
+  .dialog-radio .radio { margin-top: 2px; flex-shrink: 0; width: 22px; height: 22px; }
+  .dialog-radio > div { flex: 1; min-width: 0; }
+  .dialog-radio .dr-title { font-size: 16px; font-weight: 500; color: var(--text-norm); }
+  .dialog-radio .dr-desc {
+    font-size: 14px;
+    color: var(--text-weak);
+    margin-top: 4px;
+    line-height: 20px;
+  }
+
+  .content-scroll { padding-bottom: 32px; }
+
+  .top-bar-action {
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background: none;
+    cursor: pointer;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .top-bar-action:active { background: rgba(255,255,255,0.08); }
+
+  /* Notifications page */
+  .notif-section { padding: 0 0 8px; }
+  .notif-header {
+    font-size: 14px;
+    color: var(--text-accent);
+    padding: 16px 36px 8px;
+    font-weight: 500;
+  }
+  .notif-row {
+    display: flex;
+    align-items: center;
+    padding: 14px 20px;
+    margin: 0 16px;
+    cursor: pointer;
+    border-radius: 8px;
+  }
+  .notif-row:active { background: rgba(255,255,255,0.06); }
+  .notif-row-left { flex: 1; }
+  .notif-row-title { font-size: 16px; color: var(--text-norm); }
+  .notif-row-desc { font-size: 13px; color: var(--text-weak); margin-top: 2px; line-height: 18px; }
+
+  /* Debug logs page */
+  .debug-content {
+    overflow-y: auto;
+    scrollbar-width: none;
+  }
+  .debug-content::-webkit-scrollbar { display: none; }
+  .log-lines {
+    padding: 4px 12px;
+    display: flex;
+    flex-direction: column;
+  }
+  .log-line {
+    font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+    font-size: 11px;
+    line-height: 20px;
+    color: var(--text-norm);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding: 0 4px;
+  }
+
+  /* App list items */
+  .section-header { padding: 16px 36px 4px; }
+  .section-header-title { font-size: 13px; font-weight: 600; color: #9B8AFF; text-transform: none; letter-spacing: 0; }
+  .section-header-desc { font-size: 13px; color: var(--text-weak); margin-top: 4px; line-height: 18px; }
+
+  .app-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 14px;
+    flex-shrink: 0;
+  }
+  .app-name { flex: 1; font-size: 16px; color: var(--text-norm); }
+
+  .app-remove, .app-add {
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background: none;
+    cursor: pointer;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .app-remove:active, .app-add:active { background: rgba(255,255,255,0.08); }
+
+  .system-apps-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 20px;
+    margin: 8px 16px;
+    font-size: 16px;
+    color: var(--text-norm);
+  }
+
+  /* Search bar */
+  .search-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 8px 16px;
+    padding: 10px 14px;
+    background: var(--bg-secondary);
+    border-radius: 12px;
+    border: 1.5px solid transparent;
+    transition: border-color 0.2s;
+  }
+  .search-bar:focus-within { border-color: var(--text-accent); }
+  .search-input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    font-size: 16px;
+    color: var(--text-norm);
+    font-family: inherit;
+  }
+  .search-input::placeholder { color: var(--text-weak); }
+
+  /* App item animations */
+  .app-item {
+    display: flex;
+    align-items: center;
+    padding: 10px 20px;
+    cursor: pointer;
+    border-radius: 8px;
+    margin: 0 16px;
+    transition: opacity 0.3s, transform 0.3s, background 0.15s;
+  }
+  .app-item:active { background: rgba(255,255,255,0.06); }
+  .app-item.animating-out {
+    opacity: 0;
+    transform: translateX(30px) scale(0.95);
+  }
+  .app-item.animating-in {
+    animation: slideIn 0.3s ease-out forwards;
+  }
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateY(-10px) scale(0.95); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  .app-item.hidden { display: none; }
+  .checkbox {
+    width: 22px;
+    height: 22px;
+    border-radius: 4px;
+    border: 2px solid var(--icon-weak);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+  }
+  .checkbox.checked {
+    background: var(--text-accent);
+    border-color: var(--text-accent);
+  }
+  .checkbox.checked svg { display: block !important; }
+
+  /* IP input */
+  .ip-input-row {
+    display: flex;
+    align-items: center;
+    padding: 8px 12px;
+    margin: 8px 16px;
+    gap: 4px;
+  }
+  .ip-input-field {
+    flex: 1;
+    position: relative;
+  }
+  .ip-input {
+    width: 100%;
+    background: transparent;
+    border: 1.5px solid var(--icon-weak);
+    border-radius: 8px;
+    padding: 12px 14px;
+    font-size: 16px;
+    color: var(--text-norm);
+    outline: none;
+    font-family: inherit;
+  }
+  .ip-input::placeholder { color: var(--text-weak); }
+  .ip-input:focus { border-color: var(--text-accent); }
+  .ip-input-help { font-size: 12px; color: var(--text-weak); margin-top: 4px; padding-left: 14px; }
+
+  .ip-add-btn {
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background: none;
+    cursor: pointer;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .ip-add-btn:active { background: rgba(255,255,255,0.08); }
+
+  .ip-item {
+    display: flex;
+    align-items: center;
+    padding: 10px 20px;
+    margin: 0 16px;
+    border-radius: 8px;
+    transition: opacity 0.3s, transform 0.3s;
+  }
+  .ip-item.animating-out { opacity: 0; transform: translateX(30px) scale(0.95); }
+  .ip-item.animating-in { animation: slideIn 0.3s ease-out forwards; }
+  .ip-address {
+    flex: 1;
+    font-size: 16px;
+    color: var(--text-norm);
+    font-family: 'SF Mono', monospace;
+  }
+</style>
+</head>
+<body>
+
+  <div class="phone-frame" data-theme="dark">
+  <div class="status-bar">
+    <span>9:41</span>
+    <div class="status-icons">
+      <svg viewBox="0 0 18 12"><path d="M1 8h2v4H1zM5 5h2v7H5zM9 3h2v9H9zM13 0h2v12h-2z" fill="white"/></svg>
+      <svg viewBox="0 0 16 12"><path d="M8 2C5.8 2 3.8 2.8 2.3 4.2L0 1.9C2.1-.2 4.9-1 8-1s5.9.8 8 2.9L13.7 4.2C12.2 2.8 10.2 2 8 2zm4.3 4.3L8 9.5 3.7 6.3C4.8 5.2 6.3 4.5 8 4.5s3.2.7 4.3 1.8z" fill="white"/></svg>
+      <svg viewBox="0 0 25 12"><rect x="0" y="1" width="22" height="10" rx="2" stroke="white" fill="none" stroke-width="1"/><rect x="23" y="4" width="2" height="4" rx="1" fill="white" opacity="0.4"/><rect x="1.5" y="2.5" width="19" height="7" rx="1" fill="#34C759"/></svg>
+    </div>
+  </div>
+  <div class="notch"></div>
+
+  <!-- ==================== MAIN SETTINGS PAGE ==================== -->
+  <div class="page active" id="page-main">
+    <div class="top-bar">
+      <span class="title" style="padding-left:16px;">Settings</span>
+    </div>
+    <div class="content-scroll">
+
+      <!-- Split Tunneling row with actual PNG icon -->
+      <div class="setting-row" onclick="navigateTo('page-split')">
+        <div class="row-icon">
+          <img id="st-main-icon" src="B:/Studio/Tools/protonvpn-android-app/html-clone/assets/icons/feature_splittunneling_on.png" width="28" height="28" alt="Split tunneling"/>
+        </div>
+        <div class="row-content">
+          <div class="row-title">Split tunneling</div>
+          <div class="row-subtitle" id="st-main-subtitle">On</div>
+        </div>
+      </div>
+
+      <!-- Theme row -->
+      <div class="setting-row" onclick="navigateTo('page-theme')">
+        <div class="row-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12,20.5V3.5C7.3056,3.5 3.5,7.3056 3.5,12C3.5,16.6944 7.3056,20.5 12,20.5ZM12,2C17.5228,2 22,6.4771 22,12C22,17.5228 17.5228,22 12,22C6.4771,22 2,17.5228 2,12C2,6.4771 6.4771,2 12,2Z" fill-rule="evenodd"/></svg>
+        </div>
+        <div class="row-content">
+          <div class="row-title">Theme</div>
+          <div class="row-subtitle" id="theme-main-subtitle">Dark</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ==================== SPLIT TUNNELING PAGE ==================== -->
+  <div class="page" id="page-split">
+    <div class="top-bar">
+      <button class="back-btn" onclick="navigateTo('page-main')">
+        <svg width="24" height="24" viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z" fill="currentColor"/></svg>
+      </button>
+    </div>
+    <div class="content-scroll">
+      <div class="feature-header">
+        <img src="B:/Studio/Tools/protonvpn-android-app/html-clone/assets/icons/feature_splittunneling_on.png" width="64" height="64" alt="Split tunneling"/>
+        <h2>Split tunneling</h2>
+        <p class="desc">Customize your connection by deciding which apps and IP addresses are protected by VPN.</p>
+      </div>
+
+      <div class="toggle-row" onclick="toggleSplitTunnel()">
+        <span class="label">Split tunneling</span>
+        <div class="switch on" id="splitSwitch">
+          <div class="thumb"></div>
+        </div>
+      </div>
+
+      <div id="splitRows">
+        <div class="setting-row" onclick="showModeDialog()">
+          <div class="row-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 20a1 1 0 0 0 .553.895l2 1A1 1 0 0 0 14 21v-7a2 2 0 0 1 .517-1.341L21.74 4.67A1 1 0 0 0 21 3H3a1 1 0 0 0-.742 1.67l7.225 7.989A2 2 0 0 1 10 14z"/></svg>
+          </div>
+          <div class="row-content">
+            <div class="row-title">Mode</div>
+            <div class="row-subtitle" id="st-mode-subtitle">Include</div>
+          </div>
+        </div>
+        <div class="setting-row" onclick="navigateToAppsPage()">
+          <div class="row-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><title>apps</title><path fill="currentColor" d="M10 2H3c-.6 0-1 .4-1 1v7c0 .6.4 1 1 1h7c.6 0 1-.4 1-1V3c0-.6-.4-1-1-1m0 11H3c-.6 0-1 .4-1 1v7c0 .6.4 1 1 1h7c.6 0 1-.4 1-1v-7c0-.6-.4-1-1-1M21 2h-7c-.6 0-1 .4-1 1v7c0 .6.4 1 1 1h7c.6 0 1-.4 1-1V3c0-.6-.4-1-1-1m0 11h-7c-.6 0-1 .4-1 1v7c0 .6.4 1 1 1h7c.6 0 1-.4 1-1v-7c0-.6-.4-1-1-1"/></svg>
+          </div>
+          <div class="row-content">
+            <div class="row-title" id="st-apps-title">Included apps</div>
+            <div class="row-subtitle">1.1.1.1</div>
+          </div>
+        </div>
+        <div class="setting-row" onclick="navigateToIpsPage()">
+          <div class="row-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M4.86 3.43h14.28c.87 0 1.57.7 1.57 1.57v11.43c0 .87-.7 1.57-1.57 1.57H4.86c-.87 0-1.57-.7-1.57-1.57V5c0-.87.7-1.57 1.57-1.57zM2.71 8.46h18.57V6.96H2.71v1.5zM12.71 17.04h5v-1.5h-5v1.5zM6.47 10.04l2.65 2.66 1.06-1.06-2.65-2.66-1.06 1.06zM9.12 13.1l-2.65 2.66 1.06 1.06 2.65-2.66-1.06-1.06z"/></svg>
+          </div>
+          <div class="row-content">
+            <div class="row-title" id="st-ips-title">Included IP addresses</div>
+            <div class="row-subtitle">None</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== THEME PAGE ==================== -->
+  <div class="page" id="page-theme">
+    <div class="top-bar">
+      <button class="back-btn" onclick="navigateTo('page-main')">
+        <svg width="24" height="24" viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z" fill="currentColor"/></svg>
+      </button>
+      <span class="title">Theme</span>
+    </div>
+    <div class="content-scroll">
+      <div class="theme-options">
+        <div class="theme-card" onclick="selectTheme('light')">
+          <div class="theme-phone light">
+            <div class="phone-screen">
+              <div class="phone-notch-bar"></div>
+              <div class="phone-block"></div>
+              <div class="phone-block large">
+                <div class="inner-bar t1"></div>
+                <div class="inner-bar t2"></div>
+              </div>
+            </div>
+            <div class="phone-home-bar"></div>
+          </div>
+          <span class="theme-label">Light</span>
+          <div class="radio" id="radio-light"></div>
+        </div>
+        <div class="theme-card selected" onclick="selectTheme('dark')">
+          <div class="theme-phone dark">
+            <div class="phone-screen">
+              <div class="phone-notch-bar"></div>
+              <div class="phone-block"></div>
+              <div class="phone-block large">
+                <div class="inner-bar t1"></div>
+                <div class="inner-bar t2"></div>
+              </div>
+            </div>
+            <div class="phone-home-bar"></div>
+          </div>
+          <span class="theme-label">Dark</span>
+          <div class="radio selected" id="radio-dark"></div>
+        </div>
+        <div class="theme-card" onclick="selectTheme('auto')">
+          <div class="theme-phone auto">
+            <div class="phone-screen">
+              <div class="phone-half left">
+                <div class="phone-notch-bar"></div>
+                <div class="phone-block"></div>
+                <div class="phone-block large">
+                  <div class="inner-bar t1"></div>
+                  <div class="inner-bar t2"></div>
+                </div>
+              </div>
+              <div class="phone-half right">
+                <div class="phone-notch-bar"></div>
+                <div class="phone-block"></div>
+                <div class="phone-block large">
+                  <div class="inner-bar t1"></div>
+                  <div class="inner-bar t2"></div>
+                </div>
+              </div>
+            </div>
+            <div class="phone-home-bar"></div>
+          </div>
+          <span class="theme-label">Device theme</span>
+          <div class="radio" id="radio-auto"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== NOTIFICATIONS PAGE ==================== -->
+  <div class="page" id="page-notifications">
+    <div class="top-bar">
+      <button class="back-btn" onclick="navigateTo('page-main')">
+        <svg width="24" height="24" viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z" fill="currentColor"/></svg>
+      </button>
+      <span class="title">Notifications</span>
+    </div>
+    <div class="content-scroll">
+      <div class="notif-section">
+        <div class="notif-header">Proton VPN</div>
+        <div class="notif-row">
+          <div class="notif-row-left">
+            <div class="notif-row-title">Show notifications</div>
+          </div>
+          <div class="switch on" onclick="this.classList.toggle('on');this.classList.toggle('off');">
+            <div class="thumb"></div>
+          </div>
+        </div>
+      </div>
+      <div class="notif-section">
+        <div class="notif-header">Notification categories</div>
+        <div class="notif-row" style="opacity:0.5;">
+          <div class="notif-row-left">
+            <div class="notif-row-title">VPN status</div>
+            <div class="notif-row-desc">Alerts when VPN connects or disconnects</div>
+          </div>
+          <div class="switch on">
+            <div class="thumb"></div>
+          </div>
+        </div>
+        <div class="notif-row" style="opacity:0.5;">
+          <div class="notif-row-left">
+            <div class="notif-row-title">General</div>
+            <div class="notif-row-desc">App updates and important information</div>
+          </div>
+          <div class="switch on">
+            <div class="thumb"></div>
+          </div>
+        </div>
+        <div class="notif-row" style="opacity:0.5;">
+          <div class="notif-row-left">
+            <div class="notif-row-title">Marketing</div>
+            <div class="notif-row-desc">News and special offers</div>
+          </div>
+          <div class="switch off">
+            <div class="thumb"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== DEBUG LOGS PAGE ==================== -->
+  <div class="page" id="page-debug">
+    <div class="top-bar">
+      <button class="back-btn" onclick="navigateTo('page-main')">
+        <svg width="24" height="24" viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z" fill="currentColor"/></svg>
+      </button>
+      <span class="title">Debug logs</span>
+      <button class="top-bar-action" title="Share">
+        <svg width="22" height="22" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92s2.92-1.31 2.92-2.92-1.31-2.92-2.92-2.92z" fill="currentColor"/></svg>
+      </button>
+    </div>
+    <div class="debug-content">
+      <div class="log-lines">
+        <div class="log-line">09:41:02.341 I/ProtonLogger: App started</div>
+        <div class="log-line">09:41:02.345 D/ProtonLogger: Loading user settings</div>
+        <div class="log-line">09:41:02.512 D/ProtonLogger: DataStore initialized</div>
+        <div class="log-line">09:41:03.001 I/ProtonLogger: Connecting to api.protonvpn.ch</div>
+        <div class="log-line">09:41:03.244 I/ProtonLogger: Session refreshed</div>
+        <div class="log-line">09:41:03.502 D/ProtonLogger: Auth token valid, expires: 2026-09-09</div>
+        <div class="log-line">09:41:04.001 I/ProtonLogger: Fetching server list</div>
+        <div class="log-line">09:41:04.332 I/ProtonLogger: 342 servers loaded</div>
+        <div class="log-line">09:41:04.501 D/ProtonLogger: WireGuard key registered</div>
+        <div class="log-line">09:41:04.612 D/ProtonLogger: Public key: abc123...</div>
+        <div class="log-line">09:41:05.001 I/ProtonLogger: NetShield level: 1</div>
+        <div class="log-line">09:41:05.102 D/ProtonLogger: Split tunneling: EXCLUDE_ONLY</div>
+        <div class="log-line">09:41:05.203 D/ProtonLogger: Excluded apps: 2, Excluded IPs: 1</div>
+        <div class="log-line">09:41:05.501 D/ProtonLogger: Protocol: Smart (WireGuard preferred)</div>
+        <div class="log-line">09:41:06.001 W/ProtonLogger: Server nl-protonvpn-01 load: 87%</div>
+        <div class="log-line">09:41:06.102 I/ProtonLogger: Selected: nl-protonvpn-02</div>
+        <div class="log-line">09:41:06.203 I/ProtonLogger: Connecting via WireGuard UDP</div>
+        <div class="log-line">09:41:06.502 D/ProtonLogger: Handshake completed</div>
+        <div class="log-line">09:41:06.801 I/ProtonLogger: VPN connected</div>
+        <div class="log-line">09:41:06.802 I/ProtonLogger: IP: 185.159.156.42</div>
+        <div class="log-line">09:41:06.803 D/ProtonLogger: DNS: 10.0.0.53 (DoH)</div>
+        <div class="log-line">09:41:06.901 D/ProtonLogger: Kill switch: active</div>
+        <div class="log-line">09:41:07.001 D/ProtonLogger: IPv6: disabled</div>
+        <div class="log-line">09:41:12.001 I/ProtonLogger: Heartbeat OK, latency: 24ms</div>
+        <div class="log-line">09:41:22.002 I/ProtonLogger: Heartbeat OK, latency: 22ms</div>
+        <div class="log-line">09:41:32.001 I/ProtonLogger: Heartbeat OK, latency: 23ms</div>
+        <div class="log-line">09:41:42.002 I/ProtonLogger: Heartbeat OK, latency: 21ms</div>
+        <div class="log-line">09:41:52.001 I/ProtonLogger: Heartbeat OK, latency: 25ms</div>
+        <div class="log-line">09:42:01.001 D/ProtonLogger: VPN Accelerator: optimizing route</div>
+        <div class="log-line">09:42:01.202 D/ProtonLogger: MTU: 1375, TCP fallback: disabled</div>
+        <div class="log-line">09:42:12.001 I/ProtonLogger: Heartbeat OK, latency: 22ms</div>
+        <div class="log-line">09:42:22.002 I/ProtonLogger: Heartbeat OK, latency: 24ms</div>
+        <div class="log-line">09:42:32.001 I/ProtonLogger: Heartbeat OK, latency: 23ms</div>
+        <div class="log-line">09:42:42.002 D/ProtonLogger: Secure Core: disabled</div>
+        <div class="log-line">09:42:52.001 I/ProtonLogger: Heartbeat OK, latency: 21ms</div>
+        <div class="log-line">09:43:02.001 D/ProtonLogger: NAT type: Moderate (type 2)</div>
+        <div class="log-line">09:43:12.002 I/ProtonLogger: Heartbeat OK, latency: 26ms</div>
+        <div class="log-line">09:43:22.001 I/ProtonLogger: Heartbeat OK, latency: 22ms</div>
+        <div class="log-line">09:43:32.002 W/ProtonLogger: Bandwidth warning: 80% of free tier used</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== EXCLUDED APPS PAGE ==================== -->
+  <div class="page" id="page-excluded-apps">
+    <div class="top-bar">
+      <button class="back-btn" onclick="navigateTo('page-split')">
+        <svg width="24" height="24" viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z" fill="currentColor"/></svg>
+      </button>
+      <span class="title" id="apps-page-title">Included apps</span>
+    </div>
+    <div class="content-scroll">
+      <div class="search-bar">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="#8E8BA0"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+        <input type="text" placeholder="Search apps" class="search-input" id="appSearchInput" oninput="filterApps()"/>
+      </div>
+      <div class="section-header">
+        <div class="section-header-title" id="apps-selected-header">Included apps (1)</div>
+        <div class="section-header-desc" id="apps-selected-desc">Only these apps connect through VPN.</div>
+      </div>
+      <div id="selected-apps-list">
+        <div class="app-item" data-app="1.1.1.1">
+          <div class="app-icon" style="background:linear-gradient(135deg, #6B4EFF 0%, #FF6B4E 50%, #4EFFB2 100%);border-radius:8px;">
+            <span style="font-size:10px;font-weight:700;color:white;">1.1.1.1</span>
+          </div>
+          <div class="app-name">1.1.1.1</div>
+          <button class="app-remove" onclick="removeApp(this)">
+            <svg width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#8E8BA0"/><path d="M8 12h8" stroke="#1C1B24" stroke-width="2" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="section-header">
+        <div class="section-header-title" id="apps-available-header">All other regular apps (68)</div>
+      </div>
+      <div id="available-apps-list">
+        <div class="app-item" data-app="1DM+">
+          <div class="app-icon" style="background:#FF6B00;border-radius:8px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+          </div>
+          <div class="app-name">1DM+</div>
+          <button class="app-add" onclick="addApp(this)">
+            <svg width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="none" stroke="#8E8BA0" stroke-width="1.5"/><path d="M12 8v8M8 12h8" stroke="#8E8BA0" stroke-width="1.5" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+        <div class="app-item" data-app="Albums">
+          <div class="app-icon" style="background:#2196F3;border-radius:8px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M21 3H3v18h18V3zm-2 16H5V5h14v14zm-5-7l-3 3.5L9 13l-3 4h12l-4-5z"/></svg>
+          </div>
+          <div class="app-name">Albums</div>
+          <button class="app-add" onclick="addApp(this)">
+            <svg width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="none" stroke="#8E8BA0" stroke-width="1.5"/><path d="M12 8v8M8 12h8" stroke="#8E8BA0" stroke-width="1.5" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+        <div class="app-item" data-app="Authenticator">
+          <div class="app-icon" style="background:#FF5722;border-radius:8px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>
+          </div>
+          <div class="app-name">Authenticator</div>
+          <button class="app-add" onclick="addApp(this)">
+            <svg width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="none" stroke="#8E8BA0" stroke-width="1.5"/><path d="M12 8v8M8 12h8" stroke="#8E8BA0" stroke-width="1.5" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+        <div class="app-item" data-app="bKash">
+          <div class="app-icon" style="background:#E91E63;border-radius:8px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg>
+          </div>
+          <div class="app-name">bKash</div>
+          <button class="app-add" onclick="addApp(this)">
+            <svg width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="none" stroke="#8E8BA0" stroke-width="1.5"/><path d="M12 8v8M8 12h8" stroke="#8E8BA0" stroke-width="1.5" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+        <div class="app-item" data-app="Brilliant">
+          <div class="app-icon" style="background:#FF9800;border-radius:8px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+          </div>
+          <div class="app-name">Brilliant</div>
+          <button class="app-add" onclick="addApp(this)">
+            <svg width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="none" stroke="#8E8BA0" stroke-width="1.5"/><path d="M12 8v8M8 12h8" stroke="#8E8BA0" stroke-width="1.5" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+        <div class="app-item" data-app="Browser">
+          <div class="app-icon" style="background:#2196F3;border-radius:8px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
+          </div>
+          <div class="app-name">Browser</div>
+          <button class="app-add" onclick="addApp(this)">
+            <svg width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="none" stroke="#8E8BA0" stroke-width="1.5"/><path d="M12 8v8M8 12h8" stroke="#8E8BA0" stroke-width="1.5" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+        <div class="app-item" data-app="Bybit">
+          <div class="app-icon" style="background:#1A1A1A;border-radius:8px;">
+            <span style="font-size:8px;font-weight:700;color:white;">BYBIT</span>
+          </div>
+          <div class="app-name">Bybit</div>
+          <button class="app-add" onclick="addApp(this)">
+            <svg width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="none" stroke="#8E8BA0" stroke-width="1.5"/><path d="M12 8v8M8 12h8" stroke="#8E8BA0" stroke-width="1.5" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+        <div class="app-item" data-app="Calculator">
+          <div class="app-icon" style="background:#607D8B;border-radius:8px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 14c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/></svg>
+          </div>
+          <div class="app-name">Calculator</div>
+          <button class="app-add" onclick="addApp(this)">
+            <svg width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="none" stroke="#8E8BA0" stroke-width="1.5"/><path d="M12 8v8M8 12h8" stroke="#8E8BA0" stroke-width="1.5" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+        <div class="app-item" data-app="Camera">
+          <div class="app-icon" style="background:#455A64;border-radius:8px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><circle cx="12" cy="12" r="3.2"/><path d="M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/></svg>
+          </div>
+          <div class="app-name">Camera</div>
+          <button class="app-add" onclick="addApp(this)">
+            <svg width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="none" stroke="#8E8BA0" stroke-width="1.5"/><path d="M12 8v8M8 12h8" stroke="#8E8BA0" stroke-width="1.5" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+        <div class="app-item" data-app="CellFin">
+          <div class="app-icon" style="background:#00897B;border-radius:8px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg>
+          </div>
+          <div class="app-name">CellFin</div>
+          <button class="app-add" onclick="addApp(this)">
+            <svg width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="none" stroke="#8E8BA0" stroke-width="1.5"/><path d="M12 8v8M8 12h8" stroke="#8E8BA0" stroke-width="1.5" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+        <div class="app-item" data-app="Chrome">
+          <div class="app-icon" style="background:linear-gradient(135deg, #4285F4, #EA4335, #FBBC05, #34A853);border-radius:8px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
+          </div>
+          <div class="app-name">Chrome</div>
+          <button class="app-add" onclick="addApp(this)">
+            <svg width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="none" stroke="#8E8BA0" stroke-width="1.5"/><path d="M12 8v8M8 12h8" stroke="#8E8BA0" stroke-width="1.5" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+        <div class="app-item" data-app="Claude">
+          <div class="app-icon" style="background:#D97706;border-radius:8px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+          </div>
+          <div class="app-name">Claude</div>
+          <button class="app-add" onclick="addApp(this)">
+            <svg width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="none" stroke="#8E8BA0" stroke-width="1.5"/><path d="M12 8v8M8 12h8" stroke="#8E8BA0" stroke-width="1.5" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== EXCLUDED IPS PAGE ==================== -->
+  <div class="page" id="page-excluded-ips">
+    <div class="top-bar">
+      <button class="back-btn" onclick="navigateTo('page-split')">
+        <svg width="24" height="24" viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z" fill="currentColor"/></svg>
+      </button>
+      <span class="title" id="ips-page-title">Included IP addresses</span>
+    </div>
+    <div class="content-scroll">
+      <div class="ip-input-row">
+        <div class="ip-input-field">
+          <input type="text" placeholder="IP address" class="ip-input" id="ipInput"/>
+          <div class="ip-input-help">IPv4, IPv6, or CIDR notation</div>
+        </div>
+        <button class="ip-add-btn" onclick="addIp()">
+          <svg width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#2DDCCC"/><path d="M12 8v8M8 12h8" stroke="#1C1B24" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <div class="section-header">
+        <div class="section-header-title" id="ips-count-header">Included IP addresses (2)</div>
+      </div>
+      <div id="ip-list">
+        <div class="ip-item" data-ip="192.168.1.0/24">
+          <div class="ip-address">192.168.1.0/24</div>
+          <button class="app-remove" onclick="removeIp(this)">
+            <svg width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#8E8BA0"/><path d="M8 12h8" stroke="#1C1B24" stroke-width="2" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+        <div class="ip-item" data-ip="10.0.0.0/8">
+          <div class="ip-address">10.0.0.0/8</div>
+          <button class="app-remove" onclick="removeIp(this)">
+            <svg width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#8E8BA0"/><path d="M8 12h8" stroke="#1C1B24" stroke-width="2" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mode Dialog -->
+  <div class="dialog-overlay" id="modeDialog" onclick="hideModeDialog(event)">
+    <div class="dialog" onclick="event.stopPropagation()">
+      <h3>Mode</h3>
+      <div class="dialog-radio" onclick="selectMode('exclude')">
+        <div class="radio" id="mode-exclude"></div>
+        <div>
+          <div class="dr-title">Exclude</div>
+          <div class="dr-desc">Selected apps and IP addresses are excluded from VPN connection.</div>
+        </div>
+      </div>
+      <div class="dialog-radio" onclick="selectMode('include')">
+        <div class="radio selected" id="mode-include"></div>
+        <div>
+          <div class="dr-title">Include</div>
+          <div class="dr-desc">Only selected apps and IP addresses connect through VPN, all other traffic is unprotected.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  let splitEnabled = true;
+
+  function navigateTo(pageId) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.getElementById(pageId).classList.add('active');
+    document.getElementById(pageId).scrollTop = 0;
+  }
+
+  function toggleSplitTunnel() {
+    splitEnabled = !splitEnabled;
+    const sw = document.getElementById('splitSwitch');
+    const rows = document.getElementById('splitRows');
+    const subtitle = document.getElementById('st-main-subtitle');
+    const icon = document.getElementById('st-main-icon');
+    const basePath = 'B:/Studio/Tools/protonvpn-android-app/html-clone/assets/icons/';
+
+    if (splitEnabled) {
+      sw.classList.remove('off');
+      sw.classList.add('on');
+      rows.style.display = 'block';
+      subtitle.textContent = 'On';
+      icon.src = basePath + 'feature_splittunneling_on.png';
+    } else {
+      sw.classList.remove('on');
+      sw.classList.add('off');
+      rows.style.display = 'none';
+      subtitle.textContent = 'Off';
+      icon.src = basePath + 'feature_splittunneling_off.png';
+    }
+  }
+
+  function addIp() {
+    const input = document.getElementById('ipInput');
+    if (input.value.trim()) {
+      input.value = '';
+    }
+  }
+
+  function selectTheme(theme) {
+    document.querySelectorAll('.theme-card').forEach(c => c.classList.remove('selected'));
+    document.querySelectorAll('.theme-card .radio').forEach(r => r.classList.remove('selected'));
+    event.currentTarget.classList.add('selected');
+    event.currentTarget.querySelector('.radio').classList.add('selected');
+    const labels = { light: 'Light', dark: 'Dark', auto: 'Device theme' };
+    document.getElementById('theme-main-subtitle').textContent = labels[theme];
+    const frame = document.querySelector('.phone-frame');
+    if (theme === 'light') {
+      frame.setAttribute('data-theme', 'light');
+    } else if (theme === 'dark') {
+      frame.setAttribute('data-theme', 'dark');
+    } else {
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      frame.setAttribute('data-theme', prefersDark ? 'dark' : 'light');
+    }
+  }
+
+  function showModeDialog() {
+    document.getElementById('modeDialog').classList.add('show');
+  }
+
+  function hideModeDialog(e) {
+    if (e.target === e.currentTarget) {
+      document.getElementById('modeDialog').classList.remove('show');
+    }
+  }
+
+  let currentMode = 'include';
+
+  function selectMode(mode) {
+    currentMode = mode;
+    document.getElementById('mode-exclude').classList.toggle('selected', mode === 'exclude');
+    document.getElementById('mode-include').classList.toggle('selected', mode === 'include');
+
+    const modeLabel = document.getElementById('st-mode-subtitle');
+    const appsTitle = document.getElementById('st-apps-title');
+    const ipsTitle = document.getElementById('st-ips-title');
+
+    if (mode === 'exclude') {
+      modeLabel.textContent = 'Exclude';
+      appsTitle.textContent = 'Excluded apps';
+      ipsTitle.textContent = 'Excluded IP addresses';
+    } else {
+      modeLabel.textContent = 'Include';
+      appsTitle.textContent = 'Included apps';
+      ipsTitle.textContent = 'Included IP addresses';
+    }
+    document.getElementById('modeDialog').classList.remove('show');
+  }
+
+  function navigateToAppsPage() {
+    if (currentMode === 'exclude') {
+      document.getElementById('apps-page-title').textContent = 'Excluded apps';
+      document.getElementById('apps-selected-header').textContent = 'Excluded apps (0)';
+      document.getElementById('apps-selected-desc').textContent = 'These apps are excluded from your VPN connection.';
+    } else {
+      document.getElementById('apps-page-title').textContent = 'Included apps';
+      document.getElementById('apps-selected-header').textContent = 'Included apps (1)';
+      document.getElementById('apps-selected-desc').textContent = 'Only these apps connect through VPN.';
+    }
+    navigateTo('page-excluded-apps');
+  }
+
+  function navigateToIpsPage() {
+    if (currentMode === 'exclude') {
+      document.getElementById('ips-page-title').textContent = 'Excluded IP addresses';
+      document.getElementById('ips-count-header').textContent = 'Excluded IP addresses (2)';
+    } else {
+      document.getElementById('ips-page-title').textContent = 'Included IP addresses';
+      document.getElementById('ips-count-header').textContent = 'Included IP addresses (2)';
+    }
+    navigateTo('page-excluded-ips');
+  }
+
+  function addApp(btn) {
+    const item = btn.closest('.app-item');
+    item.classList.add('animating-out');
+    setTimeout(() => {
+      const clone = item.cloneNode(true);
+      clone.querySelector('button').outerHTML = '<button class="app-remove" onclick="removeApp(this)"><svg width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#8E8BA0"/><path d="M8 12h8" stroke="#1C1B24" stroke-width="2" stroke-linecap="round"/></svg></button>';
+      clone.classList.remove('animating-out');
+      clone.classList.add('animating-in');
+      document.getElementById('selected-apps-list').appendChild(clone);
+      item.remove();
+      updateAppCounts();
+    }, 300);
+  }
+
+  function removeApp(btn) {
+    const item = btn.closest('.app-item');
+    item.classList.add('animating-out');
+    setTimeout(() => {
+      const clone = item.cloneNode(true);
+      clone.querySelector('button').outerHTML = '<button class="app-add" onclick="addApp(this)"><svg width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="none" stroke="#8E8BA0" stroke-width="1.5"/><path d="M12 8v8M8 12h8" stroke="#8E8BA0" stroke-width="1.5" stroke-linecap="round"/></svg></button>';
+      clone.classList.remove('animating-out');
+      clone.classList.add('animating-in');
+      document.getElementById('available-apps-list').prepend(clone);
+      item.remove();
+      updateAppCounts();
+    }, 300);
+  }
+
+  function updateAppCounts() {
+    const selected = document.querySelectorAll('#selected-apps-list .app-item').length;
+    const available = document.querySelectorAll('#available-apps-list .app-item').length;
+    if (currentMode === 'exclude') {
+      document.getElementById('apps-selected-header').textContent = 'Excluded apps (' + selected + ')';
+      document.getElementById('apps-available-header').textContent = 'All other regular apps (' + available + ')';
+    } else {
+      document.getElementById('apps-selected-header').textContent = 'Included apps (' + selected + ')';
+      document.getElementById('apps-available-header').textContent = 'All other regular apps (' + available + ')';
+    }
+  }
+
+  function filterApps() {
+    const query = document.getElementById('appSearchInput').value.toLowerCase();
+    document.querySelectorAll('#available-apps-list .app-item').forEach(item => {
+      const name = item.getAttribute('data-app').toLowerCase();
+      item.classList.toggle('hidden', query && !name.includes(query));
+    });
+    document.querySelectorAll('#selected-apps-list .app-item').forEach(item => {
+      const name = item.getAttribute('data-app').toLowerCase();
+      item.classList.toggle('hidden', query && !name.includes(query));
+    });
+  }
+</script>
+
+</body>
+</html>
