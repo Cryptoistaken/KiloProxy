@@ -149,10 +149,6 @@ class FloatingControlService : Service() {
     private var longPressFired = false
     private var menuOverlay: BubbleMenuOverlay? = null
 
-    // Double-tap: switch to previous country
-    private var lastTapTime = 0L
-    private var previousCountryCode: String? = null
-
     private val longPressRunnable = Runnable { openBubbleMenu() }
 
     private val pollHandler = Handler(Looper.getMainLooper())
@@ -1089,23 +1085,16 @@ class FloatingControlService : Service() {
     }
 
     private fun handleTap() {
-        val now = android.os.SystemClock.elapsedRealtime()
-        val isDoubleTap = (now - lastTapTime) < 300L
-        lastTapTime = now
-
-        if (isDoubleTap && state != BubbleState.CONNECTING) {
-            // Double-tap: switch to the previous country, or pick a random one
-            val target = previousCountryCode
-                ?: listOf("DE", "DZ", "FR", "CI").random()
-            Log.d(TAG, "Double-tap: switching to country $target")
-            onBubbleCountrySelected(target)
-            return
-        }
-
         when (state) {
             BubbleState.CONNECTED -> stopVpn()
             BubbleState.CONNECTING -> {
-                Log.d(TAG, "Tap ignored while connecting")
+                // Instant cancel: a tap while connecting aborts the attempt
+                // (accidental bubble taps shouldn't force a full wait).
+                // Clearing pendingProfile stops pollState from auto-starting
+                // after the cancel; stopVpn resets state and timeout.
+                Log.d(TAG, "Tap while connecting: instant cancel")
+                pendingProfile = null
+                stopVpn()
             }
             BubbleState.DISCONNECTED -> startVpn()
         }
@@ -1148,12 +1137,6 @@ class FloatingControlService : Service() {
             val profile = ProfileManager.getInstance(this).getDefault()
             val username = profile.getUsername()
             val type = ProxyProviders.detectType(profile.getServer(), username)
-
-            // Save current country as "previous" so double-tap can switch back
-            val currentCountry = ProxyProviders.parseCountry(username, type)
-            if (!currentCountry.isNullOrBlank() && !code.equals(currentCountry, ignoreCase = true)) {
-                previousCountryCode = currentCountry
-            }
 
             val newUsername: String = when (type) {
                 ProxyProviders.TYPE_OWL -> {
