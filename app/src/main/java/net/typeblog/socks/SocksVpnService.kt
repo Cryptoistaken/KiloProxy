@@ -612,9 +612,12 @@ class SocksVpnService : VpnService() {
     }
 
     private fun showNotification() {
+        // Posted at service start when the tunnel is not up yet: claim
+        // Connecting, not Connected. updateNotification() flips the text
+        // once the IP is known.
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(getString(R.string.notify_title))
-            .setContentText(getString(R.string.notify_msg, mProfileName ?: ""))
+            .setContentText("Connecting")
             .setSmallIcon(R.drawable.ic_notification)
             .setLargeIcon(BitmapFactory.decodeResource(resources, R.mipmap.ic_launcher))
             .setOngoing(true)

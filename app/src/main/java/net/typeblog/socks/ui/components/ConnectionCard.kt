@@ -145,8 +145,9 @@ fun ConnectionCard(
                 if (isConnected) MaterialTheme.colorScheme.onError else MaterialTheme.colorScheme.onPrimary
 
             Surface(
-                onClick = { if (isConnected) onStopClick() else onStartClick() },
-                enabled = !isConnecting,
+                // Tapping while connecting cancels instantly (same as the
+                // bubble): stopVpn clears the pending request and the service.
+                onClick = { if (isConnected || isConnecting) onStopClick() else onStartClick() },
                 shape = RoundedCornerShape(12.dp),
                 color = buttonColor,
                 contentColor = buttonContentColor,
