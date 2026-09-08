@@ -427,28 +427,10 @@ private fun AddEditProxySheet(
 
     // Restore the draft snapshotted before leaving to the Countries tab.
     // Declared after the load above so it wins on the way back.
+    // (Placed after syncUsernameFromUi below: local funs must be declared
+    // before use, and the picked-country effect calls it.)
     val pendingDraft by viewModel.pendingDraft.collectAsState()
-    LaunchedEffect(pendingDraft) {
-        val d = pendingDraft
-        if (d != null && d.profileName == profileName && d.provider == provider &&
-            d.initialName == initialName
-        ) {
-            restoreDraft(d)
-            viewModel.setPendingDraft(null)
-        }
-    }
-
-    // Country picked on the Countries tab: apply to the draft, then consume.
-    // Declared after the restore above so it wins over the snapshotted value.
     val pickedCountry by viewModel.pickedCountry.collectAsState()
-    LaunchedEffect(pickedCountry) {
-        val code = pickedCountry
-        if (code != null) {
-            selectedCountry = Countries.fromCode(code)
-            syncUsernameFromUi()
-            viewModel.pickCountry(null)
-        }
-    }
 
     // Sync username from provider UI state (country / IP mode).
     fun syncUsernameFromUi() {
@@ -492,6 +474,27 @@ private fun AddEditProxySheet(
         username = full
         syncing = false
         credsModified = true
+    }
+
+    LaunchedEffect(pendingDraft) {
+        val d = pendingDraft
+        if (d != null && d.profileName == profileName && d.provider == provider &&
+            d.initialName == initialName
+        ) {
+            restoreDraft(d)
+            viewModel.setPendingDraft(null)
+        }
+    }
+
+    // Country picked on the Countries tab: apply to the draft, then consume.
+    // Declared after the restore above so it wins over the snapshotted value.
+    LaunchedEffect(pickedCountry) {
+        val code = pickedCountry
+        if (code != null) {
+            selectedCountry = Countries.fromCode(code)
+            syncUsernameFromUi()
+            viewModel.pickCountry(null)
+        }
     }
 
     fun onUsernameEdit(newVal: String) {
