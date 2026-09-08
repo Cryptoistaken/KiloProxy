@@ -667,8 +667,16 @@ private fun AddEditProxySheet(
                             onDismissRequest = { ipModeMenuExpanded = false }
                         ) {
                                     DropdownMenuItem(
-                                        text = { Text("Unique") },
-                                        supportingText = { Text("Fresh IP on every connection.") },
+                                        text = {
+                                            Column {
+                                                Text("Unique")
+                                                Text(
+                                                    text = "Fresh IP on every connection.",
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                            }
+                                        },
                                         onClick = {
                                             owlMode = "unique"
                                             ipModeMenuExpanded = false
@@ -676,8 +684,16 @@ private fun AddEditProxySheet(
                                         }
                                     )
                                     DropdownMenuItem(
-                                        text = { Text("Sticky") },
-                                        supportingText = { Text("Keeps the same IP for the stick time.") },
+                                        text = {
+                                            Column {
+                                                Text("Sticky")
+                                                Text(
+                                                    text = "Keeps the same IP for the stick time.",
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                            }
+                                        },
                                         onClick = {
                                             owlMode = "sticky"
                                             ipModeMenuExpanded = false
