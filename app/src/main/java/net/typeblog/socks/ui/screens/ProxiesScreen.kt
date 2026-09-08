@@ -16,8 +16,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -479,6 +481,16 @@ private fun AddEditProxySheet(
                 modifier = Modifier.padding(vertical = 14.dp)
             )
 
+            // Scrollable fields; status line + action buttons stay pinned
+            // below so extra rows (e.g. sticky time chips) can never push
+            // the buttons off-sheet or make them unclickable.
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f, fill = false)
+                    .verticalScroll(rememberScrollState())
+            ) {
+
             // Copy / Paste connection string (works for both Custom and OwlProxy)
             Row(
                 modifier = Modifier
@@ -764,6 +776,8 @@ private fun AddEditProxySheet(
                         }
                     }
                 }
+            }
+
             }
 
             // Single test status line
