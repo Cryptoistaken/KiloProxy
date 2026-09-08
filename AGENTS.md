@@ -80,6 +80,7 @@ git revert <commit-hash>                  # undo a specific commit
 | `pre-ui-redesign` | `397d4b0` | 2026-08-07 | Engine intact, CI passing, floating bubble fixed. Use this to restore before any UI redesign work. |
 | `pre-proton-settings` | (pre-proton-settings commit) | 2026-08-12 | Working state before ProtonVPN-style settings redesign (UI only). |
 | `pre-netshield` | (pushed) | 2026-08-12 | Before NetShield Phase 1 (pdnsd exclude-list DNS blocking). |
+| `pre-proton-2-settings` | (pushed) | 2026-09-08 | Before replacing Split tunneling + Theme settings with the ProtonVPN mock design. |
 
 > **One-time (do before the notification/dot pass):** tag the current commit as `pre-notif-and-dot-fixes` before this UI pass starts — `git tag -a pre-notif-and-dot-fixes -m "Before notification/dot fixes"` then `git push origin pre-notif-and-dot-fixes`. Add it to the table above once created.
 
@@ -166,12 +167,18 @@ Notes on the merged notification/dot pass:
 | `Utility.kt` | **ENGINE** — pdnsd conf, ip lookups, misc helpers. NEVER modify for UI |
 
 ### `.../ui/`
-- `components/` — Compose components: AppToggleItem, ConnectionCard, ConnectionStatusCard, DataUsageCard, ProxyCard, SettingsItem, ThemePickerDialog
+- `components/` — Compose components: ConnectionCard, ConnectionStatusCard, DataUsageCard, ProtonControls (ProtonSwitch + ProtonRadio + ProtonDialogRadioRow, mock-exact mono controls), ProxyCard, SettingsItem
   - `ConnectionCard.kt` — Connect/Disconnect button is now text-only (icon removed); spinner shown while connecting.
-- `navigation/AppNavigation.kt` — NavHost destinations
-- `screens/` — DebugLogsScreen, ProxiesScreen, SettingsScreen, SplitTunnelingScreen, StatusScreen
+- `navigation/AppNavigation.kt` — NavHost destinations (incl. `theme` route)
+- `screens/` — DebugLogsScreen, ProxiesScreen, SettingsScreen, SplitTunnelingScreen, StatusScreen, ThemeScreen
+  - `ThemeScreen.kt` — Theme picker page: Light / Dark / Device theme cards with mini phone previews; writes PREF_THEME_MODE.
+  - `SplitTunnelingScreen.kt` — ProtonVPN mock design: feature header + toggle card, Mode row (dialog: Exclude/Include) + Apps row; apps page has search bar, selected-apps section (minus) and all-other-apps section (plus). Same engine prefs (PREF_ADV_PER_APP / PREF_ADV_APP_BYPASS / PREF_ADV_APP_LIST). IP-address rows skipped: engine has no IP split-tunneling support.
+  - `SettingsScreen.kt` — the 2 ProtonVPN-mock rows: "Split tunneling" (On/Off) and "Theme" (subtitle = theme label), no chevrons, theme opens ThemeScreen.
 - `theme/` — Color, Fonts, Theme, Type (Compose theming, Geist fonts)
 - `viewmodel/VpnViewModel.kt` — Vpn state, AIDL binding
+
+### Drawables added for this pass
+- `drawable/lucide_minus.xml`, `ic_proton_filter.xml`, `ic_proton_apps.xml` (vector icons for the split tunneling rows)
 
 ### Native C — `app/src/main/jni/`
 | Area | Purpose |

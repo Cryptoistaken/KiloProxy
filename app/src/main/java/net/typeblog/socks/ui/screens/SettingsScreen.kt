@@ -46,7 +46,6 @@ import kotlinx.coroutines.withContext
 import net.typeblog.socks.BuildConfig
 import net.typeblog.socks.R
 import net.typeblog.socks.ui.components.SettingsItem
-import net.typeblog.socks.ui.components.ThemePickerDialog
 import net.typeblog.socks.ui.components.UpdateDialog
 import net.typeblog.socks.util.Constants.PREF_ADV_PER_APP
 import net.typeblog.socks.util.Constants.PREF_FLOATING_CONTROL
@@ -56,6 +55,7 @@ import net.typeblog.socks.util.UpdateChecker
 @Composable
 fun SettingsScreen(
     onNavigateToSplitTunneling: () -> Unit,
+    onNavigateToTheme: () -> Unit,
     onNavigateToBubbleSettings: () -> Unit,
     onNavigateToDebugLogs: () -> Unit,
     modifier: Modifier = Modifier
@@ -83,7 +83,6 @@ fun SettingsScreen(
         prefs.registerOnSharedPreferenceChangeListener(listener)
         onDispose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
     }
-    var showThemeDialog by remember { mutableStateOf(false) }
     var checkingUpdates by remember { mutableStateOf(false) }
     var updateInfo by remember { mutableStateOf<UpdateChecker.UpdateInfo?>(null) }
     val scope = rememberCoroutineScope()
@@ -92,22 +91,6 @@ fun SettingsScreen(
         "dark" -> "Dark"
         "system" -> "Device theme"
         else -> "Light"
-    }
-
-    fun saveString(key: String, value: String) {
-        prefs.edit().putString(key, value).apply()
-    }
-
-    if (showThemeDialog) {
-        ThemePickerDialog(
-            current = themeMode,
-            onSelect = { value ->
-                themeMode = value
-                saveString(PREF_THEME_MODE, value)
-                showThemeDialog = false
-            },
-            onDismiss = { showThemeDialog = false }
-        )
     }
 
     updateInfo?.let { info ->
@@ -138,8 +121,9 @@ fun SettingsScreen(
                         if (splitEnabled) R.drawable.feature_splittunneling_on
                         else R.drawable.feature_splittunneling_off
                     ),
-                    label = "Enable split tunneling",
+                    label = "Split tunneling",
                     description = if (splitEnabled) "On" else "Off",
+                    showChevron = false,
                     onClick = onNavigateToSplitTunneling
                 )
             }
@@ -151,9 +135,10 @@ fun SettingsScreen(
             SettingsGroup {
                 SettingsItem(
                     icon = painterResource(R.drawable.ic_proton_circle_half_filled),
-                    label = "Theme Mode",
+                    label = "Theme",
                     description = themeLabel,
-                    onClick = { showThemeDialog = true }
+                    showChevron = false,
+                    onClick = onNavigateToTheme
                 )
                 SettingsItem(
                     icon = painterResource(R.drawable.ic_proton_mobile),

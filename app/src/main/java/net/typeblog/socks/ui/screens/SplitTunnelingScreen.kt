@@ -1,34 +1,40 @@
 package net.typeblog.socks.ui.screens
 
+import android.content.SharedPreferences
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.BasicTextField
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
-import android.content.SharedPreferences
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -36,28 +42,38 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import androidx.preference.PreferenceManager
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import net.typeblog.socks.R
-import net.typeblog.socks.ui.components.AppToggleItem
+import net.typeblog.socks.ui.components.ProtonDialogRadioRow
+import net.typeblog.socks.ui.components.ProtonSwitch
+import net.typeblog.socks.ui.components.SettingsItem
 import net.typeblog.socks.ui.viewmodel.VpnViewModel
 import net.typeblog.socks.util.Constants.PREF_ADV_APP_BYPASS
 import net.typeblog.socks.util.Constants.PREF_ADV_APP_LIST
 import net.typeblog.socks.util.Constants.PREF_ADV_PER_APP
 
-/**
- * Represents an installed app with its display name and package name.
- */
 private data class InstalledApp(
     val name: String,
     val packageName: String,
@@ -65,10 +81,9 @@ private data class InstalledApp(
 )
 
 /**
- * Split tunneling configuration screen.
- *
- * Shows a single searchable list of all installed apps with per-app toggle
- * rows. Toggle state is persisted to [PREF_ADV_APP_LIST] via SharedPreferences.
+ * Split tunneling, ProtonVPN mock design: feature header + master toggle card,
+ * then Mode and Apps rows (main page) and a searchable two-section apps page
+ * (selected apps with remove, all other apps with add).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -102,7 +117,8 @@ fun SplitTunnelingScreen(
         }
     }
 
-    // Load persisted app list into a set
+    var splitEnabled by remember { mutableStateOf(prefs.getBoolean(PREF_ADV_PER_APP, false)) }
+    var bypassMode by remember { mutableStateOf(prefs.getBoolean(PREF_ADV_APP_BYPASS, false)) }
     var persistedList by remember {
         mutableStateOf(
             prefs.getString(PREF_ADV_APP_LIST, "")?.split("\n")
@@ -111,11 +127,6 @@ fun SplitTunnelingScreen(
                 ?.toSet() ?: emptySet()
         )
     }
-
-    // Master split-tunneling switch and allow/disallow mode
-    var splitEnabled by remember { mutableStateOf(prefs.getBoolean(PREF_ADV_PER_APP, false)) }
-    var bypassMode by remember { mutableStateOf(prefs.getBoolean(PREF_ADV_APP_BYPASS, false)) }
-
     DisposableEffect(context) {
         val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
             when (key) {
@@ -129,7 +140,6 @@ fun SplitTunnelingScreen(
         onDispose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
     }
 
-    // Real installed launcher apps, loaded asynchronously
     var installedApps by remember { mutableStateOf<List<InstalledApp>>(emptyList()) }
 
     suspend fun loadApps() {
@@ -160,10 +170,7 @@ fun SplitTunnelingScreen(
         onDispose { lifecycleOwner.lifecycle.removeObserver(obs) }
     }
 
-    // Toggle state for each app — true = included in split tunneling, false = not
     val toggleStates = remember { mutableStateMapOf<String, Boolean>() }
-
-    // Sync persisted toggle states once real apps are loaded
     LaunchedEffect(installedApps) {
         if (installedApps.isNotEmpty()) {
             installedApps.forEach { app ->
@@ -181,30 +188,43 @@ fun SplitTunnelingScreen(
         }
     }
 
+    var showModeDialog by remember { mutableStateOf(false) }
+    var page by remember { mutableStateOf(0) } // 0 = main, 1 = apps
     var query by remember { mutableStateOf("") }
+    BackHandler(enabled = page == 1) { page = 0 }
 
-    val filteredApps = remember(installedApps, query) {
-        val q = query.trim().lowercase()
-        if (q.isEmpty()) {
-            installedApps
-        } else {
-            installedApps.filter { app ->
-                app.name.lowercase().contains(q) || app.packageName.lowercase().contains(q)
-            }
-        }
+    val nameByPkg = remember(installedApps) {
+        installedApps.associate { it.packageName to it.name }
+    }
+    val selectedPkgs = toggleStates.filterValues { it }.keys
+    val appsSubtitle = when (selectedPkgs.size) {
+        0 -> "None"
+        1 -> nameByPkg[selectedPkgs.first()] ?: selectedPkgs.first()
+        else -> "${selectedPkgs.size} apps"
     }
 
-    val selectedCount = toggleStates.values.count { it }
+    if (showModeDialog) {
+        ModeDialog(
+            bypassMode = bypassMode,
+            onSelect = { exclude ->
+                bypassMode = exclude
+                prefs.edit().putBoolean(PREF_ADV_APP_BYPASS, exclude).apply()
+                scheduleRestart()
+                showModeDialog = false
+            },
+            onDismiss = { showModeDialog = false }
+        )
+    }
 
     Scaffold(
         modifier = modifier,
         contentWindowInsets = WindowInsets(0),
         topBar = {
             TopAppBar(
-                title = { Text("Split Tunneling") },
+                title = { if (page == 1) Text(if (bypassMode) "Excluded apps" else "Included apps") },
                 windowInsets = WindowInsets(0),
                 navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
+                    IconButton(onClick = { if (page == 1) page = 0 else onNavigateBack() }) {
                         Icon(
                             painter = painterResource(R.drawable.lucide_arrow_left),
                             contentDescription = "Back"
@@ -218,249 +238,357 @@ fun SplitTunnelingScreen(
             )
         }
     ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .imePadding()
-        ) {
-            // ── Master switch ──
-            Surface(
+        if (page == 0) {
+            Column(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                shape = RoundedCornerShape(16.dp),
-                color = MaterialTheme.colorScheme.surfaceContainerLow
+                    .fillMaxSize()
+                    .padding(paddingValues)
+                    .verticalScroll(rememberScrollState())
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "Enable split tunneling",
-                            style = MaterialTheme.typography.titleSmall,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "Turn on per-app proxy control",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    Switch(
-                        checked = splitEnabled,
-                        onCheckedChange = { newValue ->
-                            splitEnabled = newValue
-                            prefs.edit().putBoolean(PREF_ADV_PER_APP, newValue).apply()
-                            scheduleRestart()
-                        }
+                // Feature header
+                Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp)) {
+                    Icon(
+                        painter = painterResource(
+                            if (splitEnabled) R.drawable.feature_splittunneling_on
+                            else R.drawable.feature_splittunneling_off
+                        ),
+                        contentDescription = null,
+                        modifier = Modifier.size(64.dp),
+                        tint = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "Split tunneling",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.padding(top = 16.dp)
+                    )
+                    Text(
+                        text = "Customize your connection by deciding which apps are protected by VPN.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 8.dp)
                     )
                 }
-            }
 
-            if (splitEnabled) {
-                // ── Mode selector ──
-                Text(
-                    text = "Mode",
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 18.dp, vertical = 4.dp)
-                )
+                // Master toggle card
                 Surface(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
                     shape = RoundedCornerShape(16.dp),
                     color = MaterialTheme.colorScheme.surfaceContainerLow
                 ) {
-                    Column {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    bypassMode = false
-                                    prefs.edit().putBoolean(PREF_ADV_APP_BYPASS, false).apply()
-                                    scheduleRestart()
-                                }
-                                .padding(16.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = "Route selected apps through VPN",
-                                    style = MaterialTheme.typography.titleSmall,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    text = "Only the selected apps use the VPN connection",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                            RadioButton(
-                                selected = !bypassMode,
-                                onClick = {
-                                    bypassMode = false
-                                    prefs.edit().putBoolean(PREF_ADV_APP_BYPASS, false).apply()
-                                    scheduleRestart()
-                                }
-                            )
-                        }
-                        HorizontalDivider(
-                            thickness = 0.5.dp,
-                            color = MaterialTheme.colorScheme.outlineVariant
-                        )
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    bypassMode = true
-                                    prefs.edit().putBoolean(PREF_ADV_APP_BYPASS, true).apply()
-                                    scheduleRestart()
-                                }
-                                .padding(16.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = "Bypass selected apps",
-                                    style = MaterialTheme.typography.titleSmall,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    text = "Selected apps use the normal internet connection",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                            RadioButton(
-                                selected = bypassMode,
-                                onClick = {
-                                    bypassMode = true
-                                    prefs.edit().putBoolean(PREF_ADV_APP_BYPASS, true).apply()
-                                    scheduleRestart()
-                                }
-                            )
-                        }
+                    val onToggle: (Boolean) -> Unit = { newValue ->
+                        splitEnabled = newValue
+                        prefs.edit().putBoolean(PREF_ADV_PER_APP, newValue).apply()
+                        scheduleRestart()
                     }
-                }
-            }
-
-            // ── Mode banner — adapts to splitEnabled so this message and the
-            // "enable split tunneling" copy never say the same thing twice ──
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                shape = RoundedCornerShape(16.dp),
-                color = MaterialTheme.colorScheme.surfaceContainerLow
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        text = if (splitEnabled) {
-                            "Choose which apps are handled by the proxy."
-                        } else {
-                            "Split tunneling is off"
-                        },
-                        style = MaterialTheme.typography.titleSmall,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = if (splitEnabled) {
-                            "Toggle an app ON to include it in the split-tunneling list. Apps not listed are not affected."
-                        } else {
-                            "Turn on the switch above to route or bypass individual apps."
-                        },
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-
-            if (splitEnabled) {
-                // ── Search field ──
-                OutlinedTextField(
-                    value = query,
-                    onValueChange = { query = it },
-                    label = { Text("Search apps") },
-                    singleLine = true,
-                    leadingIcon = {
-                        Icon(painter = painterResource(R.drawable.lucide_search), contentDescription = null)
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 4.dp)
-                )
-
-                // ── Status line ──
-                Text(
-                    text = if (selectedCount == 1) "1 app selected" else "$selectedCount apps selected",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 18.dp, vertical = 4.dp)
-                )
-
-                // ── App list ──
-                if (installedApps.isEmpty()) {
-                    Spacer(modifier = Modifier.height(40.dp))
-                    Text(
-                        text = "Loading apps…",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 18.dp)
-                    )
-                } else if (filteredApps.isEmpty()) {
-                    Spacer(modifier = Modifier.height(40.dp))
-                    Text(
-                        text = "No apps match your search",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 18.dp)
-                    )
-                } else {
-                    LazyColumn(
-                        modifier = Modifier
-                            .weight(1f)
-                            .fillMaxWidth()
+                            .clickable { onToggle(!splitEnabled) }
+                            .padding(horizontal = 20.dp, vertical = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        items(filteredApps, key = { it.packageName }) { app ->
-                            val isOn = toggleStates[app.packageName] == true
-                            AppToggleItem(
-                                appName = app.name,
-                                packageName = app.packageName,
-                                isAllowed = isOn,
-                                onToggle = { newValue ->
-                                    toggleStates[app.packageName] = newValue
-                                    // Persist to SharedPreferences
-                                    val updatedList = toggleStates
-                                        .filterValues { it }
-                                        .keys
-                                        .joinToString("\n")
-                                    prefs.edit()
-                                        .putString(PREF_ADV_APP_LIST, updatedList)
-                                        .apply()
-                                    scheduleRestart()
-                                },
-                                icon = app.icon
-                            )
-                            HorizontalDivider(
-                                thickness = 0.5.dp,
-                                color = MaterialTheme.colorScheme.outlineVariant
-                            )
-                        }
+                        Text(
+                            text = "Split tunneling",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.weight(1f)
+                        )
+                        ProtonSwitch(
+                            checked = splitEnabled,
+                            onCheckedChange = onToggle
+                        )
                     }
                 }
+
+                if (splitEnabled) {
+                    SettingsItem(
+                        icon = painterResource(R.drawable.ic_proton_filter),
+                        label = "Mode",
+                        description = if (bypassMode) "Exclude" else "Include",
+                        showChevron = false,
+                        onClick = { showModeDialog = true }
+                    )
+                    SettingsItem(
+                        icon = painterResource(R.drawable.ic_proton_apps),
+                        label = if (bypassMode) "Excluded apps" else "Included apps",
+                        description = appsSubtitle,
+                        showChevron = false,
+                        onClick = { page = 1 }
+                    )
+                }
+                Spacer(modifier = Modifier.height(24.dp))
+            }
+        } else {
+            AppsPage(
+                paddingValues = paddingValues,
+                bypassMode = bypassMode,
+                installedApps = installedApps,
+                toggleStates = toggleStates,
+                query = query,
+                onQueryChange = { query = it },
+                onSetApp = { pkg, on ->
+                    toggleStates[pkg] = on
+                    prefs.edit()
+                        .putString(PREF_ADV_APP_LIST, toggleStates.filterValues { it }.keys.joinToString("\n"))
+                        .apply()
+                    scheduleRestart()
+                }
+            )
+        }
+    }
+}
+
+@Composable
+private fun ModeDialog(
+    bypassMode: Boolean,
+    onSelect: (Boolean) -> Unit,
+    onDismiss: () -> Unit
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            shape = RoundedCornerShape(24.dp),
+            color = MaterialTheme.colorScheme.surface
+        ) {
+            Column(modifier = Modifier.padding(24.dp)) {
+                Text(
+                    text = "Mode",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                ProtonDialogRadioRow(
+                    title = "Exclude",
+                    description = "Selected apps are excluded from the VPN connection.",
+                    selected = bypassMode,
+                    onClick = { onSelect(true) }
+                )
+                HorizontalHairline()
+                ProtonDialogRadioRow(
+                    title = "Include",
+                    description = "Only selected apps connect through the VPN; all other traffic is unprotected.",
+                    selected = !bypassMode,
+                    onClick = { onSelect(false) }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun HorizontalHairline() {
+    Surface(
+        modifier = Modifier.fillMaxWidth().height(1.dp),
+        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
+    ) {}
+}
+
+@Composable
+private fun AppsPage(
+    paddingValues: androidx.compose.foundation.layout.PaddingValues,
+    bypassMode: Boolean,
+    installedApps: List<InstalledApp>,
+    toggleStates: Map<String, Boolean>,
+    query: String,
+    onQueryChange: (String) -> Unit,
+    onSetApp: (String, Boolean) -> Unit
+) {
+    val filtered = remember(installedApps, query) {
+        val q = query.trim().lowercase()
+        if (q.isEmpty()) installedApps
+        else installedApps.filter { it.name.lowercase().contains(q) || it.packageName.lowercase().contains(q) }
+    }
+    val selectedApps = filtered.filter { toggleStates[it.packageName] == true }
+    val otherApps = filtered.filter { toggleStates[it.packageName] != true }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(paddingValues)
+            .imePadding()
+    ) {
+        // Search bar
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(MaterialTheme.colorScheme.surfaceContainerLow)
+                .padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                painter = painterResource(R.drawable.lucide_search),
+                contentDescription = null,
+                modifier = Modifier.size(20.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.width(10.dp))
+            BasicTextField(
+                value = query,
+                onValueChange = onQueryChange,
+                singleLine = true,
+                textStyle = TextStyle(
+                    fontSize = 16.sp,
+                    color = MaterialTheme.colorScheme.onSurface
+                ),
+                decorationBox = { inner ->
+                    Box {
+                        if (query.isEmpty()) {
+                            Text(
+                                text = "Search apps",
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        inner()
+                    }
+                },
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+
+        LazyColumn(modifier = Modifier.fillMaxSize()) {
+            if (installedApps.isEmpty()) {
+                item {
+                    Text(
+                        text = "Loading apps",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 36.dp, vertical = 16.dp)
+                    )
+                }
+            } else {
+                item {
+                    SectionHeader(
+                        title = if (bypassMode) "Excluded apps (${selectedApps.size})" else "Included apps (${selectedApps.size})",
+                        description = if (bypassMode)
+                            "These apps are excluded from your VPN connection."
+                        else
+                            "Only these apps connect through the VPN."
+                    )
+                }
+                items(selectedApps, key = { it.packageName }) { app ->
+                    AppRow(app = app, trailingIcon = R.drawable.lucide_minus) { onSetApp(app.packageName, false) }
+                }
+                item {
+                    SectionHeader(
+                        title = "All other regular apps (${otherApps.size})",
+                        description = null
+                    )
+                }
+                items(otherApps, key = { it.packageName }) { app ->
+                    AppRow(app = app, trailingIcon = R.drawable.lucide_plus) { onSetApp(app.packageName, true) }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SectionHeader(title: String, description: String?) {
+    Column(modifier = Modifier.padding(horizontal = 36.dp, vertical = 8.dp)) {
+        Text(
+            text = title,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        if (description != null) {
+            Text(
+                text = description,
+                fontSize = 13.sp,
+                lineHeight = 18.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 4.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun AppRow(
+    app: InstalledApp,
+    trailingIcon: Int,
+    onAction: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 56.dp)
+            .padding(horizontal = 20.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        AppIcon(icon = app.icon, appName = app.name)
+        Spacer(modifier = Modifier.width(14.dp))
+        Text(
+            text = app.name,
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.weight(1f)
+        )
+        IconButton(
+            onClick = onAction,
+            modifier = Modifier.size(28.dp)
+        ) {
+            Icon(
+                painter = painterResource(trailingIcon),
+                contentDescription = null,
+                modifier = Modifier.size(24.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+private fun AppIcon(icon: android.graphics.drawable.Drawable?, appName: String) {
+    Box(
+        modifier = Modifier
+            .size(36.dp)
+            .clip(RoundedCornerShape(8.dp)),
+        contentAlignment = Alignment.Center
+    ) {
+        if (icon != null) {
+            val bitmap by produceState<android.graphics.Bitmap?>(initialValue = null, icon) {
+                value = withContext(Dispatchers.IO) {
+                    val bmp = android.graphics.Bitmap.createBitmap(
+                        icon.intrinsicWidth.coerceAtLeast(1),
+                        icon.intrinsicHeight.coerceAtLeast(1),
+                        android.graphics.Bitmap.Config.ARGB_8888
+                    )
+                    val canvas = android.graphics.Canvas(bmp)
+                    icon.setBounds(0, 0, canvas.width, canvas.height)
+                    icon.draw(canvas)
+                    bmp
+                }
+            }
+            if (bitmap != null) {
+                Icon(
+                    painter = BitmapPainter(bitmap!!.asImageBitmap()),
+                    contentDescription = appName,
+                    modifier = Modifier.size(36.dp),
+                    tint = Color.Unspecified
+                )
+            }
+        } else {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = appName.firstOrNull()?.uppercase() ?: "?",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
             }
         }
     }

@@ -248,7 +248,7 @@
   .feature-header .desc a { color: var(--text-accent); text-decoration: none; }
 
   /* Theme */
-  .theme-options { display: flex; gap: 12px; padding: 16px 20px; }
+  .theme-options { display: flex; gap: 12px; padding: 16px 20px; justify-content: center; }
 
   .theme-card {
     flex: 1;
@@ -259,113 +259,460 @@
     border-radius: 12px;
     cursor: pointer;
     transition: background 0.15s;
-    gap: 8px;
+    gap: 10px;
+    max-width: 120px;
   }
   .theme-card:active, .theme-card.selected { background: rgba(255,255,255,0.05); }
 
   .theme-phone {
-    width: 72px;
-    height: 130px;
-    border-radius: 10px;
+    width: 80px;
+    height: 140px;
+    border-radius: 16px;
     position: relative;
     overflow: hidden;
     flex-shrink: 0;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    box-shadow: 0 2px 12px rgba(0,0,0,0.3);
   }
 
-  .theme-phone.light { background: #DBD7D3; }
+  .theme-phone.light { background: #E8E8E8; }
   .theme-phone.dark { background: #1A1A1A; }
+
   .theme-phone .phone-screen {
     position: absolute;
-    inset: 4px;
-    border-radius: 8px;
+    inset: 5px;
+    border-radius: 12px;
     display: flex;
     flex-direction: column;
+    padding: 10px 6px 6px;
+    gap: 6px;
     overflow: hidden;
   }
-  .theme-phone.light .phone-screen {
-    background: linear-gradient(180deg, #ECECEC 0%, #FFF 100%);
-    padding: 14px 6px 6px;
-    gap: 6px;
-  }
-  .theme-phone.dark .phone-screen {
-    background: linear-gradient(180deg, #1A1A1A 0%, #0A0A0A 100%);
-    padding: 14px 6px 6px;
-    gap: 6px;
-  }
-  .phone-notch-bar {
-    width: 28px;
-    height: 2px;
-    border-radius: 1px;
-    margin: 0 auto 4px;
+  .theme-phone.light .phone-screen { background: #F5F5F5; }
+  .theme-phone.dark .phone-screen { background: #0F0F0F; }
+
+  .phone-logo {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    padding: 0 4px;
     flex-shrink: 0;
   }
-  .theme-phone.light .phone-notch-bar { background: #000000; }
-  .theme-phone.dark .phone-notch-bar { background: #FFFFFF; }
-  .theme-phone.auto .phone-screen { flex-direction: row; padding: 0; gap: 0; }
-  .theme-phone.auto .phone-half {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    padding: 14px 3px 6px;
-    gap: 6px;
+  .phone-logo-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 2px;
+    flex-shrink: 0;
   }
-  .theme-phone.auto .phone-half.left { background: linear-gradient(180deg, #ECECEC 0%, #FFF 100%); }
-  .theme-phone.auto .phone-half.right { background: linear-gradient(180deg, #1A1A1A 0%, #0A0A0A 100%); }
-  .theme-phone.auto .phone-half.left .phone-notch-bar { background: #000000; }
-  .theme-phone.auto .phone-half.right .phone-notch-bar { background: #FFFFFF; }
+  .theme-phone.light .phone-logo-dot { background: #000; }
+  .theme-phone.dark .phone-logo-dot { background: #FFF; }
+  .phone-logo-text {
+    width: 28px;
+    height: 4px;
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+  .theme-phone.light .phone-logo-text { background: #000; }
+  .theme-phone.dark .phone-logo-text { background: #FFF; }
 
-  .phone-block {
-    width: 100%;
-    height: 8px;
+  .phone-dropdown {
+    height: 10px;
     border-radius: 4px;
     flex-shrink: 0;
+    margin: 0 2px;
   }
-  .theme-phone.light .phone-block { background: rgba(0,0,0,0.15); }
-  .theme-phone.dark .phone-block { background: rgba(255,255,255,0.15); }
-  .theme-phone.auto .phone-half.left .phone-block { background: rgba(0,0,0,0.15); }
-  .theme-phone.auto .phone-half.right .phone-block { background: rgba(255,255,255,0.15); }
+  .theme-phone.light .phone-dropdown { background: #E0E0E0; border: 1px solid #CCC; }
+  .theme-phone.dark .phone-dropdown { background: #1E1E1E; border: 1px solid #333; }
 
-  .phone-block.large {
+  .phone-connection-card {
+    border-radius: 10px;
+    padding: 8px 6px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    flex-shrink: 0;
+  }
+  .theme-phone.light .phone-connection-card { background: #FFF; border: 1px solid #E0E0E0; }
+  .theme-phone.dark .phone-connection-card { background: #1A1A1A; border: 1px solid #2A2A2A; }
+
+  .phone-status-text {
+    width: 24px;
+    height: 3px;
+    border-radius: 1.5px;
+    flex-shrink: 0;
+  }
+  .theme-phone.light .phone-status-text { background: #000; }
+  .theme-phone.dark .phone-status-text { background: #FFF; }
+
+  .phone-country-chip {
+    width: 28px;
+    height: 6px;
+    border-radius: 3px;
+    flex-shrink: 0;
+  }
+  .theme-phone.light .phone-country-chip { background: #E0E0E0; }
+  .theme-phone.dark .phone-country-chip { background: #2A2A2A; }
+
+  .phone-connect-btn {
+    width: 100%;
+    height: 12px;
+    border-radius: 6px;
+    flex-shrink: 0;
+  }
+  .theme-phone.light .phone-connect-btn { background: #000; }
+  .theme-phone.dark .phone-connect-btn { background: #FFF; }
+
+  .phone-data-card {
+    border-radius: 8px;
+    padding: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    flex-shrink: 0;
     margin-top: auto;
-    height: 38px;
-    border-radius: 5px;
+  }
+  .theme-phone.light .phone-data-card { background: #FFF; border: 1px solid #E0E0E0; }
+  .theme-phone.dark .phone-data-card { background: #1A1A1A; border: 1px solid #2A2A2A; }
+
+  .phone-data-line {
+    height: 3px;
+    border-radius: 1.5px;
+    flex-shrink: 0;
+  }
+  .phone-data-line.short { width: 40%; }
+  .phone-data-line.long { width: 65%; }
+  .theme-phone.light .phone-data-line { background: #D0D0D0; }
+  .theme-phone.dark .phone-data-line { background: #333; }
+
+  /* Auto / Device theme — single phone split down the middle */
+  .theme-phone.auto {
+    width: 80px;
+    background: transparent;
+  }
+  .theme-phone.auto .phone-screen {
+    flex-direction: column;
+    padding: 0;
+    gap: 0;
+    background: transparent;
     position: relative;
   }
-  .theme-phone.light .phone-block.large { background: #F5F4F2; }
-  .theme-phone.dark .phone-block.large { background: rgba(42,42,42,0.5); }
-  .theme-phone.auto .phone-half.left .phone-block.large { background: #F5F4F2; }
-  .theme-phone.auto .phone-half.right .phone-block.large { background: rgba(105,102,120,0.5); }
 
-  .phone-block.large .inner-bar {
+  .auto-split-bg {
     position: absolute;
-    left: 5px;
-    right: 5px;
-    height: 8px;
+    inset: 0;
+    border-radius: 12px;
+    overflow: hidden;
+    z-index: 0;
+  }
+  .auto-split-bg::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 50%;
+    height: 100%;
+    background: #F5F5F5;
+  }
+  .auto-split-bg::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 50%;
+    height: 100%;
+    background: #0F0F0F;
+  }
+
+  .auto-half {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 10px 6px 6px;
+    gap: 6px;
+  }
+
+  .auto-half .phone-logo { justify-content: center; }
+  .auto-half .phone-logo-dot { background: transparent; }
+  .auto-half .phone-logo-text { background: transparent; }
+
+  .auto-logo-split {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+  }
+  .auto-logo-split .logo-dot-l,
+  .auto-logo-split .logo-dot-r,
+  .auto-logo-split .logo-text-l,
+  .auto-logo-split .logo-text-r {
+    position: absolute;
+    height: 100%;
+    overflow: hidden;
+  }
+  .auto-logo-split .logo-dot-l { left: 0; width: 50%; }
+  .auto-logo-split .logo-dot-r { right: 0; width: 50%; }
+  .auto-logo-split .logo-text-l { left: 9px; width: 50%; }
+  .auto-logo-split .logo-text-r { left: 9px; width: 50%; }
+
+  .auto-split-logo {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    height: 10px;
+    position: relative;
+  }
+  .auto-split-logo .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 2px;
+    position: relative;
+    overflow: hidden;
+  }
+  .auto-split-logo .dot::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 50%;
+    height: 100%;
+    background: #000;
+  }
+  .auto-split-logo .dot::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 50%;
+    height: 100%;
+    background: #FFF;
+  }
+  .auto-split-logo .text {
+    width: 28px;
+    height: 4px;
+    border-radius: 2px;
+    position: relative;
+    overflow: hidden;
+  }
+  .auto-split-logo .text::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 50%;
+    height: 100%;
+    background: #000;
+  }
+  .auto-split-logo .text::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 50%;
+    height: 100%;
+    background: #FFF;
+  }
+
+  .auto-split-dropdown {
+    width: calc(100% - 8px);
+    height: 10px;
+    border-radius: 4px;
+    position: relative;
+    overflow: hidden;
+  }
+  .auto-split-dropdown::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 50%;
+    height: 100%;
+    background: #E0E0E0;
+    border-right: 1px solid #CCC;
+  }
+  .auto-split-dropdown::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 50%;
+    height: 100%;
+    background: #1E1E1E;
+    border-left: 1px solid #333;
+  }
+
+  .auto-split-card {
+    width: calc(100% - 8px);
+    border-radius: 10px;
+    padding: 8px 6px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    position: relative;
+    overflow: hidden;
+  }
+  .auto-split-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 50%;
+    height: 100%;
+    background: #FFF;
+    border-right: 1px solid #E0E0E0;
+  }
+  .auto-split-card::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 50%;
+    height: 100%;
+    background: #1A1A1A;
+    border-left: 1px solid #2A2A2A;
+  }
+
+  .auto-split-status {
+    width: 24px;
+    height: 3px;
+    border-radius: 1.5px;
+    position: relative;
+    overflow: hidden;
+    z-index: 1;
+  }
+  .auto-split-status::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 50%;
+    height: 100%;
+    background: #000;
+  }
+  .auto-split-status::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 50%;
+    height: 100%;
+    background: #FFF;
+  }
+
+  .auto-split-chip {
+    width: 28px;
+    height: 6px;
     border-radius: 3px;
+    position: relative;
+    overflow: hidden;
+    z-index: 1;
   }
-  .phone-block.large .inner-bar.t1 { top: 6px; }
-  .phone-block.large .inner-bar.t2 { top: 18px; width: 55%; }
-  .theme-phone.light .inner-bar { background: #FFF; }
-  .theme-phone.dark .inner-bar { background: #2A2A2A; }
-  .theme-phone.auto .phone-half.left .inner-bar { background: #FFF; }
-  .theme-phone.auto .phone-half.right .inner-bar { background: #2A2A2A; }
-
-  .phone-home-bar {
+  .auto-split-chip::before {
+    content: '';
     position: absolute;
-    bottom: 5px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 22px;
-    height: 2px;
-    border-radius: 1px;
+    top: 0;
+    left: 0;
+    width: 50%;
+    height: 100%;
+    background: #E0E0E0;
   }
-  .theme-phone.light .phone-home-bar { background: #000000; }
-  .theme-phone.dark .phone-home-bar { background: #FFF; }
-  .theme-phone.auto .phone-home-bar { background: linear-gradient(90deg, #000000 50%, #FFF 50%); }
+  .auto-split-chip::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 50%;
+    height: 100%;
+    background: #2A2A2A;
+  }
 
-  .theme-phone.auto {
-    background: linear-gradient(90deg, #DBD7D3 50%, #1A1A1A 50%);
+  .auto-split-btn {
+    width: 100%;
+    height: 12px;
+    border-radius: 6px;
+    position: relative;
+    overflow: hidden;
+    z-index: 1;
+  }
+  .auto-split-btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 50%;
+    height: 100%;
+    background: #000;
+  }
+  .auto-split-btn::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 50%;
+    height: 100%;
+    background: #FFF;
+  }
+
+  .auto-split-data {
+    width: calc(100% - 8px);
+    border-radius: 8px;
+    padding: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    margin-top: auto;
+    position: relative;
+    overflow: hidden;
+  }
+  .auto-split-data::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 50%;
+    height: 100%;
+    background: #FFF;
+    border-right: 1px solid #E0E0E0;
+  }
+  .auto-split-data::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 50%;
+    height: 100%;
+    background: #1A1A1A;
+    border-left: 1px solid #2A2A2A;
+  }
+
+  .auto-split-dline {
+    height: 3px;
+    border-radius: 1.5px;
+    position: relative;
+    overflow: hidden;
+    z-index: 1;
+  }
+  .auto-split-dline.short { width: 40%; }
+  .auto-split-dline.long { width: 65%; }
+  .auto-split-dline::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 50%;
+    height: 100%;
+    background: #D0D0D0;
+  }
+  .auto-split-dline::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 50%;
+    height: 100%;
+    background: #333;
   }
 
   .theme-label { font-size: 14px; color: var(--text-norm); text-align: center; line-height: 18px; }
@@ -773,14 +1120,21 @@
         <div class="theme-card" onclick="selectTheme('light')">
           <div class="theme-phone light">
             <div class="phone-screen">
-              <div class="phone-notch-bar"></div>
-              <div class="phone-block"></div>
-              <div class="phone-block large">
-                <div class="inner-bar t1"></div>
-                <div class="inner-bar t2"></div>
+              <div class="phone-logo">
+                <div class="phone-logo-dot"></div>
+                <div class="phone-logo-text"></div>
+              </div>
+              <div class="phone-dropdown"></div>
+              <div class="phone-connection-card">
+                <div class="phone-status-text"></div>
+                <div class="phone-country-chip"></div>
+                <div class="phone-connect-btn"></div>
+              </div>
+              <div class="phone-data-card">
+                <div class="phone-data-line short"></div>
+                <div class="phone-data-line long"></div>
               </div>
             </div>
-            <div class="phone-home-bar"></div>
           </div>
           <span class="theme-label">Light</span>
           <div class="radio" id="radio-light"></div>
@@ -788,14 +1142,21 @@
         <div class="theme-card selected" onclick="selectTheme('dark')">
           <div class="theme-phone dark">
             <div class="phone-screen">
-              <div class="phone-notch-bar"></div>
-              <div class="phone-block"></div>
-              <div class="phone-block large">
-                <div class="inner-bar t1"></div>
-                <div class="inner-bar t2"></div>
+              <div class="phone-logo">
+                <div class="phone-logo-dot"></div>
+                <div class="phone-logo-text"></div>
+              </div>
+              <div class="phone-dropdown"></div>
+              <div class="phone-connection-card">
+                <div class="phone-status-text"></div>
+                <div class="phone-country-chip"></div>
+                <div class="phone-connect-btn"></div>
+              </div>
+              <div class="phone-data-card">
+                <div class="phone-data-line short"></div>
+                <div class="phone-data-line long"></div>
               </div>
             </div>
-            <div class="phone-home-bar"></div>
           </div>
           <span class="theme-label">Dark</span>
           <div class="radio selected" id="radio-dark"></div>
@@ -803,24 +1164,24 @@
         <div class="theme-card" onclick="selectTheme('auto')">
           <div class="theme-phone auto">
             <div class="phone-screen">
-              <div class="phone-half left">
-                <div class="phone-notch-bar"></div>
-                <div class="phone-block"></div>
-                <div class="phone-block large">
-                  <div class="inner-bar t1"></div>
-                  <div class="inner-bar t2"></div>
+              <div class="auto-split-bg"></div>
+              <div class="auto-half">
+                <div class="auto-split-logo">
+                  <div class="dot"></div>
+                  <div class="text"></div>
                 </div>
-              </div>
-              <div class="phone-half right">
-                <div class="phone-notch-bar"></div>
-                <div class="phone-block"></div>
-                <div class="phone-block large">
-                  <div class="inner-bar t1"></div>
-                  <div class="inner-bar t2"></div>
+                <div class="auto-split-dropdown"></div>
+                <div class="auto-split-card">
+                  <div class="auto-split-status"></div>
+                  <div class="auto-split-chip"></div>
+                  <div class="auto-split-btn"></div>
+                </div>
+                <div class="auto-split-data">
+                  <div class="auto-split-dline short"></div>
+                  <div class="auto-split-dline long"></div>
                 </div>
               </div>
             </div>
-            <div class="phone-home-bar"></div>
           </div>
           <span class="theme-label">Device theme</span>
           <div class="radio" id="radio-auto"></div>
