@@ -12,7 +12,8 @@ package net.typeblog.socks.util
  *   OwlProxy   host *.owlproxy.com            username ..._custom_zone_<cc>
  *   RapidProxy host *.rapidproxy.io           username ...-residential-<cc>
  *   ClipProxy  host *.cliproxy.io             username ...-region-<cc>
- *   IpDeep     host *.ipdeep.com              username ...-res-country-<cc>[-state-<city>-session-<id>-sessiontime-<t>]
+ *   IpDeep     host *.ipdeep.com              username ...-res-country-<cc>[-state-<city>]-session-<id>-sessiontime-<t>]
+ *              (the -state-<city> segment is optional; sticky = -session- block present)
  *   Generic    any                           username ...[-_]<cc>
   */
 object ProxyProviders {
@@ -94,12 +95,42 @@ object ProxyProviders {
     }
 
     /**
-     * Rewrites an IpDeep username to a new country, preserving the sticky
-     * session block (`-state-<city>-session-<id>-sessiontime-<t>`) untouched.
+     * Rewrites an IpDeep username to a new country, preserving any trailing
+     * block (`-state-<city>-session-<id>-sessiontime-<t>` or the stateless
+     * `-session-<id>-sessiontime-<t>`) untouched.
      */
     fun switchIpDeepCountry(username: String, countryCode: String): String? {
-        val m = Regex("^(.+)-res-country-[a-zA-Z]{2}(-state-.*)?$").find(username) ?: return null
+        val m = Regex("^(.+)-res-country-[a-zA-Z]{2}(.*)$").find(username) ?: return null
         return "${m.groupValues[1]}-res-country-${countryCode.lowercase()}${m.groupValues[2]}"
+    }
+
+    /** IpDeep sticky session = a `-session-<id>` block is present. */
+    fun isIpDeepSticky(username: String): Boolean =
+        Regex("-session-\\d+").containsMatchIn(username)
+
+    /** Session id from an IpDeep sticky username, if present. */
+    fun ipdeepSessionId(username: String): String? =
+        Regex("-session-(\\d+)").find(username)?.groupValues?.get(1)
+
+    /** Stick time (minutes) from an IpDeep sticky username, if present. */
+    fun parseIpDeepTime(username: String): Int? =
+        Regex("-sessiontime-(\\d+)").find(username)?.groupValues?.get(1)?.toIntOrNull()
+
+    /**
+     * Builds an IpDeep username. Sticky keeps (or mints) a numeric session id
+     * and appends `-session-<id>-sessiontime-<t>`; unique strips the block.
+     */
+    fun buildIpDeep(
+        base: String,
+        countryCode: String,
+        mode: String,
+        time: Int,
+        sessionId: String?
+    ): String {
+        val zone = "$base-res-country-${countryCode.lowercase()}"
+        if (mode != "sticky") return zone
+        val sid = sessionId ?: (1000000000L..9999999999L).random().toString()
+        return "$zone-session-$sid-sessiontime-$time"
     }
 
     /**

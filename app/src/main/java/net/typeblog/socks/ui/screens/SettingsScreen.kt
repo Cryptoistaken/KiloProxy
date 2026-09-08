@@ -12,12 +12,10 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.HorizontalDivider
@@ -33,12 +31,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.preference.PreferenceManager
@@ -132,7 +130,7 @@ fun SettingsScreen(
             )
         }
 
-        // ═══ Features (Split tunneling) ═══
+        // ═══ Features (Split tunneling, Theme, Floating Bubble) ═══
         item {
             SectionTitle(text = "Features")
             SettingsGroup {
@@ -147,13 +145,6 @@ fun SettingsScreen(
                     iconTint = Color.Unspecified,
                     onClick = onNavigateToSplitTunneling
                 )
-            }
-        }
-
-        // ═══ General (Theme, Floating Bubble — like Split Tunneling page) ═══
-        item {
-            SectionTitle(text = "General")
-            SettingsGroup {
                 SettingsItem(
                     icon = painterResource(R.drawable.ic_proton_circle_half_filled),
                     label = "Theme",
@@ -221,32 +212,17 @@ fun SettingsScreen(
             }
         }
 
-        // ═══ About ═══
+        // ═══ Version (bottom center) ═══
         item {
-            SectionTitle(text = "About")
-            SettingsGroup {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 56.dp)
-                        .padding(horizontal = 16.dp, vertical = 16.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "KiloProxy",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Text(
-                            text = "Version ${BuildConfig.VERSION_NAME}",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(top = 6.dp)
-                        )
-                    }
-                }
-            }
+            Text(
+                text = "Version ${BuildConfig.VERSION_NAME}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 24.dp),
+                textAlign = TextAlign.Center
+            )
         }
 
         item { Spacer(modifier = Modifier.height(16.dp)) }

@@ -276,6 +276,8 @@ private fun AddEditProxySheet(
     var selectedCountry by remember { mutableStateOf<Countries.Country?>(null) }
     var owlMode by remember { mutableStateOf("unique") }
     var owlTime by remember { mutableStateOf(5) }
+    var ipdeepMode by remember { mutableStateOf("unique") }
+    var ipdeepTime by remember { mutableStateOf(5) }
     var showCountryDropdown by remember { mutableStateOf(false) }
     var countrySearch by remember { mutableStateOf("") }
     var recentCountries by remember { mutableStateOf(Utility.getRecentCountries(context)) }
@@ -302,6 +304,14 @@ private fun AddEditProxySheet(
                 } else {
                     owlMode = "unique"
                 }
+            }
+        }
+        if (t == ProxyProviders.TYPE_IPDEEP) {
+            if (ProxyProviders.isIpDeepSticky(newVal)) {
+                ipdeepMode = "sticky"
+                ipdeepTime = ProxyProviders.parseIpDeepTime(newVal) ?: 5
+            } else {
+                ipdeepMode = "unique"
             }
         }
         syncing = false
@@ -352,7 +362,12 @@ private fun AddEditProxySheet(
             return
         }
         if (t == ProxyProviders.TYPE_IPDEEP) {
-            val full = ProxyProviders.switchIpDeepCountry(username, selectedCountry!!.code) ?: return
+            val base = ProxyProviders.extractBase(username, t) ?: return
+            if (base.isEmpty()) return
+            val full = ProxyProviders.buildIpDeep(
+                base, selectedCountry!!.code, ipdeepMode, ipdeepTime,
+                ProxyProviders.ipdeepSessionId(username)
+            )
             syncing = true
             username = full
             syncing = false
@@ -383,6 +398,11 @@ private fun AddEditProxySheet(
         password = if (parsed.size >= 4) parsed[3] else ""
         credsModified = true
         detectFromUsername(username)
+        // Pasting always starts IpDeep in Unique mode (stickiness stays
+        // available via the IP mode picker). Owl detection is unchanged.
+        if (proxyType == ProxyProviders.TYPE_IPDEEP) {
+            ipdeepMode = "unique"
+        }
         return true
     }
 
@@ -642,15 +662,28 @@ private fun AddEditProxySheet(
                         )
                     )
                 }
-                // IP Mode dropdown (own line)
-                if (proxyType == ProxyProviders.TYPE_OWL) {
+                // IP Mode dropdown (own line) — Owl and IpDeep
+                val hasIpMode = proxyType == ProxyProviders.TYPE_OWL ||
+                    proxyType == ProxyProviders.TYPE_IPDEEP
+                val curMode = if (proxyType == ProxyProviders.TYPE_IPDEEP) ipdeepMode else owlMode
+                val curTime = if (proxyType == ProxyProviders.TYPE_IPDEEP) ipdeepTime else owlTime
+                fun setMode(m: String) {
+                    if (proxyType == ProxyProviders.TYPE_IPDEEP) ipdeepMode = m else owlMode = m
+                    ipModeMenuExpanded = false
+                    syncUsernameFromUi()
+                }
+                fun setTime(t: Int) {
+                    if (proxyType == ProxyProviders.TYPE_IPDEEP) ipdeepTime = t else owlTime = t
+                    syncUsernameFromUi()
+                }
+                if (hasIpMode) {
                     Spacer(modifier = Modifier.height(8.dp))
                     ExposedDropdownMenuBox(
                         expanded = ipModeMenuExpanded,
                         onExpandedChange = { ipModeMenuExpanded = !ipModeMenuExpanded }
                     ) {
-                        OutlinedTextField(
-                            value = if (owlMode == "sticky") "Sticky" else "Unique",
+                            OutlinedTextField(
+                                value = if (curMode == "sticky") "Sticky" else "Unique",
                             onValueChange = {},
                             readOnly = true,
                             singleLine = true,
@@ -677,11 +710,7 @@ private fun AddEditProxySheet(
                                                 )
                                             }
                                         },
-                                        onClick = {
-                                            owlMode = "unique"
-                                            ipModeMenuExpanded = false
-                                            syncUsernameFromUi()
-                                        }
+                                        onClick = { setMode("unique") }
                                     )
                                     DropdownMenuItem(
                                         text = {
@@ -694,18 +723,14 @@ private fun AddEditProxySheet(
                                                 )
                                             }
                                         },
-                                        onClick = {
-                                            owlMode = "sticky"
-                                            ipModeMenuExpanded = false
-                                            syncUsernameFromUi()
-                                        }
+                                        onClick = { setMode("sticky") }
                                     )
                         }
                     }
                 }
 
                 // Time selector (only for sticky mode)
-                if (proxyType == ProxyProviders.TYPE_OWL && owlMode == "sticky") {
+                if (hasIpMode && curMode == "sticky") {
                     Spacer(modifier = Modifier.height(12.dp))
                     Text(
                         text = "IP Stick Time in minutes",
@@ -720,22 +745,19 @@ private fun AddEditProxySheet(
                     ) {
                         listOf(5, 10, 15, 30, 60, 90).forEach { t ->
                             OutlinedButton(
-                                onClick = {
-                                    owlTime = t
-                                    syncUsernameFromUi()
-                                },
+                                onClick = { setTime(t) },
                                 modifier = Modifier.weight(1f),
                                 shape = RoundedCornerShape(8.dp),
                                 border = BorderStroke(
                                     1.dp,
-                                    if (owlTime == t) MaterialTheme.colorScheme.primary
+                                    if (curTime == t) MaterialTheme.colorScheme.primary
                                     else MaterialTheme.colorScheme.outline
                                 )
                             ) {
                                 Text(
                                     "$t",
                                     fontSize = 11.sp,
-                                    color = if (owlTime == t) MaterialTheme.colorScheme.primary
+                                    color = if (curTime == t) MaterialTheme.colorScheme.primary
                                     else MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
