@@ -28,11 +28,10 @@ object LogCollector {
             for ((i, pid) in pids.withIndex()) {
                 if (i > 0) appendLine("--- process $pid ---")
                 append(runLogcat(pid))
-                if (length >= MAX_LOG_BYTES) break
             }
         }
 
-        return (header + output).take(MAX_LOG_BYTES)
+        return header + output
     }
 
     private fun appProcessPids(context: Context): List<Int> {
@@ -47,30 +46,13 @@ object LogCollector {
     }
 
     private fun runLogcat(pid: Int): String {
-        return try {
-            val process = Runtime.getRuntime().exec(
-                arrayOf("logcat", "-d", "-v", "time", "-t", "2000", "--pid=$pid")
-            )
-            val output = process.inputStream.bufferedReader().readText()
-            process.waitFor()
-            if (output.isNotBlank()) output else runAllLogcat()
-        } catch (_: Exception) {
-            runAllLogcat()
-        }
-    }
-
-    private fun runAllLogcat(): String = try {
         val process = Runtime.getRuntime().exec(
-            arrayOf("logcat", "-d", "-v", "time", "-t", "2000", "*:I")
+            arrayOf("logcat", "-d", "-v", "time", "-t", "2000", "--pid=$pid")
         )
         val output = process.inputStream.bufferedReader().readText()
         process.waitFor()
-        output
-    } catch (_: Exception) {
-        "Unable to read system logs.\n"
+        return output
     }
-
-    private const val MAX_LOG_BYTES = 200_000
 
     fun shareLogs(context: Context, logs: String) {
         val file = File(context.cacheDir, "kiloproxy_logs_${System.currentTimeMillis()}.txt")

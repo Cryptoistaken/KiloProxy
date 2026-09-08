@@ -1214,12 +1214,6 @@ class FloatingControlService : Service() {
     }
 
     private fun startVpn() {
-        if (!Utility.isOnline(this)) {
-            Log.w(TAG, "Bubble tap ignored: device is offline")
-            Toast.makeText(this, "You are offline", Toast.LENGTH_SHORT).show()
-            setState(BubbleState.DISCONNECTED)
-            return
-        }
         val manager = ProfileManager.getInstance(this)
         // getProfiles() always contains a leading "Default" placeholder even when
         // the user has not configured any real proxy. Connecting to that placeholder

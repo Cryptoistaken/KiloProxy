@@ -453,11 +453,6 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
      * otherwise store the pending profile and return the permission intent for the caller to launch.
      */
     fun prepareAndStartVpn(context: Context, profileName: String): Intent? {
-        if (!Utility.isOnline(context)) {
-            _connectRequested.value = false
-            _errorMessage.value = "You are offline"
-            return null
-        }
         val intent = VpnService.prepare(context)
         if (intent == null) {
             // Optimistically set active profile before VPN starts
