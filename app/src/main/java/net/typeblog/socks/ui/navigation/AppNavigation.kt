@@ -1,6 +1,9 @@
 package net.typeblog.socks.ui.navigation
 
+import androidx.compose.foundation.Indication
+import androidx.compose.foundation.IndicationInstance
 import androidx.compose.foundation.LocalIndication
+import androidx.compose.foundation.interaction.InteractionSource
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -14,6 +17,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.ContentDrawScope
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
@@ -60,6 +64,21 @@ private val bottomNavRoutes = listOf(
     Screen.Settings.route
 ).toSet()
 
+// No-op indication: LocalIndication is non-null in this Compose version,
+// so the tap ripple is disabled with an empty indication instead of null.
+private object NoRippleIndication : Indication {
+    private object NoIndicationInstance : IndicationInstance {
+        override fun ContentDrawScope.drawIndication() {
+            drawContent()
+        }
+    }
+
+    @Composable
+    override fun rememberUpdatedInstance(interactionSource: InteractionSource): IndicationInstance {
+        return NoIndicationInstance
+    }
+}
+
 @Composable
 fun AppNavigation() {
     val navController = rememberNavController()
@@ -78,7 +97,7 @@ fun AppNavigation() {
     Scaffold(
         bottomBar = {
             if (showBottomBar) {
-                CompositionLocalProvider(LocalIndication provides null) {
+                CompositionLocalProvider(LocalIndication provides NoRippleIndication) {
                     NavigationBar(
                         containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
                         tonalElevation = 0.dp

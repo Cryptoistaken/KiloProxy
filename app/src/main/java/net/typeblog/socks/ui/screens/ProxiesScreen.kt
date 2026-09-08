@@ -555,37 +555,29 @@ private fun AddEditProxySheet(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 14.dp, bottom = 4.dp)
             )
-            Row(
+            OutlinedTextField(
+                value = username,
+                onValueChange = {
+                    credsModified = true
+                    onUsernameEdit(it)
+                },
+                label = { Text("Username") },
+                placeholder = { Text(if (provider == "owl") "Auto-generated" else "user") },
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Column(modifier = Modifier.weight(3f)) {
-                    OutlinedTextField(
-                        value = username,
-                        onValueChange = {
-                            credsModified = true
-                            onUsernameEdit(it)
-                        },
-                        label = { Text("Username") },
-                        placeholder = { Text(if (provider == "owl") "Auto-generated" else "user") },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(8.dp),
-                        singleLine = true
-                    )
-                }
-                Column(modifier = Modifier.weight(1.8f)) {
-                    PasswordFieldInline(
-                        value = password,
-                        onValueChange = {
-                            credsModified = true
-                            password = it
-                        },
-                        label = "Password",
-                        placeholder = "pass",
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-            }
+                shape = RoundedCornerShape(8.dp),
+                singleLine = true
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            PasswordFieldInline(
+                value = password,
+                onValueChange = {
+                    credsModified = true
+                    password = it
+                },
+                label = "Password",
+                placeholder = "pass",
+                modifier = Modifier.fillMaxWidth()
+            )
 
             // ── Provider Extras (country picker; IP mode only for OwlProxy) ──
             if (proxyType == ProxyProviders.TYPE_OWL ||
@@ -602,7 +594,7 @@ private fun AddEditProxySheet(
                     modifier = Modifier.padding(bottom = 8.dp)
                 )
 
-                // Country : IP Mode row (single line)
+                // Country and IP Mode, one per line
                 Text(
                     text = "Region",
                     fontSize = 12.sp,
@@ -610,85 +602,77 @@ private fun AddEditProxySheet(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(bottom = 4.dp)
                 )
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    // Country (wider)
-                    Column(modifier = Modifier.weight(if (proxyType == ProxyProviders.TYPE_OWL) 2f else 1f)) {
-                        ExposedDropdownMenuBox(
-                            expanded = countryMenuExpanded,
-                            onExpandedChange = {
-                                showCountryDropdown = true
-                                countryMenuExpanded = false
-                            }
-                        ) {
-                            OutlinedTextField(
-                                value = if (selectedCountry != null) {
-                                    "${selectedCountry!!.flag} ${selectedCountry!!.name}"
-                                } else {
-                                    "Country"
-                                },
-                                onValueChange = {},
-                                readOnly = true,
-                                singleLine = true,
-                                maxLines = 1,
-                                trailingIcon = {
-                                    ExposedDropdownMenuDefaults.TrailingIcon(expanded = countryMenuExpanded)
-                                },
-                                modifier = Modifier
-                                    .menuAnchor(MenuAnchorType.PrimaryNotEditable, enabled = true)
-                                    .fillMaxWidth(),
-                                shape = RoundedCornerShape(8.dp),
-                                textStyle = MaterialTheme.typography.bodyLarge.copy(
-                                    color = if (selectedCountry != null) MaterialTheme.colorScheme.onSurface
-                                    else MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            )
-                        }
+                // Country (own line)
+                ExposedDropdownMenuBox(
+                    expanded = countryMenuExpanded,
+                    onExpandedChange = {
+                        showCountryDropdown = true
+                        countryMenuExpanded = false
                     }
-                    // IP Mode dropdown (narrower)
-                    if (proxyType == ProxyProviders.TYPE_OWL) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            ExposedDropdownMenuBox(
-                                expanded = ipModeMenuExpanded,
-                                onExpandedChange = { ipModeMenuExpanded = !ipModeMenuExpanded }
-                            ) {
-                                OutlinedTextField(
-                                    value = if (owlMode == "sticky") "Sticky" else "Unique",
-                                    onValueChange = {},
-                                    readOnly = true,
-                                    singleLine = true,
-                                    trailingIcon = {
-                                        ExposedDropdownMenuDefaults.TrailingIcon(expanded = ipModeMenuExpanded)
-                                    },
-                                    modifier = Modifier
-                                        .menuAnchor(MenuAnchorType.PrimaryNotEditable, enabled = true)
-                                        .fillMaxWidth(),
-                                    shape = RoundedCornerShape(8.dp)
-                                )
-                                ExposedDropdownMenu(
-                                    expanded = ipModeMenuExpanded,
-                                    onDismissRequest = { ipModeMenuExpanded = false }
-                                ) {
-                                    DropdownMenuItem(
-                                        text = { Text("Unique") },
-                                        onClick = {
-                                            owlMode = "unique"
-                                            ipModeMenuExpanded = false
-                                            syncUsernameFromUi()
-                                        }
-                                    )
-                                    DropdownMenuItem(
-                                        text = { Text("Sticky") },
-                                        onClick = {
-                                            owlMode = "sticky"
-                                            ipModeMenuExpanded = false
-                                            syncUsernameFromUi()
-                                        }
-                                    )
+                ) {
+                    OutlinedTextField(
+                        value = if (selectedCountry != null) {
+                            "${selectedCountry!!.flag} ${selectedCountry!!.name}"
+                        } else {
+                            "Country"
+                        },
+                        onValueChange = {},
+                        readOnly = true,
+                        singleLine = true,
+                        maxLines = 1,
+                        trailingIcon = {
+                            ExposedDropdownMenuDefaults.TrailingIcon(expanded = countryMenuExpanded)
+                        },
+                        modifier = Modifier
+                            .menuAnchor(MenuAnchorType.PrimaryNotEditable, enabled = true)
+                            .fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp),
+                        textStyle = MaterialTheme.typography.bodyLarge.copy(
+                            color = if (selectedCountry != null) MaterialTheme.colorScheme.onSurface
+                            else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    )
+                }
+                // IP Mode dropdown (own line)
+                if (proxyType == ProxyProviders.TYPE_OWL) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    ExposedDropdownMenuBox(
+                        expanded = ipModeMenuExpanded,
+                        onExpandedChange = { ipModeMenuExpanded = !ipModeMenuExpanded }
+                    ) {
+                        OutlinedTextField(
+                            value = if (owlMode == "sticky") "Sticky" else "Unique",
+                            onValueChange = {},
+                            readOnly = true,
+                            singleLine = true,
+                            trailingIcon = {
+                                ExposedDropdownMenuDefaults.TrailingIcon(expanded = ipModeMenuExpanded)
+                            },
+                            modifier = Modifier
+                                .menuAnchor(MenuAnchorType.PrimaryNotEditable, enabled = true)
+                                .fillMaxWidth(),
+                            shape = RoundedCornerShape(8.dp)
+                        )
+                        ExposedDropdownMenu(
+                            expanded = ipModeMenuExpanded,
+                            onDismissRequest = { ipModeMenuExpanded = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Unique") },
+                                onClick = {
+                                    owlMode = "unique"
+                                    ipModeMenuExpanded = false
+                                    syncUsernameFromUi()
                                 }
-                            }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Sticky") },
+                                onClick = {
+                                    owlMode = "sticky"
+                                    ipModeMenuExpanded = false
+                                    syncUsernameFromUi()
+                                }
+                            )
                         }
                     }
                 }
@@ -722,7 +706,7 @@ private fun AddEditProxySheet(
                                 )
                             ) {
                                 Text(
-                                    "${t}m",
+                                    "$t",
                                     fontSize = 11.sp,
                                     color = if (owlTime == t) MaterialTheme.colorScheme.primary
                                     else MaterialTheme.colorScheme.onSurfaceVariant
@@ -757,27 +741,13 @@ private fun AddEditProxySheet(
                     }
                     testPassed -> {
                         Text(
-                            text = "✓",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.tertiary
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = "Proxy is valid — ready to save",
+                            text = "Proxy is valid, ready to save",
                             fontSize = 13.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.tertiary
                         )
                     }
                     testStatus != null -> {
-                        Text(
-                            text = "✗",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.error
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
                         Text(
                             text = "Proxy test failed",
                             fontSize = 13.sp,
