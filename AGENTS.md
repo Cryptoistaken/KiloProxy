@@ -98,6 +98,18 @@ git reset --hard 397d4b0
 - The `DesignPlan.md` file in the repo root describes the UI redesign plan.
 - Engine code (`SocksVpnService.kt`, `IVpnService.aidl`, `Utility.kt`, `ProfileManager.kt`) must never be modified by UI changes.
 
+## User-Facing Messages
+
+All user-facing text (Toast, Snackbar, notification content, status labels, error messages) must be **plain ASCII text only**. No emojis, no icons, no decorative unicode symbols.
+
+**Allowed:** letters, digits, spaces, basic punctuation (`. , ! ? : ; - ( ) / ' "`).
+**Forbidden:** `✓ ✗ ⚠ ⏳ 🔗 🌐 🇩🇪 … → — · ｢｣` and any other non-ASCII character in user-visible strings.
+
+Bad: `"✓ Proxy works"`, `"Checking for updates…"`, `"Connected to ｢%s｣"`
+Good: `"Proxy works"`, `"Checking for updates"`, `"Connected to %s"`
+
+Keep messages short and direct. State what happened, nothing else.
+
 ## Filesystem Map & References (KEEP UPDATED)
 
 > **Rule:** Whenever the repo structure changes (files/dirs added, moved, renamed, or deleted), update this map in the same commit. Read this section first for fast orientation instead of re-scanning the tree.

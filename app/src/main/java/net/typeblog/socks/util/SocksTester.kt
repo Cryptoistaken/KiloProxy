@@ -126,11 +126,11 @@ object SocksTester {
         password: String
     ): String = withContext(Dispatchers.IO) {
         when (probeProxy(server, port, username, password)) {
-            ProxyProbe.OK -> "✓ Proxy works"
-            ProxyProbe.AUTH_FAILED -> "✗ Auth failed"
-            ProxyProbe.NOT_SOCKS5 -> "✗ Not a SOCKS5 proxy"
-            ProxyProbe.CONNECT_FAILED -> "✗ Connection failed"
-            ProxyProbe.UNREACHABLE -> "✗ Proxy unreachable"
+            ProxyProbe.OK -> "Proxy works"
+            ProxyProbe.AUTH_FAILED -> "Auth failed"
+            ProxyProbe.NOT_SOCKS5 -> "Not a SOCKS5 proxy"
+            ProxyProbe.CONNECT_FAILED -> "Connection failed"
+            ProxyProbe.UNREACHABLE -> "Proxy unreachable"
         }
     }
 }

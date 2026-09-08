@@ -176,7 +176,7 @@ fun SettingsScreen(
                         if (!checkingUpdates) {
                             scope.launch {
                                 checkingUpdates = true
-                                Toast.makeText(context, "Checking for updates…", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, "Checking for updates", Toast.LENGTH_SHORT).show()
                                 val info = withContext(Dispatchers.IO) { UpdateChecker.check() }
                                 checkingUpdates = false
                                 if (info == null) {
