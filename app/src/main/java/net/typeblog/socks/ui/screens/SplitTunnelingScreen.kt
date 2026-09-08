@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.animateItem
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -507,7 +508,7 @@ private fun AppsPage(
                     )
                 }
                 items(selectedApps, key = { it.packageName }) { app ->
-                    AppRow(app = app, trailingIcon = R.drawable.ic_proton_minus_circle_filled) { onSetApp(app.packageName, false) }
+                    AppRow(app = app, trailingIcon = R.drawable.ic_proton_minus_circle_filled, modifier = Modifier.animateItem()) { onSetApp(app.packageName, false) }
                 }
                 item {
                     SectionHeader(
@@ -516,7 +517,7 @@ private fun AppsPage(
                     )
                 }
                 items(otherApps, key = { it.packageName }) { app ->
-                    AppRow(app = app, trailingIcon = R.drawable.ic_proton_plus_circle) { onSetApp(app.packageName, true) }
+                    AppRow(app = app, trailingIcon = R.drawable.ic_proton_plus_circle, modifier = Modifier.animateItem()) { onSetApp(app.packageName, true) }
                 }
             }
         }
@@ -548,10 +549,11 @@ private fun SectionHeader(title: String, description: String?) {
 private fun AppRow(
     app: InstalledApp,
     trailingIcon: Int,
+    modifier: Modifier = Modifier,
     onAction: () -> Unit
 ) {
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .heightIn(min = 56.dp)
             .padding(horizontal = 20.dp, vertical = 10.dp),
