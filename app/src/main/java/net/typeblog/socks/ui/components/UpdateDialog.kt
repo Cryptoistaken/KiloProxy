@@ -7,6 +7,7 @@ import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -80,6 +81,12 @@ fun UpdateDialog(
 
     val mbTotal = info.sizeBytes / 1048576.0
     val mbDone = downloadProgress * mbTotal
+    // Smooth bar motion like the demo: the bar eases toward progress while
+    // the % text stays live.
+    val animatedProgress by animateFloatAsState(
+        targetValue = downloadProgress,
+        label = "downloadBar"
+    )
 
     fun startDownload() {
         val resume = pausedUi
@@ -274,7 +281,7 @@ fun UpdateDialog(
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         LinearProgressIndicator(
-                            progress = { downloadProgress },
+                            progress = { animatedProgress },
                             modifier = Modifier.fillMaxWidth()
                         )
                         Spacer(modifier = Modifier.height(8.dp))
@@ -294,7 +301,7 @@ fun UpdateDialog(
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         LinearProgressIndicator(
-                            progress = { downloadProgress },
+                            progress = { animatedProgress },
                             modifier = Modifier.fillMaxWidth(),
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )

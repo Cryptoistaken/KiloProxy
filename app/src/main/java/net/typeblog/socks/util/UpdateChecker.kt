@@ -175,16 +175,20 @@ object UpdateChecker {
             var connection: HttpURLConnection? = null
             try {
                 val file = File(context.cacheDir, "update.apk")
-                // Resume offset from a previous paused attempt.
+                // Never trust a stale file: it may be another version's APK or a
+                // foreign partial, which installs as a corrupt package (parse
+                // error). Only resume a partial smaller than THIS download, and
+                // always verify the final size before reporting success.
                 var offset = 0L
                 if (totalBytes > 0 && file.exists()) {
                     val len = file.length()
                     when {
-                        len >= totalBytes -> {
+                        len == totalBytes -> {
                             onProgress?.invoke(1f)
                             return null
                         }
-                        len > 0 -> offset = len
+                        len > 0 && len < totalBytes -> offset = len
+                        else -> file.delete()
                     }
                 }
 
@@ -258,6 +262,17 @@ object UpdateChecker {
                 }
 
                 Log.d(TAG, "downloadToCache() -> downloaded ${file.length()} bytes to $file")
+                if (totalBytes > 0 && file.length() != totalBytes) {
+                    // Truncated or overgrown file: never hand it to the
+                    // installer (parse error). Discard and retry fresh.
+                    Log.w(TAG, "downloadToCache() -> size mismatch (got ${file.length()}, want $totalBytes), discarding")
+                    try { file.delete() } catch (_: Exception) { }
+                    if (attempt < MAX_RETRIES - 1) {
+                        Thread.sleep(1000L * (attempt + 1))
+                        return@repeat
+                    }
+                    return "Download incomplete, please try again"
+                }
                 return null
             } catch (e: Exception) {
                 lastException = e
