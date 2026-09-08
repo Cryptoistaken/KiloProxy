@@ -6,19 +6,19 @@
 <title>ProtonVPN Settings</title>
 <style>
   :root {
-    --bg-norm: #1C1B24;
-    --bg-secondary: #2A2937;
-    --bg-elevated: #32313D;
+    --bg-norm: #0A0A0A;
+    --bg-secondary: #1A1A1A;
+    --bg-elevated: #1A1A1A;
     --text-norm: #FFFFFF;
-    --text-weak: #8E8BA0;
-    --text-accent: #2DDCCC;
-    --border: #3B3747;
+    --text-weak: #AAAAAA;
+    --text-accent: #FFFFFF;
+    --border: #2A2A2A;
     --icon-norm: #FFFFFF;
-    --icon-weak: #8E8BA0;
-    --switch-on-bg: #2DDCCC;
-    --switch-off-bg: #5E5C6E;
-    --radio-selected: #2DDCCC;
-    --radio-unselected: #5E5C6E;
+    --icon-weak: #AAAAAA;
+    --switch-on-bg: #FFFFFF;
+    --switch-off-bg: #2A2A2A;
+    --radio-selected: #FFFFFF;
+    --radio-unselected: #2A2A2A;
   }
 
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -46,18 +46,18 @@
   }
   .phone-frame[data-theme="light"] {
     --bg-norm: #FFFFFF;
-    --bg-secondary: #F4F4F7;
+    --bg-secondary: #F5F5F5;
     --bg-elevated: #FFFFFF;
-    --text-norm: #1B1B1B;
-    --text-weak: #6D6D6D;
-    --text-accent: #1C9C7C;
-    --border: #D8D8DD;
-    --icon-norm: #1B1B1B;
-    --icon-weak: #6D6D6D;
-    --switch-on-bg: #1C9C7C;
-    --switch-off-bg: #B0B0B8;
-    --radio-selected: #1C9C7C;
-    --radio-unselected: #B0B0B8;
+    --text-norm: #000000;
+    --text-weak: #555555;
+    --text-accent: #000000;
+    --border: #E5E5E5;
+    --icon-norm: #000000;
+    --icon-weak: #555555;
+    --switch-on-bg: #000000;
+    --switch-off-bg: #E5E5E5;
+    --radio-selected: #000000;
+    --radio-unselected: #E5E5E5;
   }
   .phone-frame[data-theme="light"] .top-bar { background: var(--bg-norm); }
   .phone-frame[data-theme="light"] .top-bar .title { color: var(--text-norm); }
@@ -71,8 +71,7 @@
   .phone-frame[data-theme="light"] .section-header-desc { color: var(--text-weak); }
   .phone-frame[data-theme="light"] .switch { background: var(--switch-off-bg); }
   .phone-frame[data-theme="light"] .switch.on { background: var(--switch-on-bg); }
-  .phone-frame[data-theme="light"] .switch .thumb { background: white; }
-  .phone-frame[data-theme="light"] .notch { background: #F4F4F7; }
+  .phone-frame[data-theme="light"] .notch { background: #F5F5F5; }
   .phone-frame[data-theme="light"] .mode-dialog-content { background: var(--bg-elevated); }
   .phone-frame[data-theme="light"] .mode-dialog-overlay { background: rgba(0,0,0,0.4); }
   .phone-frame[data-theme="light"] .mode-dialog .radio-circle { border-color: var(--radio-unselected); }
@@ -83,9 +82,6 @@
   .phone-frame[data-theme="light"] .search-bar { background: var(--bg-secondary); }
   .phone-frame[data-theme="light"] .search-input { color: var(--text-norm); }
   .phone-frame[data-theme="light"] .search-input::placeholder { color: var(--text-weak); }
-  .phone-frame[data-theme="light"] .app-remove svg circle, .phone-frame[data-theme="light"] .app-remove svg path { fill: var(--text-weak); }
-  .phone-frame[data-theme="light"] .app-remove svg circle { stroke: none; }
-  .phone-frame[data-theme="light"] .app-remove svg path { stroke: white; }
 
   .status-bar {
     height: 54px;
@@ -146,6 +142,7 @@
     cursor: pointer;
     border-radius: 50%;
     flex-shrink: 0;
+    color: var(--text-norm);
   }
   .top-bar .back-btn:active { background: rgba(255,255,255,0.08); }
   .top-bar .back-btn svg { fill: var(--text-norm); }
@@ -205,7 +202,7 @@
     width: 26px;
     height: 26px;
     border-radius: 50%;
-    background: white;
+    background: var(--bg-norm);
     position: absolute;
     top: 2px;
     transition: left 0.2s;
@@ -277,6 +274,7 @@
   }
 
   .theme-phone.light { background: #DBD7D3; }
+  .theme-phone.dark { background: #1A1A1A; }
   .theme-phone .phone-screen {
     position: absolute;
     inset: 4px;
@@ -290,6 +288,11 @@
     padding: 14px 6px 6px;
     gap: 6px;
   }
+  .theme-phone.dark .phone-screen {
+    background: linear-gradient(180deg, #1A1A1A 0%, #0A0A0A 100%);
+    padding: 14px 6px 6px;
+    gap: 6px;
+  }
   .phone-notch-bar {
     width: 28px;
     height: 2px;
@@ -297,8 +300,8 @@
     margin: 0 auto 4px;
     flex-shrink: 0;
   }
-  .theme-phone.light .phone-notch-bar { background: #1C9C7C; }
-  .theme-phone.dark .phone-notch-bar { background: #2DDCCC; }
+  .theme-phone.light .phone-notch-bar { background: #000000; }
+  .theme-phone.dark .phone-notch-bar { background: #FFFFFF; }
   .theme-phone.auto .phone-screen { flex-direction: row; padding: 0; gap: 0; }
   .theme-phone.auto .phone-half {
     flex: 1;
@@ -308,9 +311,9 @@
     gap: 6px;
   }
   .theme-phone.auto .phone-half.left { background: linear-gradient(180deg, #ECECEC 0%, #FFF 100%); }
-  .theme-phone.auto .phone-half.right { background: linear-gradient(180deg, #736F83 0%, #201F25 100%); }
-  .theme-phone.auto .phone-half.left .phone-notch-bar { background: #1C9C7C; }
-  .theme-phone.auto .phone-half.right .phone-notch-bar { background: #2DDCCC; }
+  .theme-phone.auto .phone-half.right { background: linear-gradient(180deg, #1A1A1A 0%, #0A0A0A 100%); }
+  .theme-phone.auto .phone-half.left .phone-notch-bar { background: #000000; }
+  .theme-phone.auto .phone-half.right .phone-notch-bar { background: #FFFFFF; }
 
   .phone-block {
     width: 100%;
@@ -318,10 +321,10 @@
     border-radius: 4px;
     flex-shrink: 0;
   }
-  .theme-phone.light .phone-block { background: rgba(28,156,124,0.35); }
-  .theme-phone.dark .phone-block { background: rgba(45,220,204,0.35); }
-  .theme-phone.auto .phone-half.left .phone-block { background: rgba(28,156,124,0.35); }
-  .theme-phone.auto .phone-half.right .phone-block { background: rgba(45,220,204,0.35); }
+  .theme-phone.light .phone-block { background: rgba(0,0,0,0.15); }
+  .theme-phone.dark .phone-block { background: rgba(255,255,255,0.15); }
+  .theme-phone.auto .phone-half.left .phone-block { background: rgba(0,0,0,0.15); }
+  .theme-phone.auto .phone-half.right .phone-block { background: rgba(255,255,255,0.15); }
 
   .phone-block.large {
     margin-top: auto;
@@ -330,7 +333,7 @@
     position: relative;
   }
   .theme-phone.light .phone-block.large { background: #F5F4F2; }
-  .theme-phone.dark .phone-block.large { background: rgba(105,102,120,0.5); }
+  .theme-phone.dark .phone-block.large { background: rgba(42,42,42,0.5); }
   .theme-phone.auto .phone-half.left .phone-block.large { background: #F5F4F2; }
   .theme-phone.auto .phone-half.right .phone-block.large { background: rgba(105,102,120,0.5); }
 
@@ -344,9 +347,9 @@
   .phone-block.large .inner-bar.t1 { top: 6px; }
   .phone-block.large .inner-bar.t2 { top: 18px; width: 55%; }
   .theme-phone.light .inner-bar { background: #FFF; }
-  .theme-phone.dark .inner-bar { background: #696678; }
+  .theme-phone.dark .inner-bar { background: #2A2A2A; }
   .theme-phone.auto .phone-half.left .inner-bar { background: #FFF; }
-  .theme-phone.auto .phone-half.right .inner-bar { background: #696678; }
+  .theme-phone.auto .phone-half.right .inner-bar { background: #2A2A2A; }
 
   .phone-home-bar {
     position: absolute;
@@ -357,12 +360,12 @@
     height: 2px;
     border-radius: 1px;
   }
-  .theme-phone.light .phone-home-bar { background: #1C1B24; }
+  .theme-phone.light .phone-home-bar { background: #000000; }
   .theme-phone.dark .phone-home-bar { background: #FFF; }
-  .theme-phone.auto .phone-home-bar { background: linear-gradient(90deg, #1C1B24 50%, #FFF 50%); }
+  .theme-phone.auto .phone-home-bar { background: linear-gradient(90deg, #000000 50%, #FFF 50%); }
 
   .theme-phone.auto {
-    background: linear-gradient(90deg, #DBD7D3 50%, #3B3747 50%);
+    background: linear-gradient(90deg, #DBD7D3 50%, #1A1A1A 50%);
   }
 
   .theme-label { font-size: 14px; color: var(--text-norm); text-align: center; line-height: 18px; }
@@ -446,6 +449,7 @@
     cursor: pointer;
     border-radius: 50%;
     flex-shrink: 0;
+    color: var(--text-norm);
   }
   .top-bar-action:active { background: rgba(255,255,255,0.08); }
 
@@ -494,7 +498,7 @@
 
   /* App list items */
   .section-header { padding: 16px 36px 4px; }
-  .section-header-title { font-size: 13px; font-weight: 600; color: #9B8AFF; text-transform: none; letter-spacing: 0; }
+  .section-header-title { font-size: 13px; font-weight: 600; color: #AAAAAA; text-transform: none; letter-spacing: 0; }
   .section-header-desc { font-size: 13px; color: var(--text-weak); margin-top: 4px; line-height: 18px; }
 
   .app-icon {
@@ -520,6 +524,7 @@
     cursor: pointer;
     border-radius: 50%;
     flex-shrink: 0;
+    color: var(--icon-weak);
   }
   .app-remove:active, .app-add:active { background: rgba(255,255,255,0.08); }
 
@@ -544,6 +549,7 @@
     border-radius: 12px;
     border: 1.5px solid transparent;
     transition: border-color 0.2s;
+    color: var(--icon-weak);
   }
   .search-bar:focus-within { border-color: var(--text-accent); }
   .search-input {
@@ -621,7 +627,7 @@
   }
   .ip-input::placeholder { color: var(--text-weak); }
   .ip-input:focus { border-color: var(--text-accent); }
-  .ip-input-help { font-size: 12px; color: var(--text-weak); margin-top: 4px; padding-left: 14px; }
+  .ip-input-help { font-size: 12px; color: var(--text-weak); position: absolute; left: 14px; bottom: -18px; }
 
   .ip-add-btn {
     width: 44px;
@@ -634,6 +640,7 @@
     cursor: pointer;
     border-radius: 50%;
     flex-shrink: 0;
+    color: var(--text-norm);
   }
   .ip-add-btn:active { background: rgba(255,255,255,0.08); }
 
@@ -941,7 +948,7 @@
     </div>
     <div class="content-scroll">
       <div class="search-bar">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="#8E8BA0"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
         <input type="text" placeholder="Search apps" class="search-input" id="appSearchInput" oninput="filterApps()"/>
       </div>
       <div class="section-header">
@@ -955,7 +962,7 @@
           </div>
           <div class="app-name">1.1.1.1</div>
           <button class="app-remove" onclick="removeApp(this)">
-            <svg width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#8E8BA0"/><path d="M8 12h8" stroke="#1C1B24" stroke-width="2" stroke-linecap="round"/></svg>
+            <svg width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="currentColor" opacity="0.4"/><path d="M8 12h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
           </button>
         </div>
       </div>
@@ -970,7 +977,7 @@
           </div>
           <div class="app-name">1DM+</div>
           <button class="app-add" onclick="addApp(this)">
-            <svg width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="none" stroke="#8E8BA0" stroke-width="1.5"/><path d="M12 8v8M8 12h8" stroke="#8E8BA0" stroke-width="1.5" stroke-linecap="round"/></svg>
+            <svg width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M12 8v8M8 12h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
           </button>
         </div>
         <div class="app-item" data-app="Albums">
@@ -979,7 +986,7 @@
           </div>
           <div class="app-name">Albums</div>
           <button class="app-add" onclick="addApp(this)">
-            <svg width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="none" stroke="#8E8BA0" stroke-width="1.5"/><path d="M12 8v8M8 12h8" stroke="#8E8BA0" stroke-width="1.5" stroke-linecap="round"/></svg>
+            <svg width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M12 8v8M8 12h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
           </button>
         </div>
         <div class="app-item" data-app="Authenticator">
@@ -988,7 +995,7 @@
           </div>
           <div class="app-name">Authenticator</div>
           <button class="app-add" onclick="addApp(this)">
-            <svg width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="none" stroke="#8E8BA0" stroke-width="1.5"/><path d="M12 8v8M8 12h8" stroke="#8E8BA0" stroke-width="1.5" stroke-linecap="round"/></svg>
+            <svg width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M12 8v8M8 12h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
           </button>
         </div>
         <div class="app-item" data-app="bKash">
@@ -997,7 +1004,7 @@
           </div>
           <div class="app-name">bKash</div>
           <button class="app-add" onclick="addApp(this)">
-            <svg width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="none" stroke="#8E8BA0" stroke-width="1.5"/><path d="M12 8v8M8 12h8" stroke="#8E8BA0" stroke-width="1.5" stroke-linecap="round"/></svg>
+            <svg width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M12 8v8M8 12h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
           </button>
         </div>
         <div class="app-item" data-app="Brilliant">
@@ -1006,7 +1013,7 @@
           </div>
           <div class="app-name">Brilliant</div>
           <button class="app-add" onclick="addApp(this)">
-            <svg width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="none" stroke="#8E8BA0" stroke-width="1.5"/><path d="M12 8v8M8 12h8" stroke="#8E8BA0" stroke-width="1.5" stroke-linecap="round"/></svg>
+            <svg width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M12 8v8M8 12h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
           </button>
         </div>
         <div class="app-item" data-app="Browser">
@@ -1015,7 +1022,7 @@
           </div>
           <div class="app-name">Browser</div>
           <button class="app-add" onclick="addApp(this)">
-            <svg width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="none" stroke="#8E8BA0" stroke-width="1.5"/><path d="M12 8v8M8 12h8" stroke="#8E8BA0" stroke-width="1.5" stroke-linecap="round"/></svg>
+            <svg width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M12 8v8M8 12h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
           </button>
         </div>
         <div class="app-item" data-app="Bybit">
@@ -1024,7 +1031,7 @@
           </div>
           <div class="app-name">Bybit</div>
           <button class="app-add" onclick="addApp(this)">
-            <svg width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="none" stroke="#8E8BA0" stroke-width="1.5"/><path d="M12 8v8M8 12h8" stroke="#8E8BA0" stroke-width="1.5" stroke-linecap="round"/></svg>
+            <svg width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M12 8v8M8 12h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
           </button>
         </div>
         <div class="app-item" data-app="Calculator">
@@ -1033,7 +1040,7 @@
           </div>
           <div class="app-name">Calculator</div>
           <button class="app-add" onclick="addApp(this)">
-            <svg width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="none" stroke="#8E8BA0" stroke-width="1.5"/><path d="M12 8v8M8 12h8" stroke="#8E8BA0" stroke-width="1.5" stroke-linecap="round"/></svg>
+            <svg width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M12 8v8M8 12h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
           </button>
         </div>
         <div class="app-item" data-app="Camera">
@@ -1042,7 +1049,7 @@
           </div>
           <div class="app-name">Camera</div>
           <button class="app-add" onclick="addApp(this)">
-            <svg width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="none" stroke="#8E8BA0" stroke-width="1.5"/><path d="M12 8v8M8 12h8" stroke="#8E8BA0" stroke-width="1.5" stroke-linecap="round"/></svg>
+            <svg width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M12 8v8M8 12h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
           </button>
         </div>
         <div class="app-item" data-app="CellFin">
@@ -1051,7 +1058,7 @@
           </div>
           <div class="app-name">CellFin</div>
           <button class="app-add" onclick="addApp(this)">
-            <svg width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="none" stroke="#8E8BA0" stroke-width="1.5"/><path d="M12 8v8M8 12h8" stroke="#8E8BA0" stroke-width="1.5" stroke-linecap="round"/></svg>
+            <svg width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M12 8v8M8 12h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
           </button>
         </div>
         <div class="app-item" data-app="Chrome">
@@ -1060,7 +1067,7 @@
           </div>
           <div class="app-name">Chrome</div>
           <button class="app-add" onclick="addApp(this)">
-            <svg width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="none" stroke="#8E8BA0" stroke-width="1.5"/><path d="M12 8v8M8 12h8" stroke="#8E8BA0" stroke-width="1.5" stroke-linecap="round"/></svg>
+            <svg width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M12 8v8M8 12h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
           </button>
         </div>
         <div class="app-item" data-app="Claude">
@@ -1069,7 +1076,7 @@
           </div>
           <div class="app-name">Claude</div>
           <button class="app-add" onclick="addApp(this)">
-            <svg width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="none" stroke="#8E8BA0" stroke-width="1.5"/><path d="M12 8v8M8 12h8" stroke="#8E8BA0" stroke-width="1.5" stroke-linecap="round"/></svg>
+            <svg width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M12 8v8M8 12h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
           </button>
         </div>
       </div>
@@ -1091,7 +1098,7 @@
           <div class="ip-input-help">IPv4, IPv6, or CIDR notation</div>
         </div>
         <button class="ip-add-btn" onclick="addIp()">
-          <svg width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#2DDCCC"/><path d="M12 8v8M8 12h8" stroke="#1C1B24" stroke-width="2" stroke-linecap="round"/></svg>
+          <svg width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="currentColor"/><path d="M12 8v8M8 12h8" stroke="var(--bg-norm)" stroke-width="2" stroke-linecap="round"/></svg>
         </button>
       </div>
       <div class="section-header">
@@ -1101,13 +1108,13 @@
         <div class="ip-item" data-ip="192.168.1.0/24">
           <div class="ip-address">192.168.1.0/24</div>
           <button class="app-remove" onclick="removeIp(this)">
-            <svg width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#8E8BA0"/><path d="M8 12h8" stroke="#1C1B24" stroke-width="2" stroke-linecap="round"/></svg>
+            <svg width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="currentColor" opacity="0.4"/><path d="M8 12h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
           </button>
         </div>
         <div class="ip-item" data-ip="10.0.0.0/8">
           <div class="ip-address">10.0.0.0/8</div>
           <button class="app-remove" onclick="removeIp(this)">
-            <svg width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#8E8BA0"/><path d="M8 12h8" stroke="#1C1B24" stroke-width="2" stroke-linecap="round"/></svg>
+            <svg width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="currentColor" opacity="0.4"/><path d="M8 12h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
           </button>
         </div>
       </div>
@@ -1255,7 +1262,7 @@
     item.classList.add('animating-out');
     setTimeout(() => {
       const clone = item.cloneNode(true);
-      clone.querySelector('button').outerHTML = '<button class="app-remove" onclick="removeApp(this)"><svg width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#8E8BA0"/><path d="M8 12h8" stroke="#1C1B24" stroke-width="2" stroke-linecap="round"/></svg></button>';
+      clone.querySelector('button').outerHTML = '<button class="app-remove" onclick="removeApp(this)"><svg width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="currentColor" opacity="0.4"/><path d="M8 12h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>';
       clone.classList.remove('animating-out');
       clone.classList.add('animating-in');
       document.getElementById('selected-apps-list').appendChild(clone);
@@ -1269,7 +1276,7 @@
     item.classList.add('animating-out');
     setTimeout(() => {
       const clone = item.cloneNode(true);
-      clone.querySelector('button').outerHTML = '<button class="app-add" onclick="addApp(this)"><svg width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="none" stroke="#8E8BA0" stroke-width="1.5"/><path d="M12 8v8M8 12h8" stroke="#8E8BA0" stroke-width="1.5" stroke-linecap="round"/></svg></button>';
+      clone.querySelector('button').outerHTML = '<button class="app-add" onclick="addApp(this)"><svg width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M12 8v8M8 12h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>';
       clone.classList.remove('animating-out');
       clone.classList.add('animating-in');
       document.getElementById('available-apps-list').prepend(clone);
