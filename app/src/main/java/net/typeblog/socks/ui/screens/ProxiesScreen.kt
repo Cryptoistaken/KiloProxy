@@ -95,6 +95,7 @@ fun ProxiesScreen(
     val profiles by viewModel.profiles.collectAsState()
     val profileVersion by viewModel.profileVersion.collectAsState()
     val isRunning by viewModel.isRunning.collectAsState()
+    val vpnConnected by viewModel.isConnected.collectAsState()
     val activeProfileName by viewModel.activeProfileName.collectAsState()
     val lastProfileName by viewModel.lastProfileName.collectAsState()
     val receivedBytes by viewModel.receivedBytes.collectAsState()
@@ -230,7 +231,7 @@ fun ProxiesScreen(
                             server = profile?.getServer() ?: "",
                             username = profile?.getUsername() ?: "",
                             password = profile?.getPassword() ?: "",
-                            isConnected = isRunning && activeProfileName == profileName,
+                            isConnected = vpnConnected && activeProfileName == profileName,
                             liveUsageRx = if (lastProfileName == profileName) receivedBytes else 0L,
                             liveUsageTx = if (lastProfileName == profileName) sentBytes else 0L,
                         onSelect = if (pickMode) {
@@ -315,7 +316,7 @@ fun ProxiesScreen(
                 port = profile.getPort(),
                 username = profile.getUsername(),
                 password = profile.getPassword(),
-                isConnected = isRunning && activeProfileName == target,
+                isConnected = vpnConnected && activeProfileName == target,
                 liveUsageRx = if (lastProfileName == target) receivedBytes else 0L,
                 liveUsageTx = if (lastProfileName == target) sentBytes else 0L,
                 onEdit = {

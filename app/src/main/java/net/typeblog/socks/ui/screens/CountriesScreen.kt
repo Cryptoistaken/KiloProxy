@@ -67,6 +67,7 @@ fun CountriesScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val isRunning by viewModel.isRunning.collectAsState()
+    val isConnected by viewModel.isConnected.collectAsState()
     val activeProfileName by viewModel.activeProfileName.collectAsState()
     val profiles by viewModel.profiles.collectAsState()
     val profileVersion by viewModel.profileVersion.collectAsState()
@@ -87,9 +88,11 @@ fun CountriesScreen(
     }
 
     // Connected-country marking, same shape as ProxiesScreen's per-card
-    // `isRunning && activeProfileName == profileName` check.
-    val connectedCountryCode = remember(defaultProfileName, activeProfileName, isRunning, profileVersion, countryRewriteTick) {
-        if (!isRunning || activeProfileName != defaultProfileName || defaultProfileName == null) {
+    // `isConnected && activeProfileName == profileName` check. Gated on the
+    // verified connected state (not isRunning) so the row never claims
+    // Connected while the tunnel is still establishing.
+    val connectedCountryCode = remember(defaultProfileName, activeProfileName, isConnected, profileVersion, countryRewriteTick) {
+        if (!isConnected || activeProfileName != defaultProfileName || defaultProfileName == null) {
             null
         } else {
             try {
