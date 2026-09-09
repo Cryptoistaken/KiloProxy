@@ -3,6 +3,7 @@ package net.typeblog.socks.ui.screens
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,8 +16,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -32,7 +33,6 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -364,11 +364,11 @@ private fun CountryRow(
         // Bubble-popup pattern: short code always visible; the dial
         // swaps for the connected mark on the connected row.
         if (isConnected) {
-            Icon(
-                painter = painterResource(R.drawable.lucide_check),
-                contentDescription = "Connected",
-                tint = MaterialTheme.colorScheme.tertiary,
-                modifier = Modifier.size(18.dp)
+            // Bubble-style dot plus the Connected label.
+            Box(
+                modifier = Modifier
+                    .size(8.dp)
+                    .background(MaterialTheme.colorScheme.tertiary, CircleShape)
             )
             Spacer(modifier = Modifier.width(6.dp))
             Text(
