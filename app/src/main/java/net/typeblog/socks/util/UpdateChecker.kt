@@ -2,6 +2,8 @@ package net.typeblog.socks.util
 
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import android.util.Log
 import androidx.core.content.FileProvider
 import net.typeblog.socks.BuildConfig
@@ -159,6 +161,12 @@ object UpdateChecker {
      * the partial file ("Cancelled"), pause aborts but keeps it ("Paused") so
      * the next call resumes with an HTTP Range request. Both results should
      * be swallowed by the caller (no toast).
+     *
+     * [tag] keys the cache file (update-&lt;tag&gt;.apk): resuming a partial
+     * from another version would stitch two different APKs together - the
+     * size check passes but the package installer fails with a parse error.
+     * Stale files from other versions are wiped first so a bad file can
+     * never trap the flow in a permanent parse-error loop.
      * Synchronous, MUST be called from a background thread.
      */
     fun downloadToCache(
@@ -167,14 +175,27 @@ object UpdateChecker {
         totalBytes: Long = 0L,
         onProgress: ((Float) -> Unit)? = null,
         isCancelled: (() -> Boolean)? = null,
-        isPaused: (() -> Boolean)? = null
+        isPaused: (() -> Boolean)? = null,
+        tag: String = ""
     ): String? {
         if (!url.startsWith("https://")) return "Update URL must use HTTPS"
+        val safeTag = tag.filter { it.isLetterOrDigit() || it == '.' || it == '-' }
+        val file = if (safeTag.isNotEmpty()) File(context.cacheDir, "update-$safeTag.apk")
+        else File(context.cacheDir, "update.apk")
+        // Never resume foreign bytes: drop the legacy name and any other
+        // version's file before touching this download.
+        try {
+            context.cacheDir.listFiles { f ->
+                f.isFile && f.name.startsWith("update-") && f.name.endsWith(".apk") && f != file
+            }?.forEach { try { it.delete() } catch (_: Exception) { } }
+            if (file.name != "update.apk") {
+                try { File(context.cacheDir, "update.apk").delete() } catch (_: Exception) { }
+            }
+        } catch (_: Exception) { }
         var lastException: Exception? = null
         repeat(MAX_RETRIES) { attempt ->
             var connection: HttpURLConnection? = null
             try {
-                val file = File(context.cacheDir, "update.apk")
                 // Never trust a stale file: it may be another version's APK or a
                 // foreign partial, which installs as a corrupt package (parse
                 // error). Only resume a partial smaller than THIS download, and
@@ -287,9 +308,30 @@ object UpdateChecker {
     }
 
     /** Launches the package installer for the previously downloaded update.apk. */
-    fun installCached(context: Context): String? {
-        val file = File(context.cacheDir, "update.apk")
+    fun installCached(context: Context, tag: String = ""): String? {
+        val safeTag = tag.filter { it.isLetterOrDigit() || it == '.' || it == '-' }
+        val file = if (safeTag.isNotEmpty()) File(context.cacheDir, "update-$safeTag.apk")
+        else File(context.cacheDir, "update.apk")
         if (!file.exists()) return "Downloaded file is missing"
+        // Verify the file is a parseable APK for OUR package before handing
+        // it to the installer: a stitched/truncated file would otherwise
+        // surface as a system "problem parsing the package" error with no
+        // clean retry. Discard it and ask for a fresh download instead.
+        val archiveInfo = try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                context.packageManager.getPackageArchiveInfo(
+                    file.absolutePath, PackageManager.PackageInfoFlags.of(0)
+                )
+            } else {
+                @Suppress("DEPRECATION")
+                context.packageManager.getPackageArchiveInfo(file.absolutePath, 0)
+            }
+        } catch (_: Exception) { null }
+        if (archiveInfo == null || archiveInfo.packageName != context.packageName) {
+            Log.w(TAG, "installCached() -> ${file.name} failed verification, discarding")
+            try { file.delete() } catch (_: Exception) { }
+            return "Download incomplete, please try again"
+        }
         val uri = FileProvider.getUriForFile(context, "${context.packageName}.provider", file)
         Log.d(TAG, "installCached() -> launching installer for $file (${file.length()} bytes)")
         val intent = Intent(Intent.ACTION_VIEW).apply {

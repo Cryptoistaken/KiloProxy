@@ -104,7 +104,8 @@ fun UpdateDialog(
                         scope.launch { downloadProgress = progress }
                     },
                     isCancelled = { cancelFlag.get() },
-                    isPaused = { pauseFlag.get() }
+                    isPaused = { pauseFlag.get() },
+                    tag = info.tag
                 )
             }
             downloading = false
@@ -122,14 +123,15 @@ fun UpdateDialog(
 
     fun discardPartial() {
         scope.launch(Dispatchers.IO) {
-            try { java.io.File(context.cacheDir, "update.apk").delete() } catch (_: Exception) { }
+            val name = "update-" + info.tag.filter { it.isLetterOrDigit() || it == '.' || it == '-' } + ".apk"
+            try { java.io.File(context.cacheDir, name).delete() } catch (_: Exception) { }
         }
     }
 
     fun installNow() {
         scope.launch {
             val err = withContext(Dispatchers.IO) {
-                UpdateChecker.installCached(context)
+                UpdateChecker.installCached(context, info.tag)
             }
             onDismiss()
             if (err != null) {
@@ -221,7 +223,7 @@ fun UpdateDialog(
                         maxLines = 1
                     )
                     Text(
-                        text = "v${info.tag} - ${"%.1f MB".format(mbTotal)}",
+                        text = "${info.tag} - ${"%.1f MB".format(mbTotal)}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1
