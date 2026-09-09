@@ -378,11 +378,19 @@ private fun CountryRow(
                 color = MaterialTheme.colorScheme.tertiary
             )
         } else {
-            Text(
-                text = "+${country.phone}",
-                fontSize = 12.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            // Fixed-width end-aligned slot: short dials (+1) and long ones
+            // (+353) share the same right edge instead of sitting ragged.
+            Box(
+                modifier = Modifier.width(52.dp),
+                contentAlignment = Alignment.CenterEnd
+            ) {
+                Text(
+                    text = "+${country.phone}",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1
+                )
+            }
         }
     }
     HorizontalDivider(
