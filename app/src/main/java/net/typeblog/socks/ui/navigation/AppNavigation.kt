@@ -68,10 +68,15 @@ fun AppNavigation() {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
-    val showBottomBar = currentDestination?.route in bottomNavRoutes
     val vpnViewModel: VpnViewModel = viewModel()
     var profilePickMode by rememberSaveable { mutableStateOf(false) }
     var countryPickMode by rememberSaveable { mutableStateOf(false) }
+    // Pick flows (profile from Home, country from the add-proxy sheet)
+    // hide the bottom bar on the pick screen so it feels like a
+    // separate page whose only action is selecting.
+    val inPickFlow = (profilePickMode && currentDestination?.route == Screen.Profiles.route) ||
+        (countryPickMode && currentDestination?.route == Screen.Countries.route)
+    val showBottomBar = currentDestination?.route in bottomNavRoutes && !inPickFlow
 
     fun navigateToTab(route: String) {
         navController.navigate(route) {

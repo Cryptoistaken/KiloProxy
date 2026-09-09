@@ -38,6 +38,8 @@
                     android:paddingEnd="34dp"
                     android:background="@drawable/search_input_bg"
                     android:hint="Search countries"
+                    android:drawableStart="@drawable/lucide_search_muted"
+                    android:drawablePadding="6dp"
                     android:textSize="11sp"
                     android:textColor="#18181B"
                     android:textColorHint="#71717A"
