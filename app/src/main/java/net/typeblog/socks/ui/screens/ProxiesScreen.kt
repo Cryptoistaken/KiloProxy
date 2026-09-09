@@ -358,7 +358,7 @@ private fun AddEditProxySheet(
 
     // Form state
     var name by remember { mutableStateOf(profileName ?: initialName) }
-    var host by remember { mutableStateOf("") }
+    var nameTouched by remember { mutableStateOf(false) }    var host by remember { mutableStateOf("") }
     var portText by remember { mutableStateOf("") }
     var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
@@ -446,6 +446,14 @@ private fun AddEditProxySheet(
             } else {
                 ipdeepMode = "unique"
             }
+        }
+        // Adding (not editing) + pasted/typed a known provider + user never
+        // touched the name: rename to "<Provider> <n>" with a free number.
+        if (!isEdit && !nameTouched && proxyType != ProxyProviders.TYPE_CUSTOM) {
+            name = freshProfileName(
+                ProfileManager.getInstance(context),
+                ProxyProviders.label(proxyType)
+            )
         }
         syncing = false
     }
@@ -910,7 +918,10 @@ private fun AddEditProxySheet(
             FormField(
                 label = "Profile Name",
                 value = name,
-                onValueChange = { name = it },
+                onValueChange = {
+                    name = it
+                    nameTouched = true
+                },
                 placeholder = "e.g. My Proxy"
             )
 
@@ -1259,6 +1270,13 @@ private fun parseProxyString(input: String): List<String>? {
         if (parts.size >= 3) parts[2].trim() else "",
         if (parts.size >= 4) parts[3].trim() else ""
     )
+}
+
+// First free "<base> <n>" name (OwlProxy 1, OwlProxy 2, ...).
+private fun freshProfileName(pm: ProfileManager, base: String): String {
+    var n = 1
+    while (pm.getProfile("$base $n") != null) n++
+    return "$base $n"
 }
 
 // Duplicate registers "<name> (copy)" then clones every stored field via
