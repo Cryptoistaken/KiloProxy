@@ -863,6 +863,16 @@ private fun AddEditProxySheet(
                 }
             }
 
+            FormField(
+                label = "Profile Name",
+                value = name,
+                onValueChange = {
+                    name = it
+                    nameTouched = true
+                },
+                placeholder = "e.g. My Proxy"
+            )
+
             // Server details (Host : Port) - no grouping header, fields carry own names
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -998,16 +1008,6 @@ private fun AddEditProxySheet(
                     )
                 }
             }
-
-            FormField(
-                label = "Profile Name",
-                value = name,
-                onValueChange = {
-                    name = it
-                    nameTouched = true
-                },
-                placeholder = "e.g. My Proxy"
-            )
 
                 // IP Mode dropdown (own line) — Owl and IpDeep
                 if (hasIpMode) {
