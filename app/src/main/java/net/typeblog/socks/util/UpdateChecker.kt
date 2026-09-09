@@ -150,7 +150,7 @@ object UpdateChecker {
         totalBytes: Long = 0L,
         onProgress: ((Float) -> Unit)? = null
     ): String? {
-        downloadToCache(context, url, totalBytes, onProgress) { false }?.let { return it }
+        downloadToCache(context, url, totalBytes, onProgress, isCancelled = { false })?.let { return it }
         return installCached(context)
     }
 
