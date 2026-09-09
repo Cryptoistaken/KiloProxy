@@ -44,6 +44,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -288,7 +289,10 @@ fun UpdateDialog(
                         Spacer(modifier = Modifier.height(8.dp))
                         LinearProgressIndicator(
                             progress = { animatedProgress },
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.fillMaxWidth(),
+                            // No track: only the fill line is visible, so no
+                            // faint color sits ahead of the progress.
+                            trackColor = Color.Transparent
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
@@ -309,7 +313,8 @@ fun UpdateDialog(
                         LinearProgressIndicator(
                             progress = { animatedProgress },
                             modifier = Modifier.fillMaxWidth(),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            trackColor = Color.Transparent
                         )
                     }
                     else -> {
