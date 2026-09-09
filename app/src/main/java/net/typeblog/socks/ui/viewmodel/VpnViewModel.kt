@@ -31,6 +31,7 @@ import net.typeblog.socks.SocksVpnService
 import net.typeblog.socks.util.ProfileManager
 import net.typeblog.socks.util.Utility
 import net.typeblog.socks.util.Constants.ACTION_VPN_STATE_CHANGED
+import net.typeblog.socks.util.Constants.ACTION_STOP_VPN
 import net.typeblog.socks.util.Constants.VPN_STATE_AS_NAME
 import net.typeblog.socks.util.Constants.VPN_STATE_CITY
 import net.typeblog.socks.util.Constants.VPN_STATE_CONNECTED
@@ -426,6 +427,7 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
         Log.d("KiloProxyVM", "stopVpn called")
         viewModelScope.launch {
             _connectRequested.value = false
+            _pendingProfile.value = null
             if (bound && vpnService != null) {
                 try {
                     vpnService!!.stop()
@@ -438,6 +440,24 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
             } else {
                 Log.w("KiloProxyVM", "stopVpn: service not bound")
             }
+            // Ordered stop intent: if a start is still queued (cancel while
+            // connecting before the binder saw it), the binder stop above is
+            // a no-op and the queued start would bring the tunnel up anyway.
+            // The stop intent lands behind the start in the queue, so the
+            // service tears down deterministically.
+            try {
+                val stopIntent = Intent(context, SocksVpnService::class.java).setAction(ACTION_STOP_VPN)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    context.startForegroundService(stopIntent)
+                } else {
+                    context.startService(stopIntent)
+                }
+            } catch (_: Exception) {
+                try {
+                    context.stopService(Intent(context, SocksVpnService::class.java))
+                } catch (_: Exception) {
+                }
+            }
         }
     }
 
@@ -448,6 +468,7 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
     /** Cancel a connect request that has not produced a running tunnel yet. */
     fun cancelConnect() {
         _connectRequested.value = false
+        _pendingProfile.value = null
     }
 
     fun onConnectTimeout() {

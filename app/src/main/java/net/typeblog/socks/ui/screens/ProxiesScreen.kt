@@ -1027,7 +1027,10 @@ private fun AddEditProxySheet(
                 if (page == 0) {
                 Button(
                     onClick = {
-                        scope.launch { sheetState.hide(); onDismiss() }
+                        scope.launch {
+                            try { sheetState.hide() } catch (_: Exception) { }
+                            onDismiss()
+                        }
                     },
                     modifier = Modifier.weight(1f).height(42.dp),
                     shape = RoundedCornerShape(8.dp),
@@ -1126,7 +1129,7 @@ private fun AddEditProxySheet(
                             onProfileRenamed(profileName, savedName)
                         }
                         scope.launch {
-                            sheetState.hide()
+                            try { sheetState.hide() } catch (_: Exception) { }
                             onSaved()
                         }
                     },

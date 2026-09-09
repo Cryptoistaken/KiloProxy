@@ -109,15 +109,26 @@ class BubbleMenuOverlay(
         // else device) so -night panel/field/row/icon resources match even
         // when the manual pick differs from the system uiMode.
         activeInflateContext = ThemeMode.themedContext(context)
-        val root = rootView ?: LayoutInflater.from(activeInflateContext)
-            .inflate(R.layout.bubble_menu, null) as FrameLayout
+        val root = try {
+            rootView ?: LayoutInflater.from(activeInflateContext)
+                .inflate(R.layout.bubble_menu, null) as FrameLayout
+        } catch (_: Exception) {
+            // A broken inflation (e.g. vector compound drawable on an old
+            // platform) must not crash the host process; skip the menu.
+            rootView = null
+            return
+        }
         rootView = root
 
         val panel = root.findViewById<LinearLayout>(R.id.menu_panel)
         val scroll = root.findViewById<ScrollView>(R.id.menu_scroll)
         val list = root.findViewById<LinearLayout>(R.id.menu_list)
         val searchInput = root.findViewById<EditText>(R.id.menu_search)
-        root.findViewById<ImageButton>(R.id.menu_dismiss).setOnClickListener { onExitRequested() }
+        if (panel == null || list == null) {
+            rootView = null
+            return
+        }
+        root.findViewById<ImageButton>(R.id.menu_dismiss)?.setOnClickListener { onExitRequested() }
         menuList = list
 
         // Clamp against the inset-aware content area (display minus system bars /

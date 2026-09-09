@@ -184,6 +184,11 @@ class SocksVpnService : VpnService() {
     private val mProbeInFlight = AtomicBoolean(false)
     @Volatile
     private var mSendfdCancelled = false
+    // Generation counter for connect attempts. Bumped on every start and every
+    // stop so a background start thread orphaned by a cancel-while-connecting
+    // can detect it is stale and abort instead of resurrecting the tunnel.
+    @Volatile
+    private var mConnectSeq = 0
     private var mNotificationReceiverRegistered = false
     private var mScreenOffRegistered = false
     private var mScreenOnRegistered = false
@@ -381,6 +386,17 @@ class SocksVpnService : VpnService() {
             return START_STICKY
         }
 
+        // Ordered stop request (sent by stopVpn() right after the binder call).
+        // Intents are delivered in order, so a stop queued behind a start still
+        // lands: without this, cancelling while connecting is lost because the
+        // binder stop() early-returns when onStartCommand has not run yet, and
+        // the queued start then brings the tunnel up anyway.
+        if (intent.action == ACTION_STOP_VPN) {
+            Log.d(TAG, "onStartCommand: ordered stop received")
+            stopMe("stop_action")
+            return START_NOT_STICKY
+        }
+
         if (mRunning) {
             return START_STICKY
         }
@@ -411,6 +427,10 @@ class SocksVpnService : VpnService() {
 
         showNotification()
         mRunning = true
+        // New connect generation: any background start thread from a previous
+        // attempt is now stale and must abort at its next checkpoint.
+        mConnectSeq++
+        val connectSeq = mConnectSeq
 
             // Register notification action receiver
         registerReceiverCompat(mNotificationActionReceiver, IntentFilter(ACTION_STOP_VPN))
@@ -423,7 +443,7 @@ class SocksVpnService : VpnService() {
 
         if (mInterface != null) {
             Log.d(TAG, "mInterface is non-null with fd=${mInterface!!.fd}, calling start()")
-            start(mInterface!!.fd, server, port, username, passwd, dns, dnsPort, ipv6, udpgw)
+            start(mInterface!!.fd, server, port, username, passwd, dns, dnsPort, ipv6, udpgw, connectSeq)
         } else {
             Log.e(TAG, "mInterface is NULL after configure() — VPN establish() returned null!")
             stopMe("interface_null")
@@ -492,6 +512,9 @@ class SocksVpnService : VpnService() {
             Log.d(TAG, "stopMe stack trace:", Throwable("stopMe caller trace"))
         }
         mSendfdCancelled = true
+        // Invalidate any in-flight background start thread so a cancel that
+        // lands mid-connect cannot be resurrected by the orphaned thread.
+        mConnectSeq++
         mProbeInFlight.set(false)
         if (stateChanged) notifyStateChanged(mError)
         persistProfileBytes()
@@ -702,7 +725,7 @@ class SocksVpnService : VpnService() {
                 } catch (e: Exception) {
                     Log.e(TAG, "Error: ${e.message}", e)
                 }
-                for (p in apps!!) {
+                for (p in apps.orEmpty()) {
                     if (TextUtils.isEmpty(p)) continue
                     try {
                         b.addDisallowedApplication(p.trim { it <= ' ' })
@@ -711,7 +734,7 @@ class SocksVpnService : VpnService() {
                     }
                 }
             } else {
-                for (p in apps!!) {
+                for (p in apps.orEmpty()) {
                     if (TextUtils.isEmpty(p) || p.trim { it <= ' ' } == packageName) continue
                     try {
                         b.addAllowedApplication(p.trim { it <= ' ' })
@@ -730,7 +753,7 @@ class SocksVpnService : VpnService() {
         }
     }
 
-    private fun start(fd: Int, server: String?, port: Int, user: String?, passwd: String?, dns: String?, dnsPort: Int, ipv6: Boolean, udpgw: String?) {
+    private fun start(fd: Int, server: String?, port: Int, user: String?, passwd: String?, dns: String?, dnsPort: Int, ipv6: Boolean, udpgw: String?, connectSeq: Int) {
         // configure()/establish() run on the main thread (VpnService.Builder API).
         // Everything blocking below — config write, pdnsd spawn, hostname
         // resolution, tun2socks spawn, sendfd poll — runs on a background thread
@@ -768,6 +791,11 @@ class SocksVpnService : VpnService() {
                     server
                 }
                 mResolvedServer = serverIp
+
+                // Cancel checkpoint: DNS resolution blocks for seconds. If the
+                // user stopped while connecting, abort before spawning tun2socks
+                // so the orphaned thread cannot resurrect the tunnel.
+                if (connectSeq != mConnectSeq || !mRunning || mSendfdCancelled) return@Thread
 
                 // NAT64/DNS64 mobile networks resolve IPv4-only proxy hostnames
                 // to an IPv6 (64:ff9b::/96) literal. tun2socks's BAddr parser
@@ -818,6 +846,14 @@ class SocksVpnService : VpnService() {
                     mTun2socksProcess = process
                     Log.d(TAG, "tun2socks process started with PID awareness")
 
+                    // Cancel checkpoint: stop may have landed while exec'ing.
+                    // Destroy the just-spawned process instead of leaking it.
+                    if (connectSeq != mConnectSeq || !mRunning || mSendfdCancelled) {
+                        try { process.destroy() } catch (_: Exception) { }
+                        mTun2socksProcess = null
+                        return@Thread
+                    }
+
                     // Consume stdout/stderr on a background thread to prevent buffer deadlock
                     Thread {
                         try {
@@ -848,13 +884,13 @@ class SocksVpnService : VpnService() {
                 // (up to 15s on the main thread). Poll every 50ms up to 100 attempts
                 // (~5s cap).
                 var attempts = 0
-                while (attempts < 100 && !mSendfdCancelled) {
+                while (attempts < 100 && !mSendfdCancelled && mRunning && connectSeq == mConnectSeq) {
                     val sendResult = System.sendfd(fd)
                     if (sendResult != -1) {
                         Log.d(TAG, "sendfd succeeded on attempt ${attempts + 1}/100")
                         // FIX #2: connected is now immediate on tunnel-up; the IP check
                         // is posted below as async enrichment.
-                        runOnMainThread { if (!mSendfdCancelled) postStartOnMain() }
+                        runOnMainThread { if (!mSendfdCancelled && mRunning && connectSeq == mConnectSeq) postStartOnMain() }
                         return@Thread
                     }
                     attempts++
@@ -866,7 +902,7 @@ class SocksVpnService : VpnService() {
                     }
                 }
 
-                if (mSendfdCancelled) return@Thread
+                if (mSendfdCancelled || !mRunning || connectSeq != mConnectSeq) return@Thread
                 Log.e(TAG, "sendfd failed after 100 attempts, stopping VPN")
                 runOnMainThread { stopMe("sendfd_failed_100_attempts") }
                 return@Thread

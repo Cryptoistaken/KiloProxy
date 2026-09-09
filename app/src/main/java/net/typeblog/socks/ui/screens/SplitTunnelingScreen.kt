@@ -535,15 +535,19 @@ private fun AppIcon(icon: android.graphics.drawable.Drawable?, appName: String) 
         if (icon != null) {
             val bitmap by produceState<android.graphics.Bitmap?>(initialValue = null, icon) {
                 value = withContext(Dispatchers.IO) {
-                    val bmp = android.graphics.Bitmap.createBitmap(
-                        icon.intrinsicWidth.coerceAtLeast(1),
-                        icon.intrinsicHeight.coerceAtLeast(1),
-                        android.graphics.Bitmap.Config.ARGB_8888
-                    )
-                    val canvas = android.graphics.Canvas(bmp)
-                    icon.setBounds(0, 0, canvas.width, canvas.height)
-                    icon.draw(canvas)
-                    bmp
+                    try {
+                        val bmp = android.graphics.Bitmap.createBitmap(
+                            icon.intrinsicWidth.coerceAtLeast(1),
+                            icon.intrinsicHeight.coerceAtLeast(1),
+                            android.graphics.Bitmap.Config.ARGB_8888
+                        )
+                        val canvas = android.graphics.Canvas(bmp)
+                        icon.setBounds(0, 0, canvas.width, canvas.height)
+                        icon.draw(canvas)
+                        bmp
+                    } catch (_: Exception) {
+                        null
+                    }
                 }
             }
             if (bitmap != null) {

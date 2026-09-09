@@ -1294,10 +1294,22 @@ class FloatingControlService : Service() {
 
     private fun stopVpn() {
         Log.d(TAG, "Bubble stop requested")
+        pendingProfile = null
         try {
             vpnService?.stop()
         } catch (e: Exception) {
             Log.e(TAG, "Failed to stop VPN", e)
+        }
+        // Ordered stop intent: covers cancel-while-connecting when the binder
+        // has not seen the queued start yet (binder stop is then a no-op).
+        try {
+            val stopIntent = Intent(this, SocksVpnService::class.java).setAction(ACTION_STOP_VPN)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(stopIntent)
+            } else {
+                startService(stopIntent)
+            }
+        } catch (_: Exception) {
         }
         setState(BubbleState.DISCONNECTED)
     }
