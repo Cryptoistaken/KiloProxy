@@ -344,26 +344,32 @@ private fun CountryRow(
             Text(text = country.flag, fontSize = 20.sp)
         }
         Spacer(modifier = Modifier.width(12.dp))
-        // Bubble-popup pattern: name + short code together on the left,
-        // dial (or the connected mark) alone on the right.
-        Text(
-            text = country.name,
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurface,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f, fill = false)
-        )
-        Spacer(modifier = Modifier.width(6.dp))
-        Text(
-            text = country.code,
-            fontSize = 12.sp,
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Spacer(modifier = Modifier.weight(1f))
-        // Minimum breathing room between the name block and the dial slot
-        // on long names where the flexible spacer above collapses.
+        // Flexible name block takes ALL leftover width so the dial slot is
+        // pinned to the row end on every row. (A second weight(1f) spacer
+        // next to a weighted name splits the leftover into fixed shares;
+        // the name's unused share then becomes trailing slack that varies
+        // with name length, leaving dials ragged.)
+        Row(
+            modifier = Modifier.weight(1f),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = country.name,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f, fill = false)
+            )
+            Spacer(modifier = Modifier.width(6.dp))
+            Text(
+                text = country.code,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        // Minimum breathing room between the name block and the dial slot.
         Spacer(modifier = Modifier.width(16.dp))
         // Bubble-popup pattern: short code always visible; the dial
         // swaps for the connected mark on the connected row.
