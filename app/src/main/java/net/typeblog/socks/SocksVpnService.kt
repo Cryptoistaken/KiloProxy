@@ -214,11 +214,16 @@ class SocksVpnService : VpnService() {
     private var mStatsTick = 0L
     private val mStatsRunnable = object : Runnable {
         override fun run() {
-            Utility.readTunBytes()?.let { (rx, tx) ->
+            val tun = Utility.readTunBytes()
+            tun?.let { (rx, tx) ->
                 mReceivedBytes = (rx - mBaseRx).coerceAtLeast(0L)
                 mSentBytes = (tx - mBaseTx).coerceAtLeast(0L)
             }
             mStatsTick++
+            // TEMP tunDBG: remove after data-used diagnosis.
+            if (mStatsTick % 5L == 0L) {
+                Log.d(TAG, "tunDBG tick=$mStatsTick tun=$tun base=($mBaseRx,$mBaseTx) session=($mReceivedBytes,$mSentBytes) total=(${mCumulativeRx + mReceivedBytes},${mCumulativeTx + mSentBytes})")
+            }
             if (mRunning) {
                 // Persist usage periodically so the profiles page proxy card
                 // reflects live data instead of only updating on VPN stop.
@@ -227,6 +232,24 @@ class SocksVpnService : VpnService() {
                 }
                 mStatsHandler.postDelayed(this, STATS_INTERVAL)
             }
+        }
+    }
+    // TEMP tunDBG helper: remove after data-used diagnosis.
+    private fun dumpInterfaces(): String {
+        return try {
+            val sb = StringBuilder()
+            val ifs = java.net.NetworkInterface.getNetworkInterfaces()
+            while (ifs.hasMoreElements()) {
+                val ni = ifs.nextElement()
+                val addrs = ni.inetAddresses
+                while (addrs.hasMoreElements()) {
+                    sb.append(ni.name).append(':').append(addrs.nextElement().hostAddress).append(',')
+                }
+            }
+            val sysfs = java.io.File("/sys/class/net").list()?.joinToString(",") ?: "?"
+            "$sb sysfs=[$sysfs]"
+        } catch (e: Exception) {
+            "dumpFail:${e.message}"
         }
     }
     private val mScreenOffReceiver = object : BroadcastReceiver() {
@@ -979,6 +1002,9 @@ class SocksVpnService : VpnService() {
         val initialTunBytes = Utility.readTunBytes()
         mBaseRx = initialTunBytes?.first ?: 0L
         mBaseTx = initialTunBytes?.second ?: 0L
+        // TEMP tunDBG: remove after data-used diagnosis.
+        Log.d(TAG, "tunDBG start initial=$initialTunBytes base=($mBaseRx,$mBaseTx) cumulative=($mCumulativeRx,$mCumulativeTx) profile=$mProfileName")
+        Log.d(TAG, "tunDBG ifaces=" + dumpInterfaces())
         mStatsHandler.post(mStatsRunnable)
         mTunnelUp = true
         val buffered = mPendingIpInfo

@@ -145,6 +145,9 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
     private val _lastProfileName = MutableStateFlow<String?>(null)
     val lastProfileName: StateFlow<String?> = _lastProfileName.asStateFlow()
 
+    // TEMP tunDBG: remove after data-used diagnosis.
+    private var syncDbgTick = 0L
+
     // Set while a connect was requested by the user but the tunnel is not up
     // yet (VPN-permission dialog / service bring-up). Only covers the window
     // where the service is not running; once it runs, the derived state below
@@ -343,6 +346,10 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                 _timezone.value = state.getString(VPN_STATE_TIMEZONE).orEmpty().ifEmpty { null }
                 _receivedBytes.value = state.getLong(VPN_STATE_RECEIVED)
                 _sentBytes.value = state.getLong(VPN_STATE_SENT)
+                // TEMP tunDBG: remove after data-used diagnosis.
+                if (++syncDbgTick % 5L == 0L) {
+                    Log.d("KiloProxyVM", "tunDBG sync rx=${_receivedBytes.value} tx=${_sentBytes.value} profile=${state.getString(VPN_STATE_PROFILE).orEmpty()}")
+                }
                 _connectedSince.value = state.getLong(VPN_STATE_CONNECTED_SINCE)
                 // Always derive the live profile from the running service
                 // (not just from VM-initiated starts), so the bubble /
