@@ -65,7 +65,7 @@ fun SettingsScreen(
     val prefs = PreferenceManager.getDefaultSharedPreferences(context)
 
     var themeMode by remember {
-        mutableStateOf(prefs.getString(PREF_THEME_MODE, "light") ?: "light")
+        mutableStateOf(prefs.getString(PREF_THEME_MODE, "system") ?: "system")
     }
     var floatingControl by remember {
         mutableStateOf(prefs.getBoolean(PREF_FLOATING_CONTROL, false))
@@ -76,7 +76,7 @@ fun SettingsScreen(
     DisposableEffect(context) {
         val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
             when (key) {
-                PREF_THEME_MODE -> themeMode = prefs.getString(PREF_THEME_MODE, "light") ?: "light"
+                PREF_THEME_MODE -> themeMode = prefs.getString(PREF_THEME_MODE, "system") ?: "system"
                 PREF_FLOATING_CONTROL -> floatingControl = prefs.getBoolean(PREF_FLOATING_CONTROL, false)
                 PREF_ADV_PER_APP -> splitEnabled = prefs.getBoolean(PREF_ADV_PER_APP, false)
             }

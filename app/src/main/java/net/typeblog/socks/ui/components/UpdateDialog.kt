@@ -97,12 +97,20 @@ fun UpdateDialog(
         if (!resume) downloadProgress = 0f
         cancelFlag.set(false)
         pauseFlag.set(false)
+        // onProgress fires per chunk on the IO thread; hop to Main only when
+        // the shown integer percent actually moves (one coroutine per point,
+        // not per chunk).
+        var lastUiPct = -1
         scope.launch {
             val err = withContext(Dispatchers.IO) {
                 UpdateChecker.downloadToCache(
                     context, info.apkUrl, info.sizeBytes,
                     onProgress = { progress ->
-                        scope.launch { downloadProgress = progress }
+                        val pct = (progress * 100).toInt()
+                        if (pct != lastUiPct) {
+                            lastUiPct = pct
+                            scope.launch { downloadProgress = progress }
+                        }
                     },
                     isCancelled = { cancelFlag.get() },
                     isPaused = { pauseFlag.get() },
@@ -124,8 +132,7 @@ fun UpdateDialog(
 
     fun discardPartial() {
         scope.launch(Dispatchers.IO) {
-            val name = "update-" + info.tag.filter { it.isLetterOrDigit() || it == '.' || it == '-' } + ".apk"
-            try { java.io.File(context.cacheDir, name).delete() } catch (_: Exception) { }
+            UpdateChecker.discardCached(context, info.tag)
         }
     }
 

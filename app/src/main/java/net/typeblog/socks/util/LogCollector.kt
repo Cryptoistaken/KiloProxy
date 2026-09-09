@@ -10,6 +10,10 @@ import java.util.Locale
 
 object LogCollector {
 
+    // Hard cap so a huge log buffer can never OOM the app or
+    // produce an unshareable file. Keeps the newest tail.
+    private const val MAX_LOG_CHARS = 200_000
+
     fun collectLogs(context: Context): String {
         val header = buildString {
             appendLine("=== KiloProxy Debug Logs ===")
@@ -31,7 +35,7 @@ object LogCollector {
             }
         }
 
-        return header + output
+        return (header + output).takeLast(MAX_LOG_CHARS)
     }
 
     private fun appProcessPids(context: Context): List<Int> {
@@ -46,12 +50,16 @@ object LogCollector {
     }
 
     private fun runLogcat(pid: Int): String {
-        val process = Runtime.getRuntime().exec(
-            arrayOf("logcat", "-d", "-v", "time", "-t", "2000", "--pid=$pid")
-        )
-        val output = process.inputStream.bufferedReader().readText()
-        process.waitFor()
-        return output
+        return try {
+            val process = Runtime.getRuntime().exec(
+                arrayOf("logcat", "-d", "-v", "time", "-t", "2000", "--pid=$pid")
+            )
+            val output = process.inputStream.bufferedReader().readText()
+            process.waitFor()
+            if (output.isBlank()) "(no log lines for pid $pid)\n" else output
+        } catch (e: Exception) {
+            "(logcat failed for pid $pid: ${e.message})\n"
+        }
     }
 
     fun shareLogs(context: Context, logs: String) {

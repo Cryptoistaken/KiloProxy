@@ -5,8 +5,9 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -55,11 +56,13 @@ fun ProtonSwitch(
             .size(width = 51.dp, height = 30.dp)
             .clip(RoundedCornerShape(15.dp))
             .background(track)
-            .clickable(
+            .toggleable(
+                value = checked,
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
-                role = Role.Switch
-            ) { onCheckedChange(!checked) }
+                role = Role.Switch,
+                onValueChange = onCheckedChange
+            )
     ) {
         Box(
             modifier = Modifier
@@ -114,7 +117,11 @@ fun ProtonDialogRadioRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .selectable(
+                selected = selected,
+                role = Role.RadioButton,
+                onClick = onClick
+            )
             .padding(vertical = 16.dp),
         verticalAlignment = Alignment.Top
     ) {

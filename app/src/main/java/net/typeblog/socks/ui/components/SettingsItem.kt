@@ -47,7 +47,7 @@ fun SettingsItem(
     description: String? = null,
     value: String? = null,
     iconTint: Color? = null,
-    showChevron: Boolean = true,
+    showChevron: Boolean = false,
     iconSpinning: Boolean = false,
     trailing: @Composable RowScope.() -> Unit = {},
     onClick: (() -> Unit)? = null,
@@ -68,18 +68,17 @@ fun SettingsItem(
         verticalAlignment = if (description != null) Alignment.Top else Alignment.CenterVertically
     ) {
         // Icon slot — 32dp clear area holding a 24dp single-color icon (no box, no background)
-        // Optionally spins (e.g. update check in progress).
-        var iconAngle = 0f
-        if (iconSpinning) {
-            val spinTransition = rememberInfiniteTransition(label = "iconSpin")
-            val angle by spinTransition.animateFloat(
-                initialValue = 0f,
-                targetValue = 360f,
-                animationSpec = infiniteRepeatable(animation = tween(900, easing = LinearEasing)),
-                label = "iconAngle"
-            )
-            iconAngle = angle
-        }
+        // Optionally spins (e.g. update check in progress). The transition
+        // is always remembered (never conditional) so the slot table stays
+        // stable when spinning toggles; the angle is just ignored when off.
+        val spinTransition = rememberInfiniteTransition(label = "iconSpin")
+        val spinAngle by spinTransition.animateFloat(
+            initialValue = 0f,
+            targetValue = 360f,
+            animationSpec = infiniteRepeatable(animation = tween(900, easing = LinearEasing)),
+            label = "iconAngle"
+        )
+        val iconAngle = if (iconSpinning) spinAngle else 0f
         Box(
             modifier = Modifier.size(32.dp),
             contentAlignment = Alignment.Center

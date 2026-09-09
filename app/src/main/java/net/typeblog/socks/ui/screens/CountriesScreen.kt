@@ -26,6 +26,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
@@ -70,7 +71,7 @@ fun CountriesScreen(
     val profiles by viewModel.profiles.collectAsState()
     val profileVersion by viewModel.profileVersion.collectAsState()
 
-    var query by remember { mutableStateOf("") }
+    var query by rememberSaveable { mutableStateOf("") }
     var recentCountries by remember { mutableStateOf(Utility.getRecentCountries(context)) }
     var countryRewriteTick by remember { mutableStateOf(0) }
 

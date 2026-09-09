@@ -4,6 +4,8 @@ import android.content.SharedPreferences
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -61,12 +63,12 @@ fun ThemeScreen(
     val context = LocalContext.current
     val prefs = PreferenceManager.getDefaultSharedPreferences(context)
     var themeMode by remember {
-        mutableStateOf(prefs.getString(PREF_THEME_MODE, "light") ?: "light")
+        mutableStateOf(prefs.getString(PREF_THEME_MODE, "system") ?: "system")
     }
     DisposableEffect(context) {
         val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
             if (key == PREF_THEME_MODE) {
-                themeMode = prefs.getString(PREF_THEME_MODE, "light") ?: "light"
+                themeMode = prefs.getString(PREF_THEME_MODE, "system") ?: "system"
             }
         }
         prefs.registerOnSharedPreferenceChangeListener(listener)
@@ -104,6 +106,7 @@ fun ThemeScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
+                .horizontalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp, vertical = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally)
         ) {

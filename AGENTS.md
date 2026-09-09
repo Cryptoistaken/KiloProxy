@@ -11,7 +11,7 @@
 - Identity: `Cryptoistaken` / `traderspopy@gmail.com`; push with `git -c credential.helper='!gh auth git-credential' push origin master`.
 
 ## Download & Install
-- Always download and install the **`app-arm64-v8a-release.apk`** (now named with the app version, e.g. `app-arm64-v8a-release-v1.2.177.apk`) from the `app-release` artifact of the successful run.
+- Always download and install the **universal release APK** (versioned by CI, e.g. `app-universal-release-v1.2.271.apk`) from the `app-release` artifact of the successful run.
 - Fresh-download to a clean directory before installing (stale APKs caused version/signature mismatch before).
 - Since the persistent release keystore (GitHub secrets `RELEASE_KEYSTORE_*`) was introduced, every build is signed with the SAME key and `versionCode` increases monotonically (CI `GITHUB_RUN_NUMBER` + 100). Updates are install-overs and PRESERVE all app data — never uninstall just to update.
 
@@ -124,7 +124,7 @@ Keep messages short and direct. State what happened, nothing else.
 | Path | Purpose |
 |---|---|
 | `AGENTS.md` | This file — agent rules, build/install flow, snapshots, filesystem map |
-| `design/` | Deep-module design docs for 10 codebase clusters + IP-race alternatives (alt-a/b/c). Reference before restructuring. |
+| `protonvpn-settings.html` | Settings mock reference (tracked; `design/` docs were deleted) |
 | `build.gradle` | Root Gradle build (plugins: android.application, Kotlin compose) |
 | `settings.gradle` / `gradle.properties` / `gradle/wrapper/gradle-wrapper.properties` | Gradle config (Gradle 9.4.1, AGP 9.2.1, Kotlin 2.2.10, Java 17) |
 | `.github/workflows/build.yml` | **ONLY** build entry point (CI GitHub Actions; never build locally) |
@@ -132,7 +132,7 @@ Keep messages short and direct. State what happened, nothing else.
 | `.gitignore` | Ignorable paths |
 
 ### `app/build.gradle` (app module)
-- compileSdk 34, minSdk 21, **targetSdk 34** (Play deadline 2026-08-31 → 36)
+- compileSdk 36, minSdk 21, **targetSdk 36**
 - Monotonic `versionCode`: CI `GITHUB_RUN_NUMBER + 100`, local `git commit count + 100`
 - Per-ABI versionCode override: `abi_rank * 67 + base` (arm7=1, arm64=2, x86=3, x86_64=4)
 - ABIs: `armeabi-v7a`, `arm64-v8a`, `x86`, `x86_64` (+ universal) via `-Pabi=` split
@@ -173,10 +173,10 @@ Notes on the merged notification/dot pass:
 | `Utility.kt` | **ENGINE** — pdnsd conf, ip lookups, misc helpers. NEVER modify for UI |
 
 ### `.../ui/`
-- `components/` — Compose components: ConnectionCard, ConnectionStatusCard, DataUsageCard, ProtonControls (ProtonSwitch + ProtonRadio + ProtonDialogRadioRow, mock-exact mono controls), ProxyCard, SettingsItem
+- `components/` — Compose components: ConnectionCard, ProxyCard, ProtonControls (ProtonSwitch + ProtonRadio + ProtonDialogRadioRow, mock-exact mono controls), SearchInput, SettingsItem, UpdateDialog
   - `ConnectionCard.kt` — Connect/Disconnect button is now text-only (icon removed); spinner shown while connecting.
 - `navigation/AppNavigation.kt` — NavHost destinations (incl. `theme` route)
-- `screens/` — DebugLogsScreen, ProxiesScreen, SettingsScreen, SplitTunnelingScreen, StatusScreen, ThemeScreen
+- `screens/` — BubbleSettingsScreen, CountriesScreen, DebugLogsScreen, ProxiesScreen, SettingsScreen, SplitTunnelingScreen, StatusScreen, ThemeScreen
   - `ThemeScreen.kt` — Theme picker page: Light / Dark / Device theme cards with mini phone previews; writes PREF_THEME_MODE.
   - `SplitTunnelingScreen.kt` — ProtonVPN mock design: feature header + toggle card, Mode row (dialog: Exclude/Include) + Apps row; apps page has search bar, selected-apps section (minus) and all-other-apps section (plus). Same engine prefs (PREF_ADV_PER_APP / PREF_ADV_APP_BYPASS / PREF_ADV_APP_LIST). IP-address rows skipped: engine has no IP split-tunneling support.
   - `SettingsScreen.kt` — the 2 ProtonVPN-mock rows: "Split tunneling" (On/Off) and "Theme" (subtitle = theme label), no chevrons, theme opens ThemeScreen.
@@ -209,7 +209,7 @@ Notes on the merged notification/dot pass:
 ### Resources — `app/src/main/res/`
 - `assets/` — (empty; NetShield blocklists were removed — NetShield is now cloud-only)
 - `layout/` — `app_item.xml`, `bubble_menu.xml` (bubble popup panel), `bubble_country_row.xml`, `notification_action.xml` (RemoteViews layout for the notification Connect/Disconnect pill)
-- `drawable/` — lucide_* icons, menu_panel_bg, search_input_bg, signal_dot, logo_*, launcher, notification_pill (pill button background), bg_dismiss_ripple (popup exit-button ripple)
+- `drawable/` — lucide_* icons, menu_panel_bg, search_input_bg, signal_dot, logo_*, launcher, notification_pill (pill button background)
 - `font/` — Geist family TTFs (bold/medium/mono/pixel etc.)
 - `mipmap-*/` — legacy + adaptive launcher icons
 - `values/` — strings.xml, arrays.xml, styles.xml, pdnsd.xml, ruroute.xml, simpleroute.xml, ic_launcher_background

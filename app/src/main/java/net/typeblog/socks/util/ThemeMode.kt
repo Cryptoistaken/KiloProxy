@@ -21,9 +21,9 @@ object ThemeMode {
     fun isDarkTheme(context: Context): Boolean {
         val mode = try {
             PreferenceManager.getDefaultSharedPreferences(context)
-                .getString(Constants.PREF_THEME_MODE, "light") ?: "light"
+                .getString(Constants.PREF_THEME_MODE, "system") ?: "system"
         } catch (_: Exception) {
-            "light"
+            "system"
         }
         return when (mode) {
             "dark" -> true

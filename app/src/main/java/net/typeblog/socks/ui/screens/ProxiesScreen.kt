@@ -32,6 +32,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -55,6 +56,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -99,8 +103,8 @@ fun ProxiesScreen(
     var showAddSheet by rememberSaveable { mutableStateOf(false) }
     var selectedProvider by rememberSaveable { mutableStateOf<String?>(null) }
     var editTargetProfile by rememberSaveable { mutableStateOf<String?>(null) }
-    var deleteTarget by remember { mutableStateOf<String?>(null) }
-    var profileSearch by remember { mutableStateOf("") }
+    var deleteTarget by rememberSaveable { mutableStateOf<String?>(null) }
+    var profileSearch by rememberSaveable { mutableStateOf("") }
 
     // Proxy auto-sync is paused — proxies are managed manually on this screen.
     val scope = rememberCoroutineScope()
@@ -336,7 +340,7 @@ private fun AddEditProxySheet(
     var ipdeepTime by remember { mutableStateOf(5) }
     var syncing by remember { mutableStateOf(false) }
     var ipModeMenuExpanded by remember { mutableStateOf(false) }
-    var page by remember { mutableStateOf(0) }
+    var page by rememberSaveable { mutableStateOf(0) }
 
     // Snapshot/restore the whole draft so a country-pick round-trip through
     // the Countries tab returns to the sheet untouched.
@@ -539,7 +543,7 @@ private fun AddEditProxySheet(
                     password.trim()
                 )
                 testing = false
-                if (testStatus?.startsWith("✓") != true) {
+                if (testStatus != SocksTester.TEST_OK) {
                     testFailedFlash = true
                 }
             }
@@ -644,7 +648,7 @@ private fun AddEditProxySheet(
     val hostValid = host.trim().isNotEmpty()
     val portValid = portText.trim().toIntOrNull()?.let { it in 1..65535 } ?: false
     val allFieldsFilled = hostValid && portValid && username.isNotEmpty() && password.isNotEmpty() && name.trim().isNotEmpty()
-    val testPassed = testStatus?.startsWith("✓") == true
+    val testPassed = testStatus == SocksTester.TEST_OK
     // Editing an existing profile whose credentials were left untouched (e.g. a
     // pure rename) should save without re-running the connectivity test — the
     // proxy was presumably already reachable. Only a credential edit triggers the
@@ -819,9 +823,14 @@ private fun AddEditProxySheet(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .semantics {
+                            contentDescription = "Country, ${selectedCountry?.name ?: "none selected"}"
+                        }
                         .clickable(
                             interactionSource = remember { MutableInteractionSource() },
                             indication = null,
+                            role = Role.Button,
+                            onClickLabel = "Select country",
                             onClick = {
                                 viewModel.setPendingDraft(snapshotDraft())
                                 scope.launch {
@@ -844,6 +853,13 @@ private fun AddEditProxySheet(
                         maxLines = 1,
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(8.dp),
+                        // Disabled fields are greyed out by default; the tap
+                        // target is the parent Box, so keep full-contrast colors.
+                        colors = OutlinedTextFieldDefaults.colors(
+                            disabledTextColor = MaterialTheme.colorScheme.onSurface,
+                            disabledBorderColor = MaterialTheme.colorScheme.outline,
+                            disabledPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant
+                        ),
                         textStyle = MaterialTheme.typography.bodyLarge.copy(
                             color = if (selectedCountry != null) MaterialTheme.colorScheme.onSurface
                             else MaterialTheme.colorScheme.onSurfaceVariant
@@ -970,6 +986,7 @@ private fun AddEditProxySheet(
                     .padding(top = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                val status = testStatus
                 when {
                     testPassed -> {
                         Text(
@@ -977,6 +994,14 @@ private fun AddEditProxySheet(
                             fontSize = 13.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.tertiary
+                        )
+                    }
+                    status != null -> {
+                        Text(
+                            text = status,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.error
                         )
                     }
                     else -> {
@@ -1007,9 +1032,10 @@ private fun AddEditProxySheet(
                     modifier = Modifier.weight(1f).height(42.dp),
                     shape = RoundedCornerShape(8.dp),
                     contentPadding = PaddingValues(horizontal = 2.dp, vertical = 0.dp),
+                    // Neutral dismiss action: red is reserved for status.
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.error,
-                        contentColor = MaterialTheme.colorScheme.onError
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        contentColor = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 ) {
                     Text("Cancel", maxLines = 1, fontSize = 13.sp)

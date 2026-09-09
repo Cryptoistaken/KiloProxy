@@ -102,6 +102,8 @@ jobs:
           else
             LOG=$(git log --format=%s --no-merges -20)
           fi
+          # Release notes are plain ASCII: strip emoji/symbols from subjects.
+          LOG=$(printf '%s\n' "$LOG" | LC_ALL=C tr -cd '[:print:]\t\n')
           echo "$LOG" > changelog.md
           echo "Changelog:"
           cat changelog.md

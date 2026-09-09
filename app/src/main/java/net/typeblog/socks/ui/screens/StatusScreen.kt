@@ -25,6 +25,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -41,6 +42,9 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -279,10 +283,15 @@ fun StatusScreen(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .semantics {
+                        contentDescription = "Profile, ${selectedProfile ?: "none selected"}"
+                    }
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
                         enabled = !isRunning,
+                        role = Role.Button,
+                        onClickLabel = "Select profile",
                         onClick = onPickProfileClick
                     )
             ) {
@@ -293,6 +302,14 @@ fun StatusScreen(
                     enabled = false,
                     label = { Text("Profile") },
                     shape = RoundedCornerShape(10.dp),
+                    // Disabled fields are greyed out by default; the tap
+                    // target is the parent Box, so keep full-contrast colors.
+                    colors = OutlinedTextFieldDefaults.colors(
+                        disabledTextColor = MaterialTheme.colorScheme.onSurface,
+                        disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        disabledBorderColor = MaterialTheme.colorScheme.outline,
+                        disabledPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant
+                    ),
                     modifier = Modifier.fillMaxWidth()
                 )
             }

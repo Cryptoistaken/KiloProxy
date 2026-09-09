@@ -15,6 +15,12 @@ import kotlinx.coroutines.withContext
 object SocksTester {
 
     /**
+     * Success string returned by [testProxy]. Compare with == instead of
+     * matching on a symbol prefix so the save gate survives wording tweaks.
+     */
+    const val TEST_OK = "Proxy works"
+
+    /**
      * Result of a raw SOCKS5 handshake probe.
      */
     enum class ProxyProbe {
@@ -116,7 +122,7 @@ object SocksTester {
     }
 
     /**
-     * Returns a short "✓ …" / "✗ …" status string for display.
+     * Returns a short plain-ASCII status string for display.
      * Safe to call from any thread; runs on the IO dispatcher.
      */
     suspend fun testProxy(
@@ -126,7 +132,7 @@ object SocksTester {
         password: String
     ): String = withContext(Dispatchers.IO) {
         when (probeProxy(server, port, username, password)) {
-            ProxyProbe.OK -> "Proxy works"
+            ProxyProbe.OK -> TEST_OK
             ProxyProbe.AUTH_FAILED -> "Auth failed"
             ProxyProbe.NOT_SOCKS5 -> "Not a SOCKS5 proxy"
             ProxyProbe.CONNECT_FAILED -> "Connection failed"

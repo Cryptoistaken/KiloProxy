@@ -44,6 +44,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -188,8 +189,8 @@ fun SplitTunnelingScreen(
     }
 
     var showModeDialog by remember { mutableStateOf(false) }
-    var page by remember { mutableStateOf(0) } // 0 = main, 1 = apps
-    var query by remember { mutableStateOf("") }
+    var page by rememberSaveable { mutableStateOf(0) } // 0 = main, 1 = apps
+    var query by rememberSaveable { mutableStateOf("") }
     BackHandler(enabled = page == 1) { page = 0 }
 
     val nameByPkg = remember(installedApps) {

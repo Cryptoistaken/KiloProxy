@@ -32,7 +32,10 @@ object UpdateChecker {
     private const val USER_AGENT = "KiloProxy-Updater"
     private const val TIMEOUT_MILLIS = 8000
     private const val DOWNLOAD_CONNECT_TIMEOUT = 30_000
-    private const val DOWNLOAD_READ_TIMEOUT = 300_000
+    // A stalled read blocks cancel/pause until it times out (the flags are
+    // polled between reads). 60s keeps slow networks alive — a timeout just
+    // retries and resumes via Range — while keeping cancel responsive.
+    private const val DOWNLOAD_READ_TIMEOUT = 60_000
     private const val MAX_RETRIES = 2
     private const val BUFFER_SIZE = 8192
     private const val TAG = "KiloProxyUpdate"
@@ -136,6 +139,21 @@ object UpdateChecker {
     }
 
     /**
+     * Cache file for a release tag. Single place for the tag sanitizing so
+     * download, install and discard can never disagree on the file name.
+     */
+    fun cacheFile(context: Context, tag: String): File {
+        val safeTag = tag.filter { it.isLetterOrDigit() || it == '.' || it == '-' }
+        return if (safeTag.isNotEmpty()) File(context.cacheDir, "update-$safeTag.apk")
+        else File(context.cacheDir, "update.apk")
+    }
+
+    /** Deletes a cached (possibly partial) download for a release tag. */
+    fun discardCached(context: Context, tag: String) {
+        try { cacheFile(context, tag).delete() } catch (_: Exception) { }
+    }
+
+    /**
      * Downloads the APK to cache and launches the package installer.
      *
      * [totalBytes] is the expected download size (used to compute progress). When
@@ -148,10 +166,11 @@ object UpdateChecker {
         context: Context,
         url: String,
         totalBytes: Long = 0L,
-        onProgress: ((Float) -> Unit)? = null
+        onProgress: ((Float) -> Unit)? = null,
+        tag: String = ""
     ): String? {
-        downloadToCache(context, url, totalBytes, onProgress, isCancelled = { false })?.let { return it }
-        return installCached(context)
+        downloadToCache(context, url, totalBytes, onProgress, isCancelled = { false }, tag = tag)?.let { return it }
+        return installCached(context, tag)
     }
 
     /**
@@ -179,9 +198,7 @@ object UpdateChecker {
         tag: String = ""
     ): String? {
         if (!url.startsWith("https://")) return "Update URL must use HTTPS"
-        val safeTag = tag.filter { it.isLetterOrDigit() || it == '.' || it == '-' }
-        val file = if (safeTag.isNotEmpty()) File(context.cacheDir, "update-$safeTag.apk")
-        else File(context.cacheDir, "update.apk")
+        val file = cacheFile(context, tag)
         // Never resume foreign bytes: drop the legacy name and any other
         // version's file before touching this download.
         try {
@@ -299,6 +316,12 @@ object UpdateChecker {
                 lastException = e
                 Log.w(TAG, "downloadToCache() -> attempt ${attempt + 1} failed: ${e::class.simpleName}: ${e.message}", e)
                 connection?.disconnect()
+                // A cancel that landed mid-read or mid-backoff resolves here
+                // instead of sleeping through another retry.
+                if (isCancelled?.invoke() == true) {
+                    try { file.delete() } catch (_: Exception) { }
+                    return "Cancelled"
+                }
                 if (attempt < MAX_RETRIES - 1) {
                     Thread.sleep(1000L * (attempt + 1))
                 }
@@ -309,9 +332,7 @@ object UpdateChecker {
 
     /** Launches the package installer for the previously downloaded update.apk. */
     fun installCached(context: Context, tag: String = ""): String? {
-        val safeTag = tag.filter { it.isLetterOrDigit() || it == '.' || it == '-' }
-        val file = if (safeTag.isNotEmpty()) File(context.cacheDir, "update-$safeTag.apk")
-        else File(context.cacheDir, "update.apk")
+        val file = cacheFile(context, tag)
         if (!file.exists()) return "Downloaded file is missing"
         // Verify the file is a parseable APK for OUR package before handing
         // it to the installer: a stitched/truncated file would otherwise

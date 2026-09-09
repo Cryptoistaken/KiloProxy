@@ -61,7 +61,7 @@
     <string name="settings_whats_new">What\'s new in this version</string>
     <string name="settings_report_issue">Report an issue</string>
     <string name="whats_new_dialog_title">What\'s new</string>
-    <string name="whats_new_loading">Loading…</string>
+    <string name="whats_new_loading">Loading</string>
     <string name="whats_new_error">Couldn\'t load release notes</string>
     <string name="bubble_overlay_permission">Overlay permission required. Please enable \"Display over other apps\".</string>
     <string name="bubble_overlay_denied">Cannot display overlay. Check \"Display over other apps\" permission.</string>

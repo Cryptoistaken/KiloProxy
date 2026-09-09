@@ -120,9 +120,11 @@ fun SearchInput(
                     .onFocusChanged { focused = it.isFocused }
             )
             if (value.isNotEmpty()) {
+                // 40dp slot like a default IconButton (M3 pads the touch
+                // target to 48dp); the glyph itself stays 20dp.
                 IconButton(
                     onClick = { onValueChange("") },
-                    modifier = Modifier.size(28.dp)
+                    modifier = Modifier.size(40.dp)
                 ) {
                     Icon(
                         painter = painterResource(R.drawable.ic_clear),

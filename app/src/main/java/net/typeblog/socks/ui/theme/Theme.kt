@@ -59,12 +59,12 @@ private val DarkColorScheme = darkColorScheme(
 fun KiloProxyTheme(content: @Composable () -> Unit) {
     val context = LocalContext.current
     val prefs = PreferenceManager.getDefaultSharedPreferences(context)
-    var themeMode by remember { mutableStateOf(prefs.getString(PREF_THEME_MODE, "light") ?: "light") }
+    var themeMode by remember { mutableStateOf(prefs.getString(PREF_THEME_MODE, "system") ?: "system") }
 
     DisposableEffect(context) {
         val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
             when (key) {
-                PREF_THEME_MODE -> themeMode = prefs.getString(PREF_THEME_MODE, "light") ?: "light"
+                PREF_THEME_MODE -> themeMode = prefs.getString(PREF_THEME_MODE, "system") ?: "system"
             }
         }
         prefs.registerOnSharedPreferenceChangeListener(listener)
