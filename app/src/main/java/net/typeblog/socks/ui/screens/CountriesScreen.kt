@@ -367,8 +367,16 @@ private fun CountryRow(
                 color = MaterialTheme.colorScheme.tertiary
             )
         } else {
+            // Bubble-popup style trailing: short code + dial number.
             Text(
                 text = country.code,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.width(6.dp))
+            Text(
+                text = "+${country.phone}",
                 fontSize = 12.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

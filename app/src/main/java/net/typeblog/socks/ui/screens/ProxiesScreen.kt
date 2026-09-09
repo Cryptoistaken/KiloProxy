@@ -813,8 +813,9 @@ private fun AddEditProxySheet(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(bottom = 4.dp)
                 )
-                // Country (own line) - tapping opens the Countries tab;
-                // the draft is snapshotted first so the sheet restores untouched.
+                // Country (own line) - tapping slides the sheet down first,
+                // then opens the Countries tab; the draft is snapshotted
+                // so the sheet restores untouched on return.
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -823,7 +824,10 @@ private fun AddEditProxySheet(
                             indication = null,
                             onClick = {
                                 viewModel.setPendingDraft(snapshotDraft())
-                                onPickCountryClick()
+                                scope.launch {
+                                    try { sheetState.hide() } catch (_: Exception) { }
+                                    onPickCountryClick()
+                                }
                             }
                         )
                 ) {
