@@ -146,6 +146,7 @@ fun ProxiesScreen(
             if (selecting && !pickMode) {
                 BulkBar(
                     count = selected.size,
+                    allSelected = filteredProfiles.isNotEmpty() && selected.size == filteredProfiles.size,
                     onSelectAll = {
                         selected =
                             if (filteredProfiles.isNotEmpty() && selected.size == filteredProfiles.size) {
@@ -155,7 +156,7 @@ fun ProxiesScreen(
                             }
                     },
                     onDelete = { deleteTargets = selected.toList() },
-                    onDone = {
+                    onCancel = {
                         selecting = false
                         selected = emptyList()
                     }
@@ -219,6 +220,16 @@ fun ProxiesScreen(
                     description = "Search profiles",
                     modifier = Modifier.padding(bottom = 8.dp)
                 )
+                // Small selected-count at the top of the list while
+                // multi-selecting; the page header stays "Profiles".
+                if (selecting && !pickMode) {
+                    Text(
+                        text = "${selected.size} selected",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+                }
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
@@ -247,7 +258,16 @@ fun ProxiesScreen(
                         } else {
                             { detailTarget = profileName }
                         },
-                        selectionMode = selecting && !pickMode,
+                        onLongPress = if (pickMode) {
+                            null
+                        } else {
+                            {
+                                selecting = true
+                                if (!selected.contains(profileName)) {
+                                    selected = selected + profileName
+                                }
+                            }
+                        },
                         checked = selected.contains(profileName)
                         )
                     }
@@ -1272,13 +1292,16 @@ private fun parseProxyString(input: String): List<String>? {
     )
 }
 
-// Bulk-action bar for multi-select mode: count + Select all + Delete + Done.
+// Bulk-action bar for multi-select mode: Cancel + Select all/Unselect all +
+// Delete. Three equal buttons; Cancel neutral outline, Select all solid
+// primary (black/white per theme), Delete solid error red.
 @Composable
 private fun BulkBar(
     count: Int,
+    allSelected: Boolean,
     onSelectAll: () -> Unit,
     onDelete: () -> Unit,
-    onDone: () -> Unit
+    onCancel: () -> Unit
 ) {
     Surface(
         color = MaterialTheme.colorScheme.surfaceContainerLow,
@@ -1290,30 +1313,45 @@ private fun BulkBar(
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            Text(
-                text = "$count selected",
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 1,
-                modifier = Modifier.weight(1f)
-            )
-            TextButton(onClick = onSelectAll) {
-                Text("Select all", maxLines = 1)
+            OutlinedButton(
+                onClick = onCancel,
+                modifier = Modifier.weight(1f).height(44.dp),
+                shape = RoundedCornerShape(8.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
+            ) {
+                Text("Cancel", maxLines = 1, fontSize = 13.sp)
             }
-            TextButton(
+            Button(
+                onClick = onSelectAll,
+                modifier = Modifier.weight(1f).height(44.dp),
+                shape = RoundedCornerShape(8.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
+                ),
+                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
+            ) {
+                Text(
+                    if (allSelected) "Unselect all" else "Select all",
+                    maxLines = 1,
+                    fontSize = 13.sp
+                )
+            }
+            Button(
                 onClick = onDelete,
                 enabled = count > 0,
-                colors = ButtonDefaults.textButtonColors(
-                    contentColor = MaterialTheme.colorScheme.error
-                )
+                modifier = Modifier.weight(1f).height(44.dp),
+                shape = RoundedCornerShape(8.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.error,
+                    contentColor = MaterialTheme.colorScheme.onError
+                ),
+                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
             ) {
-                Text("Delete", maxLines = 1)
-            }
-            TextButton(onClick = onDone) {
-                Text("Done", maxLines = 1)
+                Text("Delete", maxLines = 1, fontSize = 13.sp)
             }
         }
     }

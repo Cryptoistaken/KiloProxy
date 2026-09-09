@@ -378,9 +378,10 @@ private fun CountryRow(
         // swaps for the connected mark on the connected row.
         if (isConnected) {
             // Bubble-style dot plus the Connected label.
+            // 7dp to match the bubble popup's connected dot (row_dot).
             Box(
                 modifier = Modifier
-                    .size(8.dp)
+                    .size(7.dp)
                     .background(MaterialTheme.colorScheme.tertiary, CircleShape)
             )
             Spacer(modifier = Modifier.width(6.dp))

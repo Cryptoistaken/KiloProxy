@@ -2,7 +2,7 @@ package net.typeblog.socks.ui.components
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -83,8 +83,8 @@ fun ProxyCard(
     modifier: Modifier = Modifier,
     liveUsageRx: Long = 0L,
     liveUsageTx: Long = 0L,
-    selectionMode: Boolean = false,
-    checked: Boolean = false
+    checked: Boolean = false,
+    onLongPress: (() -> Unit)? = null
 ) {
     val providerType = remember(username, server) { ProxyProviders.detectType(server, username) }
     val countryCode = remember(username, providerType) {
@@ -93,13 +93,19 @@ fun ProxyCard(
     val displayUsed = profileDisplayUsage(profileName, password, isConnected, liveUsageRx, liveUsageTx)
 
     Card(
-        onClick = onSelect,
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .combinedClickable(onClick = onSelect, onLongClick = onLongPress),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+            containerColor = if (checked) MaterialTheme.colorScheme.primaryContainer
+            else MaterialTheme.colorScheme.surfaceContainerLow
         ),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+        border = BorderStroke(
+            1.dp,
+            if (checked) MaterialTheme.colorScheme.primary
+            else MaterialTheme.colorScheme.outline
+        )
     ) {
         Row(
             modifier = Modifier
@@ -108,34 +114,6 @@ fun ProxyCard(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // Selection checkbox, only in bulk-select mode.
-            if (selectionMode) {
-                Box(
-                    modifier = Modifier
-                        .size(20.dp)
-                        .clip(RoundedCornerShape(6.dp))
-                        .then(
-                            if (checked) {
-                                Modifier.background(MaterialTheme.colorScheme.tertiary)
-                            } else {
-                                Modifier.border(
-                                    BorderStroke(2.dp, MaterialTheme.colorScheme.onSurfaceVariant),
-                                    RoundedCornerShape(6.dp)
-                                )
-                            }
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    if (checked) {
-                        Icon(
-                            painter = painterResource(R.drawable.lucide_check),
-                            contentDescription = null,
-                            modifier = Modifier.size(14.dp),
-                            tint = MaterialTheme.colorScheme.onPrimary
-                        )
-                    }
-                }
-            }
             // Icon slot: flag only, bare glyph when no country.
             Box(
                 modifier = Modifier.width(38.dp),
@@ -172,11 +150,12 @@ fun ProxyCard(
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f, fill = false)
                     )
-                    // App signal_dot: plain 10dp oval, hidden when offline.
+                    // App signal_dot: plain 7dp oval, hidden when offline.
+                    // Matches the bubble popup's connected dot (row_dot).
                     if (isConnected) {
                         Box(
                             modifier = Modifier
-                                .size(10.dp)
+                                .size(7.dp)
                                 .clip(CircleShape)
                                 .background(MaterialTheme.colorScheme.tertiary)
                         )

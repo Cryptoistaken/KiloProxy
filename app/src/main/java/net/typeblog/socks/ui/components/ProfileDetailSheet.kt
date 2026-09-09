@@ -2,7 +2,7 @@ package net.typeblog.socks.ui.components
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.animation.core.animateFloatAsStateimport androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -31,9 +31,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -168,6 +171,9 @@ fun ProfileDetailSheet(
             }
 
             // Actions.
+            CopyRow(
+                copyText = "$server:$port:$username:$password"
+            )
             TestRow(
                 server = server,
                 port = port,
@@ -252,6 +258,58 @@ private fun SheetRow(
 }
 
 private enum class TestPhase { Idle, Testing, Works, Failed }
+
+// Copies host:port:user:pass to the clipboard. Feedback is the row itself
+// flipping to green "Copied" with a tap-scale pop — no Toast.
+@Composable
+private fun CopyRow(
+    copyText: String,
+    modifier: Modifier = Modifier
+) {
+    val clipboard = LocalClipboardManager.current
+    val scope = rememberCoroutineScope()
+    var copied by remember { mutableStateOf(false) }
+    val scale by animateFloatAsState(if (copied) 0.96f else 1f, label = "copyPop")
+    val contentColor = if (copied) MaterialTheme.colorScheme.tertiary
+    else MaterialTheme.colorScheme.onSurface
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .graphicsLayer(scaleX = scale, scaleY = scale)
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                role = Role.Button,
+                onClickLabel = if (copied) "Copied" else "Copy",
+                onClick = {
+                    if (copied) return@clickable
+                    clipboard.setText(AnnotatedString(copyText))
+                    copied = true
+                    scope.launch {
+                        delay(1200)
+                        copied = false
+                    }
+                }
+            )
+            .padding(vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        Icon(
+            painter = painterResource(R.drawable.lucide_copy),
+            contentDescription = null,
+            modifier = Modifier.size(22.dp),
+            tint = contentColor
+        )
+        Text(
+            text = if (copied) "Copied" else "Copy",
+            fontSize = 15.sp,
+            fontWeight = if (copied) FontWeight.Bold else FontWeight.Normal,
+            color = contentColor,
+            modifier = Modifier.weight(1f)
+        )
+    }
+}
 
 @Composable
 private fun TestRow(

@@ -17,8 +17,7 @@
 
     <TextView
         android:id="@+id/row_name"
-        android:layout_width="0dp"
-        android:layout_weight="1"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginStart="8dp"
         android:textSize="11sp"
@@ -36,10 +35,14 @@
         android:textColor="#A1A1AA"
         android:fontFamily="sans-serif-medium" />
 
+    <View
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:layout_weight="1" />
+
     <FrameLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginStart="8dp"
         android:gravity="center">
 
         <TextView
