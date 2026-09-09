@@ -197,7 +197,11 @@ fun UpdateDialog(
         title = {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Image(
-                    painter = painterResource(R.mipmap.ic_launcher),
+                    // Plain-drawable copy of the launcher PNG: Compose
+                    // painterResource cannot render the adaptive-icon XML
+                    // that R.mipmap.ic_launcher resolves to on API 26+,
+                    // which crashed the dialog as soon as it appeared.
+                    painter = painterResource(R.drawable.app_icon),
                     contentDescription = "KiloProxy",
                     modifier = Modifier
                         .size(52.dp)
