@@ -1012,42 +1012,6 @@ private fun AddEditProxySheet(
                 }
             }
 
-            // Single test status line
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                val status = testStatus
-                when {
-                    testPassed -> {
-                        Text(
-                            text = "Proxy is valid, ready to save",
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.tertiary
-                        )
-                    }
-                    status != null -> {
-                        Text(
-                            text = status,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.error
-                        )
-                    }
-                    else -> {
-                        Text(
-                            text = "Fill all required fields to test",
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-            }
-
             Spacer(modifier = Modifier.height(16.dp))
 
             // Action buttons, colored by action.
@@ -1096,6 +1060,8 @@ private fun AddEditProxySheet(
                         Text("Testing", maxLines = 1, fontSize = 13.sp)
                     } else if (testFailedFlash) {
                         Text("Failed", maxLines = 1, fontSize = 13.sp, color = MaterialTheme.colorScheme.error)
+                    } else if (testPassed) {
+                        Text("Works", maxLines = 1, fontSize = 13.sp, color = MaterialTheme.colorScheme.tertiary)
                     } else {
                         Text("Test", maxLines = 1, fontSize = 13.sp)
                     }
