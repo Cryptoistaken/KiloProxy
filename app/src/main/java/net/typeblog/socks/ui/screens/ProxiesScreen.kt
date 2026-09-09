@@ -106,6 +106,7 @@ fun ProxiesScreen(
     var editTargetProfile by rememberSaveable { mutableStateOf<String?>(null) }
     var deleteTarget by rememberSaveable { mutableStateOf<String?>(null) }
     var detailTarget by rememberSaveable { mutableStateOf<String?>(null) }
+    var duplicateTarget by rememberSaveable { mutableStateOf<String?>(null) }
     var profileSearch by rememberSaveable { mutableStateOf("") }
 
     // Proxy auto-sync is paused — proxies are managed manually on this screen.
@@ -274,12 +275,7 @@ fun ProxiesScreen(
                 },
                 onDuplicate = {
                     detailTarget = null
-                    duplicateProfile(pm, target)?.let { newName ->
-                        viewModel.reloadProfiles(context)
-                        android.widget.Toast.makeText(
-                            context, "Duplicated as \"$newName\"", android.widget.Toast.LENGTH_SHORT
-                        ).show()
-                    }
+                    duplicateTarget = target
                 },
                 onDelete = {
                     detailTarget = null
@@ -288,6 +284,50 @@ fun ProxiesScreen(
                 onDismiss = { detailTarget = null }
             )
         }
+    }
+
+    // ── Duplicate Rename ──
+    duplicateTarget?.let { target ->
+        val pm = remember { ProfileManager.getInstance(context) }
+        var newName by remember(target) { mutableStateOf(firstFreeCopyName(pm, target)) }
+        val trimmed = newName.trim()
+        val nameTaken = remember(trimmed) { trimmed.isNotEmpty() && pm.getProfile(trimmed) != null }
+        AlertDialog(
+            onDismissRequest = { duplicateTarget = null },
+            title = { Text("Duplicate profile?") },
+            text = {
+                OutlinedTextField(
+                    value = newName,
+                    onValueChange = { newName = it },
+                    label = { Text("Name") },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(8.dp),
+                    singleLine = true,
+                    isError = trimmed.isEmpty() || nameTaken
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        if (duplicateProfileAs(pm, target, trimmed)) {
+                            viewModel.reloadProfiles(context)
+                            android.widget.Toast.makeText(
+                                context, "Duplicated as \"$trimmed\"", android.widget.Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                        duplicateTarget = null
+                    },
+                    enabled = trimmed.isNotEmpty() && !nameTaken
+                ) {
+                    Text("Create")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { duplicateTarget = null }) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 
     // ── Add/Edit Sheet ──
@@ -1182,18 +1222,23 @@ private fun freshProfileName(pm: ProfileManager, base: String): String {
     return "$base $n"
 }
 
-// Duplicate registers "<name> (copy)" then clones every stored field via
+// Duplicate registers the chosen name then clones every stored field via
 // Profile.copyTo (internal to this module, so no engine change was needed).
-private fun duplicateProfile(pm: ProfileManager, srcName: String): String? {
-    val src = pm.getProfile(srcName) ?: return null
+private fun duplicateProfileAs(pm: ProfileManager, srcName: String, newName: String): Boolean {
+    if (newName.isBlank() || pm.getProfile(newName) != null) return false
+    val src = pm.getProfile(srcName) ?: return false
+    if (pm.addProfile(newName) == null) return false
+    src.copyTo(newName)
+    return true
+}
+
+private fun firstFreeCopyName(pm: ProfileManager, srcName: String): String {
     var newName = "$srcName (copy)"
     var n = 2
     while (pm.getProfile(newName) != null) {
         newName = "$srcName (copy $n)"
         n++
     }
-    if (pm.addProfile(newName) == null) return null
-    src.copyTo(newName)
     return newName
 }
 
