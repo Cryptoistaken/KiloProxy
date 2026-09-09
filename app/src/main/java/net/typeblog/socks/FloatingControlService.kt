@@ -330,7 +330,7 @@ class FloatingControlService : Service() {
         val lp = params ?: return
         val bounds = currentDragBounds()
         val maxX = (bounds.right - bubbleWindowSizePx).coerceAtLeast(bounds.left)
-        val maxY = (bounds.bottom - bubbleWindowSizePx).coerceAtLeast(bounds.top)
+        val maxY = bubbleMaxY(bounds)
         val newX = lp.x.coerceIn(bounds.left, maxX)
         val newY = lp.y.coerceIn(bounds.top, maxY)
         if (newX != lp.x || newY != lp.y) {
@@ -364,7 +364,7 @@ class FloatingControlService : Service() {
         if (oldX != null && oldY != null) {
             val bounds = currentDragBounds()
             val maxX = (bounds.right - bubbleWindowSizePx).coerceAtLeast(bounds.left)
-            val maxY = (bounds.bottom - bubbleWindowSizePx).coerceAtLeast(bounds.top)
+            val maxY = bubbleMaxY(bounds)
             params?.x = oldX.coerceIn(bounds.left, maxX)
             params?.y = oldY.coerceIn(bounds.top, maxY)
         }
@@ -680,7 +680,30 @@ class FloatingControlService : Service() {
         val insets = currentSystemBarInsets()
         val bounds = currentDragBounds()
         val displayWidth = bounds.width() + insets.left + insets.right
-        pillParams.x = (bubbleParams.x + bubbleWindowSizePx / 2) - displayWidth / 2
+        val pill = flagPillView
+        if (pill != null && pill.visibility == View.VISIBLE) {
+            // Center on the bubble but clamp inside the visible bounds, so the
+            // pill never spills off-screen when the bubble sits at a side edge.
+            val pillW = if (pill.width > 0) {
+                pill.width
+            } else {
+                try {
+                    pill.measure(
+                        View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
+                        View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
+                    )
+                    pill.measuredWidth
+                } catch (_: Exception) {
+                    0
+                }
+            }
+            val minCenter = bounds.left + pillW / 2
+            val maxCenter = (bounds.right - pillW / 2).coerceAtLeast(minCenter)
+            val centerX = (bubbleParams.x + bubbleWindowSizePx / 2).coerceIn(minCenter, maxCenter)
+            pillParams.x = centerX - displayWidth / 2
+        } else {
+            pillParams.x = (bubbleParams.x + bubbleWindowSizePx / 2) - displayWidth / 2
+        }
         pillParams.y = bubbleParams.y + bubbleGrowMarginPx + bubbleSizePx - (2 * density).toInt()
         try {
             if (flagPillView?.isAttachedToWindow == true) {
@@ -758,6 +781,38 @@ class FloatingControlService : Service() {
         }
     }
 
+    /**
+     * Pixels the status label ("Connecting"/"Unprotected") hangs below the
+     * bubble window's bottom edge. 0 when the label is hidden. Used to keep
+     * the label above the nav bar at the bottom edge.
+     */
+    private fun statusLabelOverhangPx(): Int {
+        val tv = statusLabelView ?: return 0
+        if (tv.visibility != View.VISIBLE) return 0
+        val density = resources.displayMetrics.density
+        val labelH = if (tv.height > 0) tv.height else (20 * density).toInt()
+        val glyphPx = (42 * density).toInt()
+        val timerTop = bubbleSizePx / 2 + glyphPx / 2 + (1 * density).toInt()
+        return (bubbleGrowMarginPx + timerTop + labelH - bubbleWindowSizePx).coerceAtLeast(0)
+    }
+
+    /**
+     * Lowest bubble y that keeps the bubble AND its followers (flag pill,
+     * status label) above the nav bar. Replaces the ad-hoc maxY math that
+     * only reserved room for the pill.
+     */
+    private fun bubbleMaxY(bounds: Rect): Int {
+        val density = resources.displayMetrics.density
+        val pillHeightPx = if (flagPillView?.visibility == View.VISIBLE) {
+            flagPillView?.height ?: 0
+        } else {
+            0
+        }
+        return (bounds.bottom - bubbleWindowSizePx - pillHeightPx -
+            statusLabelOverhangPx() + (2 * density).toInt())
+            .coerceAtLeast(bounds.top)
+    }
+
     private fun updateStatusLabelPosition() {
         val lp = statusLabelParams ?: return
         val bp = params ?: return
@@ -765,11 +820,43 @@ class FloatingControlService : Service() {
         val insets = currentSystemBarInsets()
         val bounds = currentDragBounds()
         val displayWidth = bounds.width() + insets.left + insets.right
-        lp.x = (bp.x + bubbleWindowSizePx / 2) - displayWidth / 2
+        // Center on the bubble but clamp inside the visible bounds, so a wide
+        // label never spills off-screen at the left/right edges.
+        val tv = statusLabelView
+        val labelW = when {
+            tv == null -> 0
+            tv.width > 0 -> tv.width
+            else -> (tv.paint.measureText(tv.text.toString()) +
+                tv.paddingLeft + tv.paddingRight).toInt()
+        }
+        val minCenter = bounds.left + labelW / 2
+        val maxCenter = (bounds.right - labelW / 2).coerceAtLeast(minCenter)
+        val centerX = (bp.x + bubbleWindowSizePx / 2).coerceIn(minCenter, maxCenter)
+        lp.x = centerX - displayWidth / 2
         // Exactly where timer (Protected / flag) sits: below icon 1dp — even closer like html demo
         val glyphPx = (42 * density).toInt()
         val timerTop = bubbleSizePx / 2 + glyphPx / 2 + (1 * density).toInt()
         lp.y = bp.y + bubbleGrowMarginPx + timerTop
+        val labelH = if (tv != null && tv.height > 0) tv.height else (20 * density).toInt()
+        // If the label would hang under the nav bar (bubble parked at the
+        // bottom when the label appears), nudge the whole bubble up — but
+        // never mid-drag, where it would fight the finger.
+        if (!dragging && tv != null && tv.visibility == View.VISIBLE) {
+            val overflow = (lp.y + labelH) - bounds.bottom
+            if (overflow > 0) {
+                bp.y = (bp.y - overflow).coerceIn(bounds.top, bubbleMaxY(bounds))
+                try {
+                    if (bubbleView?.isAttachedToWindow == true) {
+                        windowManager?.updateViewLayout(bubbleView, bp)
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "update status label nudge failed", e)
+                }
+                lp.y = bp.y + bubbleGrowMarginPx + timerTop
+                updateFlagPillPosition()
+                persistBubblePosition()
+            }
+        }
         try { if (statusLabelView?.isAttachedToWindow == true) windowManager?.updateViewLayout(statusLabelView, lp) } catch (e: Exception) { Log.e(TAG, "update status label pos failed", e) }
         if (statusLabelView?.height ?: 0 == 0) statusLabelView?.post { updateStatusLabelPosition() }
     }
@@ -809,7 +896,7 @@ class FloatingControlService : Service() {
         if (savedX == Int.MIN_VALUE || savedY == Int.MIN_VALUE) return
         val bounds = currentDragBounds()
         val maxX = (bounds.right - bubbleWindowSizePx).coerceAtLeast(bounds.left)
-        val maxY = (bounds.bottom - bubbleWindowSizePx).coerceAtLeast(bounds.top)
+        val maxY = bubbleMaxY(bounds)
         lp.x = savedX.coerceIn(bounds.left, maxX)
         lp.y = savedY.coerceIn(bounds.top, maxY)
     }
@@ -895,20 +982,15 @@ class FloatingControlService : Service() {
                         longPressHandler.removeCallbacks(longPressRunnable)
                     }
                     if (dragging) {
-                        val dm = resources.displayMetrics
                         // Overlay windows use TOP|START / TOP|CENTER_HORIZONTAL gravity
                         // relative to the display frame, so clamp the bubble inside the
                         // visible content area: display bounds minus ALL four system-bar
                         // /cutout insets, applied symmetrically to min AND max edges.
+                        // bubbleMaxY also reserves the flag pill and status label, so
+                        // neither follower can be pushed under the nav bar.
                         val bounds = currentDragBounds()
-                        val pillHeightPx = if (flagPillView?.visibility == View.VISIBLE) {
-                            flagPillView?.height ?: 0
-                        } else {
-                            0
-                        }
                         val maxX = (bounds.right - bubbleWindowSizePx).coerceAtLeast(bounds.left)
-                        val maxY = (bounds.bottom - bubbleWindowSizePx - pillHeightPx + (2 * dm.density).toInt())
-                            .coerceAtLeast(bounds.top)
+                        val maxY = bubbleMaxY(bounds)
                         lp.x = (initialX + (event.rawX - initialRawX).toInt()).coerceIn(bounds.left, maxX)
                         lp.y = (initialY + (event.rawY - initialRawY).toInt()).coerceIn(bounds.top, maxY)
                         try {
