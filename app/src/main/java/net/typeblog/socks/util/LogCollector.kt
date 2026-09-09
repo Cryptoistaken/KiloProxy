@@ -13,6 +13,7 @@ object LogCollector {
     // Hard cap so a huge log buffer can never OOM the app or
     // produce an unshareable file. Keeps the newest tail.
     private const val MAX_LOG_CHARS = 200_000
+    private const val CACHE_FILE = "debug_logs_cache.txt"
 
     fun collectLogs(context: Context): String {
         val header = buildString {
@@ -35,8 +36,30 @@ object LogCollector {
             }
         }
 
-        return (header + output).takeLast(MAX_LOG_CHARS)
+        val result = (header + output).takeLast(MAX_LOG_CHARS)
+        val cache = File(context.filesDir, CACHE_FILE)
+        if (hasRealLogs(output)) {
+            try {
+                cache.writeText(result)
+            } catch (_: Exception) {
+            }
+            return result
+        }
+        try {
+            if (cache.exists()) {
+                val cached = cache.readText()
+                if (cached.isNotBlank()) return cached
+            }
+        } catch (_: Exception) {
+        }
+        return result
     }
+
+    private fun hasRealLogs(output: String): Boolean =
+        output.lineSequence().any {
+            val t = it.trim()
+            t.isNotEmpty() && !t.startsWith("(") && !t.startsWith("--- process")
+        }
 
     private fun appProcessPids(context: Context): List<Int> {
         val mine = android.os.Process.myPid()
