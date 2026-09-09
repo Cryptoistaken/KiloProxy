@@ -1,5 +1,6 @@
 package net.typeblog.socks.ui.screens
 
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -63,6 +64,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -541,6 +543,11 @@ private fun AddEditProxySheet(
     var testStatus by remember { mutableStateOf<String?>(null) }
     var testFailedFlash by remember { mutableStateOf(false) }
     var credsModified by remember { mutableStateOf(false) }
+    // In-button confirmation for Copy/Paste (no Toast): label flips briefly.
+    var copiedFlash by remember { mutableStateOf(false) }
+    var pasteFlash by remember { mutableStateOf<String?>(null) }
+    val copyPop by animateFloatAsState(if (copiedFlash) 0.96f else 1f, label = "copyPop")
+    val pastePop by animateFloatAsState(if (pasteFlash != null) 0.96f else 1f, label = "pastePop")
 
     // Provider state (country picker for owl/rapid/clip/generic; IP mode owl-only)
     var proxyType by remember { mutableStateOf(if (provider == "owl") ProxyProviders.TYPE_OWL else ProxyProviders.TYPE_CUSTOM) }
@@ -901,7 +908,8 @@ private fun AddEditProxySheet(
                     .verticalScroll(rememberScrollState())
             ) {
 
-            // Copy / Paste connection string (works for both Custom and OwlProxy)
+            // Copy / Paste connection string (works for both Custom and OwlProxy).
+            // Text-colored icons, tap-scale pop + in-button label flip, no Toast.
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -910,33 +918,55 @@ private fun AddEditProxySheet(
             ) {
                 OutlinedButton(
                     onClick = {
+                        if (copiedFlash) return@OutlinedButton
                         val text = copyProxyString()
                         if (text.isNotEmpty()) {
                             clipboardManager.setText(AnnotatedString(text))
-                            android.widget.Toast.makeText(context, "Copied to clipboard", android.widget.Toast.LENGTH_SHORT).show()
+                            copiedFlash = true
+                            scope.launch { delay(1200); copiedFlash = false }
                         }
                     },
                     enabled = host.trim().isNotEmpty() || portText.trim().isNotEmpty(),
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier
+                        .weight(1f)
+                        .graphicsLayer(scaleX = copyPop, scaleY = copyPop),
                     shape = RoundedCornerShape(8.dp),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = MaterialTheme.colorScheme.onSurface
+                    )
                 ) {
-                    Text("Copy", fontSize = 13.sp)
+                    Icon(
+                        painter = painterResource(R.drawable.ic_copy),
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(if (copiedFlash) "Copied" else "Copy", fontSize = 13.sp)
                 }
                 OutlinedButton(
                     onClick = {
+                        if (pasteFlash != null) return@OutlinedButton
                         val clip = clipboardManager.getText()?.text
-                        if (clip != null && applyProxyString(clip)) {
-                            android.widget.Toast.makeText(context, "Pasted from clipboard", android.widget.Toast.LENGTH_SHORT).show()
-                        } else {
-                            android.widget.Toast.makeText(context, "Clipboard has no valid proxy string", android.widget.Toast.LENGTH_SHORT).show()
-                        }
+                        pasteFlash = if (clip != null && applyProxyString(clip)) "Pasted" else "Invalid"
+                        scope.launch { delay(1200); pasteFlash = null }
                     },
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier
+                        .weight(1f)
+                        .graphicsLayer(scaleX = pastePop, scaleY = pastePop),
                     shape = RoundedCornerShape(8.dp),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = MaterialTheme.colorScheme.onSurface
+                    )
                 ) {
-                    Text("Paste", fontSize = 13.sp)
+                    Icon(
+                        painter = painterResource(R.drawable.ic_paste),
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(pasteFlash ?: "Paste", fontSize = 13.sp)
                 }
             }
 

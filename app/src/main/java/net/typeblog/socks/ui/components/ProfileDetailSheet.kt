@@ -266,7 +266,7 @@ private fun SheetRow(
 private enum class TestPhase { Idle, Testing, Works, Failed }
 
 // Copies host:port:user:pass to the clipboard. Feedback is the row itself
-// flipping to green "Copied" with a tap-scale pop — no Toast.
+// flipping to bold "Copied" in text color with a tap-scale pop — no Toast.
 @Composable
 private fun CopyRow(
     copyText: String,
@@ -276,8 +276,7 @@ private fun CopyRow(
     val scope = rememberCoroutineScope()
     var copied by remember { mutableStateOf(false) }
     val scale by animateFloatAsState(if (copied) 0.96f else 1f, label = "copyPop")
-    val contentColor = if (copied) MaterialTheme.colorScheme.tertiary
-    else MaterialTheme.colorScheme.onSurface
+    val contentColor = MaterialTheme.colorScheme.onSurface
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -302,7 +301,7 @@ private fun CopyRow(
         horizontalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         Icon(
-            painter = painterResource(R.drawable.lucide_copy),
+            painter = painterResource(R.drawable.ic_copy),
             contentDescription = null,
             modifier = Modifier.size(22.dp),
             tint = contentColor

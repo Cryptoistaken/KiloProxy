@@ -189,6 +189,7 @@ Notes on the merged notification/dot pass:
 - `drawable/lucide_minus.xml`, `ic_proton_filter.xml`, `ic_proton_apps.xml` (vector icons for the split tunneling rows)
 - `drawable/ic_sheet_test.xml`, `ic_sheet_edit.xml`, `ic_sheet_duplicate.xml`, `ic_sheet_delete.xml` (filled icons for the profile detail sheet rows)
 - `drawable/ic_notification_transparent.xml` (required invisible notification small icon)
+- `drawable/ic_copy.xml`, `ic_paste.xml` (fill icons for Copy/Paste, tinted to text color; no green)
 
 ### Native C — `app/src/main/jni/`
 | Area | Purpose |
