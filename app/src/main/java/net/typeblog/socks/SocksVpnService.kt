@@ -12,6 +12,7 @@ import android.content.pm.ServiceInfo
 import android.graphics.BitmapFactory
 import android.net.VpnService
 import android.net.VpnService.Builder
+import android.net.TrafficStats
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
@@ -209,20 +210,27 @@ class SocksVpnService : VpnService() {
     private var mBaseRx = 0L
     private var mBaseTx = 0L
 
+    private fun readUsageBytes(): Pair<Long, Long>? {
+        Utility.readTunBytes()?.let { return it }
+        val rx = TrafficStats.getUidRxBytes(Process.myUid())
+        val tx = TrafficStats.getUidTxBytes(Process.myUid())
+        return if (rx >= 0L && tx >= 0L) Pair(rx, tx) else null
+    }
+
     private val mStatsHandler = Handler(Looper.getMainLooper())
     @Volatile
     private var mStatsTick = 0L
     private val mStatsRunnable = object : Runnable {
         override fun run() {
-            val tun = Utility.readTunBytes()
-            tun?.let { (rx, tx) ->
+            val usage = readUsageBytes()
+            usage?.let { (rx, tx) ->
                 mReceivedBytes = (rx - mBaseRx).coerceAtLeast(0L)
                 mSentBytes = (tx - mBaseTx).coerceAtLeast(0L)
             }
             mStatsTick++
             // TEMP tunDBG: remove after data-used diagnosis.
             if (mStatsTick % 5L == 0L) {
-                Log.d(TAG, "tunDBG tick=$mStatsTick tun=$tun base=($mBaseRx,$mBaseTx) session=($mReceivedBytes,$mSentBytes) total=(${mCumulativeRx + mReceivedBytes},${mCumulativeTx + mSentBytes})")
+                Log.d(TAG, "tunDBG tick=$mStatsTick usage=$usage base=($mBaseRx,$mBaseTx) session=($mReceivedBytes,$mSentBytes) total=(${mCumulativeRx + mReceivedBytes},${mCumulativeTx + mSentBytes})")
             }
             if (mRunning) {
                 // Persist usage periodically so the profiles page proxy card
@@ -999,11 +1007,11 @@ class SocksVpnService : VpnService() {
         loadProfileBytes(mProfileName)
         mReceivedBytes = 0L
         mSentBytes = 0L
-        val initialTunBytes = Utility.readTunBytes()
-        mBaseRx = initialTunBytes?.first ?: 0L
-        mBaseTx = initialTunBytes?.second ?: 0L
+        val initialUsageBytes = readUsageBytes()
+        mBaseRx = initialUsageBytes?.first ?: 0L
+        mBaseTx = initialUsageBytes?.second ?: 0L
         // TEMP tunDBG: remove after data-used diagnosis.
-        Log.d(TAG, "tunDBG start initial=$initialTunBytes base=($mBaseRx,$mBaseTx) cumulative=($mCumulativeRx,$mCumulativeTx) profile=$mProfileName")
+        Log.d(TAG, "tunDBG start initial=$initialUsageBytes base=($mBaseRx,$mBaseTx) cumulative=($mCumulativeRx,$mCumulativeTx) profile=$mProfileName")
         Log.d(TAG, "tunDBG ifaces=" + dumpInterfaces())
         mStatsHandler.post(mStatsRunnable)
         mTunnelUp = true
