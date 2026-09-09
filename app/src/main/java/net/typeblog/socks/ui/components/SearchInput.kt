@@ -40,10 +40,10 @@ import androidx.compose.ui.unit.sp
 import net.typeblog.socks.R
 
 // Reusable search bar, ported from SheetSubmit's search-input.tsx:
-// outer shell (tinted, 16dp radius, 4dp padding) wraps an inner 48dp
-// group (surface, outline border, 12dp radius) holding a 18dp search
-// icon plus a borderless text field. Focus tints the border, and a
-// clear button appears whenever there is text.
+// single 56dp group (surface, outline border, 12dp radius) holding an
+// 18dp search icon plus a borderless text field. Focus tints the
+// border, tapping anywhere focuses the field, and a clear button
+// appears whenever there is text.
 @Composable
 fun SearchInput(
     value: String,
@@ -56,33 +56,26 @@ fun SearchInput(
     val focusRequester = remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
     var focused by remember { mutableStateOf(false) }
-    Box(
+    Row(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .background(MaterialTheme.colorScheme.surfaceContainerLow)
+            .height(56.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surface)
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null
             ) { focusRequester.requestFocus() }
-            .padding(4.dp)
-            .semantics { if (description != null) contentDescription = description }
+            .border(
+                1.dp,
+                if (focused) MaterialTheme.colorScheme.onSurfaceVariant
+                else MaterialTheme.colorScheme.outline,
+                RoundedCornerShape(12.dp)
+            )
+            .padding(start = 10.dp, end = 4.dp)
+            .semantics { if (description != null) contentDescription = description },
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(48.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .background(MaterialTheme.colorScheme.surface)
-                .border(
-                    1.dp,
-                    if (focused) MaterialTheme.colorScheme.onSurfaceVariant
-                    else MaterialTheme.colorScheme.outline,
-                    RoundedCornerShape(12.dp)
-                )
-                .padding(start = 10.dp, end = 4.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
             Icon(
                 painter = painterResource(R.drawable.lucide_search),
                 contentDescription = null,
@@ -134,6 +127,5 @@ fun SearchInput(
                     )
                 }
             }
-        }
     }
 }

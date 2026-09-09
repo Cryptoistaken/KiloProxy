@@ -412,7 +412,7 @@ private fun AppsPage(
             .padding(paddingValues)
             .imePadding()
     ) {
-        // Search bar — shared SearchInput (shell + 40dp group + icon + clear)
+        // Search bar — shared SearchInput (single 56dp group + icon + clear)
         SearchInput(
             value = query,
             onValueChange = onQueryChange,
