@@ -343,15 +343,26 @@ private fun CountryRow(
             Text(text = country.flag, fontSize = 20.sp)
         }
         Spacer(modifier = Modifier.width(12.dp))
+        // Bubble-popup pattern: name + short code together on the left,
+        // dial (or the connected mark) alone on the right.
         Text(
             text = country.name,
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurface,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f)
+            modifier = Modifier.weight(1f, fill = false)
         )
-        Spacer(modifier = Modifier.width(12.dp))
+        Spacer(modifier = Modifier.width(6.dp))
+        Text(
+            text = country.code,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(modifier = Modifier.weight(1f))
+        // Bubble-popup pattern: short code always visible; the dial
+        // swaps for the connected mark on the connected row.
         if (isConnected) {
             Icon(
                 painter = painterResource(R.drawable.lucide_check),
@@ -367,14 +378,6 @@ private fun CountryRow(
                 color = MaterialTheme.colorScheme.tertiary
             )
         } else {
-            // Bubble-popup style trailing: short code + dial number.
-            Text(
-                text = country.code,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(modifier = Modifier.width(6.dp))
             Text(
                 text = "+${country.phone}",
                 fontSize = 12.sp,
