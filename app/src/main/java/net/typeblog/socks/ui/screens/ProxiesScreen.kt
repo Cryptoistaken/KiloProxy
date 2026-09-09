@@ -1,6 +1,7 @@
 package net.typeblog.socks.ui.screens
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -39,10 +40,17 @@ import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -54,6 +62,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -115,6 +124,32 @@ fun ProxiesScreen(
 
     // Proxy auto-sync is paused — proxies are managed manually on this screen.
     val scope = rememberCoroutineScope()
+    val snack = remember { SnackbarHostState() }
+
+    // Swipe-left delete: immediate, with 5s Undo. Same stop-VPN handling
+    // as the confirm dialog when the active profile is removed.
+    fun swipeDelete(name: String) {
+        val pm = ProfileManager.getInstance(context)
+        val p = pm.getProfile(name) ?: return
+        val backup = DeletedProfile(name, p.getServer(), p.getPort(), p.getUsername(), p.getPassword())
+        if (isRunning && name == activeProfileName) viewModel.stopVpn(context)
+        pm.removeProfile(name)
+        viewModel.reloadProfiles(context)
+        scope.launch {
+            launch { delay(5000); snack.currentSnackbarData?.dismiss() }
+            val r = snack.showSnackbar("Deleted \"$name\"", actionLabel = "Undo", duration = SnackbarDuration.Long)
+            if (r == SnackbarResult.ActionPerformed) {
+                pm.addProfile(backup.name)?.let {
+                    it.setServer(backup.server)
+                    it.setPort(backup.port)
+                    it.setIsUserpw(true)
+                    it.setUsername(backup.username)
+                    it.setPassword(backup.password)
+                }
+                viewModel.reloadProfiles(context)
+            }
+        }
+    }
 
     val filteredProfiles = remember(profiles, profileSearch) {
         val q = profileSearch.trim().lowercase()
@@ -124,6 +159,7 @@ fun ProxiesScreen(
 
     Scaffold(
         modifier = modifier,
+        snackbarHost = { SnackbarHost(hostState = snack) },
         floatingActionButton = {
             if (!pickMode && !selecting) {
                 IconButton(
@@ -237,39 +273,60 @@ fun ProxiesScreen(
                     items(filteredProfiles, key = { it }) { profileName ->
                         val pm = remember { ProfileManager.getInstance(context) }
                         val profile = remember(profileName, profileVersion) { pm.getProfile(profileName) }
-                        ProxyCard(
-                            profileName = profileName,
-                            server = profile?.getServer() ?: "",
-                            username = profile?.getUsername() ?: "",
-                            password = profile?.getPassword() ?: "",
-                            isConnected = vpnConnected && activeProfileName == profileName,
-                            liveUsageRx = if (lastProfileName == profileName) receivedBytes else 0L,
-                            liveUsageTx = if (lastProfileName == profileName) sentBytes else 0L,
-                        onSelect = if (pickMode) {
-                            { onPickProfile?.invoke(profileName) }
-                        } else if (selecting) {
-                            {
-                                selected = if (selected.contains(profileName)) {
-                                    selected - profileName
-                                } else {
-                                    selected + profileName
+                        val dismissState = rememberSwipeToDismissBoxState(
+                            confirmValueChange = { v ->
+                                when (v) {
+                                    SwipeToDismissBoxValue.StartToEnd -> {
+                                        editTargetProfile = profileName
+                                        false
+                                    }
+                                    SwipeToDismissBoxValue.EndToStart -> {
+                                        swipeDelete(profileName)
+                                        true
+                                    }
+                                    SwipeToDismissBoxValue.Settled -> false
                                 }
                             }
-                        } else {
-                            { detailTarget = profileName }
-                        },
-                        onLongPress = if (pickMode) {
-                            null
-                        } else {
-                            {
-                                selecting = true
-                                if (!selected.contains(profileName)) {
-                                    selected = selected + profileName
-                                }
-                            }
-                        },
-                        checked = selected.contains(profileName)
                         )
+                        SwipeToDismissBox(
+                            state = dismissState,
+                            gesturesEnabled = !selecting && !pickMode,
+                            backgroundContent = { SwipeActionBg(dismissState.dismissDirection) }
+                        ) {
+                            ProxyCard(
+                                profileName = profileName,
+                                server = profile?.getServer() ?: "",
+                                username = profile?.getUsername() ?: "",
+                                password = profile?.getPassword() ?: "",
+                                isConnected = vpnConnected && activeProfileName == profileName,
+                                liveUsageRx = if (lastProfileName == profileName) receivedBytes else 0L,
+                                liveUsageTx = if (lastProfileName == profileName) sentBytes else 0L,
+                            onSelect = if (pickMode) {
+                                { onPickProfile?.invoke(profileName) }
+                            } else if (selecting) {
+                                {
+                                    selected = if (selected.contains(profileName)) {
+                                        selected - profileName
+                                    } else {
+                                        selected + profileName
+                                    }
+                                }
+                            } else {
+                                { detailTarget = profileName }
+                            },
+                            onLongPress = if (pickMode) {
+                                null
+                            } else {
+                                {
+                                    selecting = true
+                                    if (!selected.contains(profileName)) {
+                                        selected = selected + profileName
+                                    }
+                                }
+                            },
+                            checked = selected.contains(profileName)
+                            )
+                        }
                     }
                     // Bottom spacer for FAB
                     item { Spacer(modifier = Modifier.height(72.dp)) }
@@ -1291,6 +1348,37 @@ private fun parseProxyString(input: String): List<String>? {
         if (parts.size >= 4) parts[3].trim() else ""
     )
 }
+
+// Square full-bleed swipe hints behind proxy cards: right = Edit on
+// surface, left = Delete on error red. Direct commit, no buttons.
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SwipeActionBg(direction: SwipeToDismissBoxValue) {
+    if (direction == SwipeToDismissBoxValue.Settled) return
+    val fromStart = direction == SwipeToDismissBoxValue.StartToEnd
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(if (fromStart) MaterialTheme.colorScheme.surfaceContainerLow else MaterialTheme.colorScheme.error)
+            .padding(horizontal = 20.dp),
+        contentAlignment = if (fromStart) Alignment.CenterStart else Alignment.CenterEnd
+    ) {
+        Icon(
+            painter = painterResource(if (fromStart) R.drawable.ic_sheet_edit else R.drawable.ic_sheet_delete),
+            contentDescription = null,
+            tint = if (fromStart) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onError
+        )
+    }
+}
+
+// Field snapshot for swipe-delete Undo (restores server creds as-is).
+private data class DeletedProfile(
+    val name: String,
+    val server: String,
+    val port: Int,
+    val username: String,
+    val password: String
+)
 
 // Bulk-action bar for multi-select mode: Cancel + Select all/Unselect all +
 // Delete. Three equal buttons; Cancel neutral outline, Select all solid

@@ -29,6 +29,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -105,7 +106,7 @@ fun ProxyCard(
         border = BorderStroke(
             1.dp,
             if (checked) MaterialTheme.colorScheme.primary
-            else MaterialTheme.colorScheme.outline
+            else Color.Transparent
         )
     ) {
         Row(

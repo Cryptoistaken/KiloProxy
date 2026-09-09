@@ -46,8 +46,8 @@
      Hierarchy: icon = country flag only | line1 name + status | line2 country + provider | line3 host */
   .card {
     display: flex; align-items: center; gap: 12px;
-    background: var(--card); border: 1px solid var(--border);
-    border-radius: 16px; padding: 12px 14px; margin-bottom: 10px;
+    background: var(--card); border: 1px solid transparent;
+    border-radius: 0; padding: 12px 14px; margin-bottom: 10px;
     cursor: pointer;
   }
   .icon-wrap { flex: 0 0 auto; width: 38px; align-self: center; }
@@ -135,6 +135,22 @@
     padding: 10px 18px; border-radius: 9999px; z-index: 20; white-space: nowrap;
   }
   .toast.show { display: block; }
+
+  /* ---------- delete snackbar with Undo (no confirm on swipe-delete) ---------- */
+  .snackbar {
+    display: none; position: fixed; left: 16px; right: 16px; bottom: 78px; z-index: 15;
+    background: var(--text); color: var(--page); border-radius: 12px;
+    padding: 8px 4px 8px 16px; align-items: center; gap: 4px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4); max-width: 528px; margin: 0 auto;
+    font-size: 13px; font-weight: 600;
+  }
+  .snackbar.show { display: flex; animation: snackIn 0.22s ease-out; }
+  @keyframes snackIn { from { transform: translateY(12px); opacity: 0; } }
+  .snackbar span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .snackbar button {
+    background: none; border: 0; color: var(--green); font-weight: 800;
+    font-size: 13px; padding: 8px 12px; cursor: pointer; font-family: inherit;
+  }
 
   /* ---------- edit sheet (mirrors AddEditProxySheet) ---------- */
   .etitle { font-size: 16px; font-weight: 700; margin-top: 10px; margin-bottom: 10px; }
@@ -238,6 +254,21 @@
   }
   .tabbar .tab svg { width: 24px; height: 24px; }
   .tabbar .tab.on { color: var(--primary); font-weight: 700; }
+
+  /* ---------- swipe actions: release past 110px to commit, no buttons ----------
+     Right = Edit, left = Delete (confirm). Short drags snap back. */
+  .swipe-wrap { position: relative; overflow: hidden; border-radius: 0; margin-bottom: 10px; max-height: 200px;
+    transition: max-height 0.25s ease, opacity 0.2s ease, margin-bottom 0.25s ease; }
+  .swipe-wrap.deleting { max-height: 0; opacity: 0; margin-bottom: 0; }
+  .swipe-wrap.restoring { animation: cardIn 0.25s ease-out; }
+  @keyframes cardIn { from { opacity: 0; transform: translateY(-8px); } }
+  .swipe-wrap .card { margin-bottom: 0; position: relative; z-index: 1; touch-action: pan-y; transition: transform 0.18s ease-out; }
+  .swipe-bg { position: absolute; inset: 0; display: flex; justify-content: space-between; z-index: 0; pointer-events: none; }
+  .swipe-hint { flex: 0 0 84px; display: flex; align-items: center; justify-content: center; }
+  .swipe-hint svg { width: 22px; height: 22px; }
+  .swipe-hint.edit { background: var(--selbg); color: var(--text); }
+  .swipe-hint.del { background: var(--red); color: #ffffff; }
+  body.selecting .swipe-wrap .card { transform: none !important; }
 </style>
 </head>
 <body class="sel-overlay">
@@ -260,6 +291,15 @@
   <button class="fab" onclick="openAdd()" aria-label="Add proxy">+</button>
 
   <!-- Card 1: Owl US, minimal -->
+  <div class="swipe-wrap">
+    <div class="swipe-bg" aria-hidden="true">
+      <div class="swipe-hint edit">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20.71 7.04c.39-.39.39-1.04 0-1.41l-2.34-2.34c-.37-.39-1.02-.39-1.41 0l-1.84 1.83l3.75 3.75M3 17.25V21h3.75L17.81 9.93l-3.75-3.75z"/></svg>
+      </div>
+      <div class="swipe-hint del">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 21q-.825 0-1.412-.587T5 19V6H4V4h5V3h6v1h5v2h-1v13q0 .825-.587 1.413T17 21zm2-4h2V8H9zm4 0h2V8h-2z"/></svg>
+      </div>
+    </div>
   <div class="card" onclick="cardTap('owl', this)">
     <span class="selbox"></span>
     <div class="icon-wrap">
@@ -297,8 +337,18 @@
       </div>
     </div>
   </div>
+  </div>
 
   <!-- Card 2: custom, no country -->
+  <div class="swipe-wrap">
+    <div class="swipe-bg" aria-hidden="true">
+      <div class="swipe-hint edit">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20.71 7.04c.39-.39.39-1.04 0-1.41l-2.34-2.34c-.37-.39-1.02-.39-1.41 0l-1.84 1.83l3.75 3.75M3 17.25V21h3.75L17.81 9.93l-3.75-3.75z"/></svg>
+      </div>
+      <div class="swipe-hint del">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 21q-.825 0-1.412-.587T5 19V6H4V4h5V3h6v1h5v2h-1v13q0 .825-.587 1.413T17 21zm2-4h2V8H9zm4 0h2V8h-2z"/></svg>
+      </div>
+    </div>
   <div class="card" onclick="cardTap('custom', this)">
     <span class="selbox"></span>
     <div class="icon-wrap">
@@ -319,6 +369,7 @@
         <div class="used-cap">Used</div>
       </div>
     </div>
+  </div>
   </div>
 
   <!-- Bottom sheet -->
@@ -441,6 +492,10 @@
     </div>
   </div>
   <div class="toast" id="toast"></div>
+  <div class="snackbar" id="snackbar" role="status">
+    <span id="snackMsg"></span>
+    <button id="snackUndo" type="button">Undo</button>
+  </div>
   <div class="bulkbar" id="bulkbar">
     <button onclick="exitSelect()">Cancel</button>
     <button class="primary" id="selAllBtn" onclick="selAll()">Select all</button>
@@ -496,9 +551,87 @@
       openSheet(key, el);
     }
   }
+  /* ---------- two-sided swipe with direct action, no buttons ----------
+     Release past 110px to commit: right = Edit, left = Delete (confirm).
+     Short drags snap back. Dragging cancels long-press and swallows the tap. */
+  var dragState = null;
+  function closeSwipes(except) {
+    document.querySelectorAll('.swipe-wrap').forEach(function (w) {
+      if (w !== except) w.querySelector('.card').style.transform = '';
+    });
+  }
+  function wrapKey(wrap) {
+    var m = (wrap.querySelector('.card').getAttribute('onclick') || '').match(/cardTap\('([^']+)'/);
+    return m ? m[1] : null;
+  }
+  function commitEdit(wrap) {
+    currentKey = wrapKey(wrap);
+    currentCard = wrap.querySelector('.card');
+    openEdit();
+  }
+  var snackTimer = null;
+  function showSnack(msg, onUndo) {
+    var s = document.getElementById('snackbar');
+    document.getElementById('snackMsg').textContent = msg;
+    document.getElementById('snackUndo').onclick = function () {
+      clearTimeout(snackTimer);
+      s.classList.remove('show');
+      if (onUndo) onUndo();
+    };
+    s.classList.add('show');
+    clearTimeout(snackTimer);
+    snackTimer = setTimeout(function () { s.classList.remove('show'); }, 5000);
+  }
+  function commitDelete(wrap) {
+    var name = DATA[wrapKey(wrap)].name;
+    var parent = wrap.parentNode, next = wrap.nextSibling;
+    wrap.style.maxHeight = wrap.offsetHeight + 'px';
+    void wrap.offsetHeight;
+    wrap.classList.add('deleting');
+    setTimeout(function () { wrap.remove(); }, 260);
+    showSnack('Deleted "' + name + '"', function () {
+      wrap.classList.remove('deleting');
+      wrap.style.maxHeight = '';
+      wrap.classList.add('restoring');
+      parent.insertBefore(wrap, next);
+      setTimeout(function () { wrap.classList.remove('restoring'); }, 300);
+    });
+  }
+  function wireSwipe(wrap) {
+    var card = wrap.querySelector('.card');
+    card.addEventListener('pointerdown', function (e) {
+      if (selecting) return;
+      closeSwipes(wrap);
+      dragState = { card: card, x0: e.clientX, dx: 0 };
+    });
+    card.addEventListener('pointermove', function (e) {
+      if (!dragState || dragState.card !== card || selecting) return;
+      var dx = e.clientX - dragState.x0;
+      if (Math.abs(dx) > 10) { clearTimeout(pressTimer); longFired = true; }
+      if (Math.abs(dx) > 8) {
+        dragState.dx = dx;
+        card.style.transition = 'none';
+        card.style.transform = 'translateX(' + Math.max(-120, Math.min(120, dx)) + 'px)';
+      }
+    });
+    ['pointerup', 'pointercancel'].forEach(function (ev) {
+      card.addEventListener(ev, function () {
+        if (!dragState || dragState.card !== card) return;
+        var dx = dragState.dx, cancelled = (ev === 'pointercancel');
+        dragState = null;
+        card.style.transition = '';
+        card.style.transform = '';
+        if (cancelled || selecting) return;
+        if (dx >= 110) commitEdit(wrap);
+        else if (dx <= -110) commitDelete(wrap);
+      });
+    });
+  }
+  document.querySelectorAll('.swipe-wrap').forEach(wireSwipe);
   function enterSelect() {
     selecting = true;
     document.body.classList.add('selecting');
+    closeSwipes();
     updateSel();
   }
   function exitSelect() {
@@ -516,27 +649,30 @@
     var del = document.getElementById('bulkDel');
     if (del) del.disabled = (n === 0);
     // Label follows state: only offer Unselect all when all visible cards are picked.
-    var cards = Array.prototype.slice.call(document.querySelectorAll('.card'))
-      .filter(function (c) { return c.style.display !== 'none'; });
+    var cards = visibleCards();
     var all = cards.length > 0 && cards.every(function (c) { return c.classList.contains('picked'); });
     document.getElementById('selAllBtn').textContent = all ? 'Unselect all' : 'Select all';
   }
+  function visibleCards() {
+    return Array.prototype.slice.call(document.querySelectorAll('.swipe-wrap .card'))
+      .filter(function (c) { return c.closest('.swipe-wrap').style.display !== 'none'; });
+  }
   function selAll() {
-    var cards = Array.prototype.slice.call(document.querySelectorAll('.card'))
-      .filter(function (c) { return c.style.display !== 'none'; });
+    var cards = visibleCards();
     var all = cards.length > 0 && cards.every(function (c) { return c.classList.contains('picked'); });
     cards.forEach(function (c) { c.classList.toggle('picked', !all); });
     updateSel();
   }
   function delSel() {
-    var picks = document.querySelectorAll('.card.picked');
+    var picks = document.querySelectorAll('.swipe-wrap .card.picked');
     if (!picks.length) return;
     if (confirm('Delete ' + picks.length + ' profiles? This cannot be undone.')) {
-      picks.forEach(function (c) { c.remove(); });
+      picks.forEach(function (c) { c.closest('.swipe-wrap').remove(); });
       exitSelect();
     }
   }
   function openSheet(key, el) {
+    closeSwipes();
     var d = DATA[key];
     currentKey = key;
     currentCard = el || currentCard;
@@ -602,12 +738,17 @@
     DATA[key] = { flag: src.flag, name: src.name + ' (copy)', sub: src.sub,
                   provider: src.provider, used: '0 B', server: src.server,
                   host: src.host, port: src.port, user: src.user, pass: src.pass, cc: src.cc };
-    var clone = currentCard.cloneNode(true);
-    clone.querySelector('.name').textContent = DATA[key].name;
-    clone.querySelector('.dot').classList.add('off');
-    clone.querySelector('.used').textContent = '0 B';
-    clone.setAttribute('onclick', "cardTap('" + key + "', this)");
-    currentCard.parentNode.insertBefore(clone, currentCard.nextSibling);
+    var srcWrap = currentCard.closest('.swipe-wrap');
+    var clone = srcWrap.cloneNode(true);
+    var cloneCard = clone.querySelector('.card');
+    cloneCard.style.transform = '';
+    cloneCard.classList.remove('picked');
+    cloneCard.querySelector('.name').textContent = DATA[key].name;
+    cloneCard.querySelector('.dot').classList.add('off');
+    cloneCard.querySelector('.used').textContent = '0 B';
+    cloneCard.setAttribute('onclick', "cardTap('" + key + "', this)");
+    srcWrap.parentNode.insertBefore(clone, srcWrap.nextSibling);
+    wireSwipe(clone);
     closeSheet();
     toast('Duplicated as "' + DATA[key].name + '"');
   });
@@ -617,7 +758,7 @@
   });
   document.getElementById('delBtn').addEventListener('click', function () {
     if (confirm('Delete profile "' + DATA[currentKey].name + '"? This cannot be undone.')) {
-      currentCard.remove();
+      currentCard.closest('.swipe-wrap').remove();
       closeSheet();
     }
   });
@@ -625,9 +766,9 @@
   /* ---------- search ---------- */
   document.getElementById('q').addEventListener('input', function () {
     var q = this.value.trim().toLowerCase();
-    document.querySelectorAll('.card').forEach(function (c) {
-      var name = c.querySelector('.name').textContent.toLowerCase();
-      c.style.display = (q === '' || name.indexOf(q) !== -1) ? '' : 'none';
+    document.querySelectorAll('.swipe-wrap').forEach(function (w) {
+      var name = w.querySelector('.name').textContent.toLowerCase();
+      w.style.display = (q === '' || name.indexOf(q) !== -1) ? '' : 'none';
     });
   });
 
@@ -715,15 +856,19 @@
                     provider: cc ? (isUS ? 'OwlProxy' : 'Custom') : 'Custom', used: '0 B',
                     host: eHost.value.trim(), server: eHost.value.trim(),
                     port: ePort.value.trim(), user: eUser.value, pass: ePass.value, cc: cc };
-      var tpl = document.querySelector(isUS ? '.card .flag-big' : '.card .tile-neutral').closest('.card').cloneNode(true);
-      tpl.querySelector('.name').textContent = DATA[key].name;
-      tpl.querySelector('.host-line').textContent = DATA[key].host;
-      tpl.querySelector('.used').textContent = '0 B';
-      tpl.querySelector('.dot').classList.add('off');
+      var tpl = document.querySelector(isUS ? '.card .flag-big' : '.card .tile-neutral').closest('.swipe-wrap').cloneNode(true);
+      var tplCard = tpl.querySelector('.card');
+      tplCard.style.transform = '';
+      tplCard.classList.remove('picked');
+      tplCard.querySelector('.name').textContent = DATA[key].name;
+      tplCard.querySelector('.host-line').textContent = DATA[key].host;
+      tplCard.querySelector('.used').textContent = '0 B';
+      tplCard.querySelector('.dot').classList.add('off');
       tpl.style.display = '';
-      tpl.setAttribute('onclick', "cardTap('" + key + "', this)");
+      tplCard.setAttribute('onclick', "cardTap('" + key + "', this)");
       var search = document.querySelector('.search');
       search.parentNode.insertBefore(tpl, search.nextSibling);
+      wireSwipe(tpl);
     } else {
       var d = DATA[editKey];
       d.host = eHost.value.trim(); d.server = d.host;
