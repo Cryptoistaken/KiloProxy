@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import net.typeblog.socks.R
@@ -57,10 +58,13 @@ fun DebugLogsScreen(onNavigateBack: () -> Unit) {
     val copied = remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
-        val fresh = withContext(Dispatchers.IO) {
-            LogCollector.collectLogs(context)
+        while (isActive) {
+            val fresh = withContext(Dispatchers.IO) {
+                LogCollector.collectLogs(context)
+            }
+            logs.value = fresh
+            delay(2000)
         }
-        logs.value = fresh
     }
 
     Scaffold(

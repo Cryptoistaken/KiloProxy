@@ -51,12 +51,14 @@ object LogCollector {
 
     private fun runLogcat(pid: Int): String {
         return try {
-            val process = Runtime.getRuntime().exec(
-                arrayOf("logcat", "-d", "-v", "time", "-t", "2000", "--pid=$pid")
-            )
+            val process = ProcessBuilder(
+                "logcat", "-d", "-v", "time", "-t", "2000", "--pid", pid.toString()
+            ).redirectErrorStream(true).start()
             val output = process.inputStream.bufferedReader().readText()
-            process.waitFor()
-            if (output.isBlank()) "(no log lines for pid $pid)\n" else output
+            val exit = process.waitFor()
+            if (output.isBlank()) "(logcat exit $exit produced no output for pid $pid)\n"
+            else if (exit != 0) "$output\n(logcat exit $exit for pid $pid)\n"
+            else output
         } catch (e: Exception) {
             "(logcat failed for pid $pid: ${e.message})\n"
         }
