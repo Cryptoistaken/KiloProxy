@@ -140,6 +140,8 @@ fun SplitTunnelingScreen(
         onDispose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
     }
 
+    var page by rememberSaveable { mutableStateOf(0) } // 0 = main, 1 = apps
+
     var installedApps by remember { mutableStateOf<List<InstalledApp>>(emptyList()) }
 
     suspend fun loadApps() {
@@ -189,7 +191,6 @@ fun SplitTunnelingScreen(
     }
 
     var showModeDialog by remember { mutableStateOf(false) }
-    var page by rememberSaveable { mutableStateOf(0) } // 0 = main, 1 = apps
     var query by rememberSaveable { mutableStateOf("") }
     BackHandler(enabled = page == 1) { page = 0 }
 
