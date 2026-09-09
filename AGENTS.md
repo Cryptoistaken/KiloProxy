@@ -6,6 +6,10 @@
 - On failure: read the failing step, fix the code, commit, and push again.
 - On success: proceed with download/install per below.
 
+## Commit & Push
+- Commit and push to `master` after fixes are done — no separate `push` command needed. Never leave completed fixes uncommitted or sitting unpushed.
+- Identity: `Cryptoistaken` / `traderspopy@gmail.com`; push with `git -c credential.helper='!gh auth git-credential' push origin master`.
+
 ## Download & Install
 - Always download and install the **`app-arm64-v8a-release.apk`** (now named with the app version, e.g. `app-arm64-v8a-release-v1.2.177.apk`) from the `app-release` artifact of the successful run.
 - Fresh-download to a clean directory before installing (stale APKs caused version/signature mismatch before).

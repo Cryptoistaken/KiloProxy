@@ -361,6 +361,9 @@ private fun CountryRow(
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Spacer(modifier = Modifier.weight(1f))
+        // Minimum breathing room between the name block and the dial slot
+        // on long names where the flexible spacer above collapses.
+        Spacer(modifier = Modifier.width(16.dp))
         // Bubble-popup pattern: short code always visible; the dial
         // swaps for the connected mark on the connected row.
         if (isConnected) {
