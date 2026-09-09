@@ -157,12 +157,12 @@ fun SplitTunnelingScreen(
         installedApps = apps
     }
 
-    LaunchedEffect(Unit) { loadApps() }
+    LaunchedEffect(page) { if (page == 1) loadApps() }
 
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
-    DisposableEffect(lifecycleOwner) {
+    DisposableEffect(lifecycleOwner, page) {
         val obs = androidx.lifecycle.LifecycleEventObserver { _, e ->
-            if (e == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+            if (e == androidx.lifecycle.Lifecycle.Event.ON_RESUME && page == 1) {
                 scope.launch { loadApps() }
             }
         }
