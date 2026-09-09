@@ -11,8 +11,8 @@
 - Identity: `Cryptoistaken` / `traderspopy@gmail.com`; push with `git -c credential.helper='!gh auth git-credential' push origin master`.
 
 ## Download & Install
-- Always download and install the **universal release APK** (versioned by CI, e.g. `app-universal-release-v1.2.271.apk`) from the `app-release` artifact of the successful run.
-- Fresh-download to a clean directory before installing (stale APKs caused version/signature mismatch before).
+- Do NOT download or deliver the APK by default — the user updates from inside the app. Only download the **universal release APK** (versioned by CI) from the `app-release` artifact if the user explicitly asks for it.
+- If asked: fresh-download to a clean directory before installing (stale APKs caused version/signature mismatch before).
 - Since the persistent release keystore (GitHub secrets `RELEASE_KEYSTORE_*`) was introduced, every build is signed with the SAME key and `versionCode` increases monotonically (CI `GITHUB_RUN_NUMBER` + 100). Updates are install-overs and PRESERVE all app data — never uninstall just to update.
 
 ### Install flow

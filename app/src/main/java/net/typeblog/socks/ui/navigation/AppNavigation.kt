@@ -109,16 +109,20 @@ fun AppNavigation() {
                     // (filled icon + label, no pill), and clickable with
                     // indication = null so taps have no ripple flash.
                     bottomNavItems.forEach { item ->
-                        val selected = currentDestination?.hierarchy?.any {
+                        // Named isSelected (not selected): inside the
+                        // semantics {} receiver lambda below, a local named
+                        // `selected` would shadow the receiver's var and fail
+                        // to compile ('val' cannot be reassigned).
+                        val isSelected = currentDestination?.hierarchy?.any {
                             it.route == item.screen.route
                         } == true
-                        val contentColor = if (selected) MaterialTheme.colorScheme.primary
+                        val contentColor = if (isSelected) MaterialTheme.colorScheme.primary
                         else MaterialTheme.colorScheme.onSurfaceVariant
 
                         Column(
                             modifier = Modifier
                                 .weight(1f)
-                                .semantics { selected = selected }
+                                .semantics { selected = isSelected }
                                 .clickable(
                                     interactionSource = remember { MutableInteractionSource() },
                                     indication = null,
@@ -134,7 +138,7 @@ fun AppNavigation() {
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             Icon(
-                                painter = if (selected) item.selectedIcon else item.icon,
+                                painter = if (isSelected) item.selectedIcon else item.icon,
                                 contentDescription = item.label,
                                 tint = contentColor
                             )
