@@ -347,11 +347,13 @@ private fun TestRow(
                 role = Role.Button,
                 onClickLabel = label,
                 onClick = {
-                    if (phase == TestPhase.Testing) return@clickable
+                    if (phase != TestPhase.Idle) return@clickable
                     phase = TestPhase.Testing
                     scope.launch {
                         val result = SocksTester.testProxy(server, port, username, password)
                         phase = if (result == SocksTester.TEST_OK) TestPhase.Works else TestPhase.Failed
+                        delay(3000)
+                        phase = TestPhase.Idle
                     }
                 }
             )

@@ -672,7 +672,7 @@ class SocksVpnService : VpnService() {
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(getString(R.string.notify_title))
             .setContentText("Connecting")
-            .setSmallIcon(R.drawable.ic_notification)
+            .setSmallIcon(R.drawable.ic_notification_transparent)
             // Plain-drawable launcher copy: R.mipmap.ic_launcher resolves to the
             // adaptive-icon XML on API 26+, which BitmapFactory cannot decode
             // (returns null), leaving a stale or missing large icon.
@@ -699,7 +699,7 @@ class SocksVpnService : VpnService() {
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(getString(R.string.notify_title))
             .setContentText(notificationText)
-            .setSmallIcon(R.drawable.ic_notification)
+            .setSmallIcon(R.drawable.ic_notification_transparent)
             // Plain-drawable launcher copy: R.mipmap.ic_launcher resolves to the
             // adaptive-icon XML on API 26+, which BitmapFactory cannot decode
             // (returns null), leaving a stale or missing large icon.

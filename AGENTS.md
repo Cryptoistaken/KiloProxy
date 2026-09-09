@@ -188,6 +188,7 @@ Notes on the merged notification/dot pass:
 ### Drawables added for this pass
 - `drawable/lucide_minus.xml`, `ic_proton_filter.xml`, `ic_proton_apps.xml` (vector icons for the split tunneling rows)
 - `drawable/ic_sheet_test.xml`, `ic_sheet_edit.xml`, `ic_sheet_duplicate.xml`, `ic_sheet_delete.xml` (filled icons for the profile detail sheet rows)
+- `drawable/ic_notification_transparent.xml` (required invisible notification small icon)
 
 ### Native C — `app/src/main/jni/`
 | Area | Purpose |
@@ -212,7 +213,7 @@ Notes on the merged notification/dot pass:
 ### Resources — `app/src/main/res/`
 - `assets/` — (empty; NetShield blocklists were removed — NetShield is now cloud-only)
 - `layout/` — `app_item.xml`, `bubble_menu.xml` (bubble popup panel), `bubble_country_row.xml`, `notification_action.xml` (RemoteViews layout for the notification Connect/Disconnect pill)
-- `drawable/` — lucide_* icons, menu_panel_bg, search_input_bg, signal_dot, logo_*, launcher, notification_pill (pill button background)
+- `drawable/` — lucide_* icons, menu_panel_bg, search_input_bg, signal_dot, logo_*, launcher, notification_pill, notification icons (pill button background)
 - `font/` — Geist family TTFs (bold/medium/mono/pixel etc.)
 - `mipmap-*/` — legacy + adaptive launcher icons
 - `values/` — strings.xml, arrays.xml, styles.xml, pdnsd.xml, ruroute.xml, simpleroute.xml, ic_launcher_background

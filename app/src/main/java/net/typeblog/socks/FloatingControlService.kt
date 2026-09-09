@@ -1154,7 +1154,7 @@ class FloatingControlService : Service() {
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(title)
             .setContentText(text)
-            .setSmallIcon(R.drawable.ic_notification)
+            .setSmallIcon(R.drawable.ic_notification_transparent)
             // Plain-drawable copy of the launcher PNG: R.mipmap.ic_launcher
             // resolves to the adaptive-icon XML on API 26+, which
             // BitmapFactory cannot decode (returns null), leaving a stale or
