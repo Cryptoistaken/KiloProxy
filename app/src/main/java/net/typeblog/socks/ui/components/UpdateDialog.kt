@@ -9,6 +9,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -31,7 +33,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -294,12 +295,12 @@ fun UpdateDialog(
                             maxLines = 1
                         )
                         Spacer(modifier = Modifier.height(8.dp))
-                        LinearProgressIndicator(
-                            progress = { animatedProgress },
-                            modifier = Modifier.fillMaxWidth(),
-                            // No track: only the fill line is visible, so no
-                            // faint color sits ahead of the progress.
-                            trackColor = Color.Transparent
+                        // Plain fill line (not M3 LinearProgressIndicator: it
+                        // always draws a stop-indicator dot at the track end,
+                        // which floated alone once the track went transparent).
+                        DownloadBar(
+                            progress = animatedProgress,
+                            color = MaterialTheme.colorScheme.primary
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
@@ -317,11 +318,9 @@ fun UpdateDialog(
                             maxLines = 1
                         )
                         Spacer(modifier = Modifier.height(8.dp))
-                        LinearProgressIndicator(
-                            progress = { animatedProgress },
-                            modifier = Modifier.fillMaxWidth(),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            trackColor = Color.Transparent
+                        DownloadBar(
+                            progress = animatedProgress,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                     else -> {
@@ -378,4 +377,30 @@ fun UpdateDialog(
             }
         }
     )
+}
+
+/**
+ * Fill-only download bar: a plain fractional line with no track and no end
+ * dot, matching the transparent-track look without the M3 stop indicator.
+ */
+@Composable
+private fun DownloadBar(
+    progress: Float,
+    color: Color,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(4.dp)
+            .background(Color.Transparent)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth(progress.coerceIn(0f, 1f))
+                .height(4.dp)
+                .clip(RoundedCornerShape(2.dp))
+                .background(color)
+        )
+    }
 }
