@@ -26,6 +26,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -71,6 +72,7 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import net.typeblog.socks.R
+import net.typeblog.socks.ui.components.ProfileDetailSheet
 import net.typeblog.socks.ui.components.ProxyCard
 import net.typeblog.socks.ui.components.SearchInput
 import net.typeblog.socks.ui.viewmodel.ProxyDraft
@@ -104,6 +106,7 @@ fun ProxiesScreen(
     var selectedProvider by rememberSaveable { mutableStateOf<String?>(null) }
     var editTargetProfile by rememberSaveable { mutableStateOf<String?>(null) }
     var deleteTarget by rememberSaveable { mutableStateOf<String?>(null) }
+    var detailTarget by rememberSaveable { mutableStateOf<String?>(null) }
     var profileSearch by rememberSaveable { mutableStateOf("") }
 
     // Proxy auto-sync is paused — proxies are managed manually on this screen.
@@ -113,18 +116,17 @@ fun ProxiesScreen(
         modifier = modifier,
         floatingActionButton = {
             if (!pickMode) {
-                IconButton(
+                FloatingActionButton(
                     onClick = {
                         selectedProvider = "custom"
                         showAddSheet = true
                     },
-                    modifier = Modifier.size(56.dp)
+                    containerColor = MaterialTheme.colorScheme.tertiary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
                 ) {
                     Icon(
-                        painter = painterResource(R.drawable.fab_stack),
-                        contentDescription = "Add proxy",
-                        modifier = Modifier.size(42.dp),
-                        tint = MaterialTheme.colorScheme.onSurface
+                        painter = painterResource(R.drawable.lucide_plus),
+                        contentDescription = "Add proxy"
                     )
                 }
             }
@@ -201,17 +203,16 @@ fun ProxiesScreen(
                         ProxyCard(
                             profileName = profileName,
                             server = profile?.getServer() ?: "",
-                            port = profile?.getPort() ?: 0,
                             username = profile?.getUsername() ?: "",
                             password = profile?.getPassword() ?: "",
                             isConnected = isRunning && activeProfileName == profileName,
                             liveUsageRx = if (lastProfileName == profileName) receivedBytes else 0L,
                             liveUsageTx = if (lastProfileName == profileName) sentBytes else 0L,
-                        onEdit = { editTargetProfile = profileName },
-                        onDelete = { deleteTarget = profileName },
                         onSelect = if (pickMode) {
                             { onPickProfile?.invoke(profileName) }
-                        } else null
+                        } else {
+                            { detailTarget = profileName }
+                        }
                         )
                     }
                     // Bottom spacer for FAB
@@ -251,6 +252,42 @@ fun ProxiesScreen(
                 }
             }
         )
+    }
+
+    // ── Detail Sheet (tap card) ──
+    detailTarget?.let { target ->
+        val pm = remember { ProfileManager.getInstance(context) }
+        val detailProfile = remember(target, profileVersion) { pm.getProfile(target) }
+        detailProfile?.let { profile ->
+            ProfileDetailSheet(
+                profileName = target,
+                server = profile.getServer(),
+                port = profile.getPort(),
+                username = profile.getUsername(),
+                password = profile.getPassword(),
+                isConnected = isRunning && activeProfileName == target,
+                liveUsageRx = if (lastProfileName == target) receivedBytes else 0L,
+                liveUsageTx = if (lastProfileName == target) sentBytes else 0L,
+                onEdit = {
+                    detailTarget = null
+                    editTargetProfile = target
+                },
+                onDuplicate = {
+                    detailTarget = null
+                    duplicateProfile(pm, target)?.let { newName ->
+                        viewModel.reloadProfiles(context)
+                        android.widget.Toast.makeText(
+                            context, "Duplicated as \"$newName\"", android.widget.Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                },
+                onDelete = {
+                    detailTarget = null
+                    deleteTarget = target
+                },
+                onDismiss = { detailTarget = null }
+            )
+        }
     }
 
     // ── Add/Edit Sheet ──
@@ -1222,6 +1259,21 @@ private fun parseProxyString(input: String): List<String>? {
         if (parts.size >= 3) parts[2].trim() else "",
         if (parts.size >= 4) parts[3].trim() else ""
     )
+}
+
+// Duplicate registers "<name> (copy)" then clones every stored field via
+// Profile.copyTo (internal to this module, so no engine change was needed).
+private fun duplicateProfile(pm: ProfileManager, srcName: String): String? {
+    val src = pm.getProfile(srcName) ?: return null
+    var newName = "$srcName (copy)"
+    var n = 2
+    while (pm.getProfile(newName) != null) {
+        newName = "$srcName (copy $n)"
+        n++
+    }
+    if (pm.addProfile(newName) == null) return null
+    src.copyTo(newName)
+    return newName
 }
 
 private fun saveProfile(
