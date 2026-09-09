@@ -133,8 +133,10 @@ class FloatingControlService : Service() {
     fun isLockStyle(): Boolean = bubbleStyle == Constants.BUBBLE_STYLE_LOCK
 
     private fun isLightMode(): Boolean = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_NO
-    private fun lockGreen(): Int = if (isLightMode()) Color.parseColor("#1C9C7C") else Color.parseColor("#2CFFCC")
-    private fun lockErr(): Int = if (isLightMode()) Color.parseColor("#CC2D4F") else Color.parseColor("#F08FA4")
+    // Status colors stay fixed in every theme; only the spinner and the
+    // "Connecting" label flip between black and white.
+    private fun lockGreen(): Int = Color.parseColor("#1C9C7C")
+    private fun lockErr(): Int = Color.parseColor("#CC2D4F")
     private fun lockSpin(): Int = if (isLightMode()) Color.parseColor("#0C0C14") else Color.WHITE
 
     private var bubbleSizePx = 0
@@ -722,7 +724,7 @@ class FloatingControlService : Service() {
             }
             BubbleState.CONNECTING -> {
                 tv.text = "Connecting"
-                tv.setTextColor(Color.BLACK)
+                tv.setTextColor(if (isLightMode()) Color.BLACK else Color.WHITE)
                 tv.visibility = View.VISIBLE
                 updateStatusLabelPosition()
             }
