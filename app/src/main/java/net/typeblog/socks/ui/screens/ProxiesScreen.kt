@@ -398,7 +398,8 @@ private fun AddEditProxySheet(
 
     // Form state
     var name by remember { mutableStateOf(profileName ?: initialName) }
-    var nameTouched by remember { mutableStateOf(false) }    var host by remember { mutableStateOf("") }
+    var nameTouched by remember { mutableStateOf(false) }
+    var host by remember { mutableStateOf("") }
     var portText by remember { mutableStateOf("") }
     var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
