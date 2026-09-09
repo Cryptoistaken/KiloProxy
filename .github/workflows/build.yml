@@ -90,24 +90,19 @@ jobs:
           name: app-release
           path: app/build/outputs/apk/release/*.apk
 
-      # Build a plain-text changelog from commits since the last release tag —
-      # no hardcoded boilerplate, no GitHub diff URLs.
+      # Build a plain-text changelog from commits since the last release tag:
+      # human-readable subjects only (no hashes - the dialog already shows
+      # its own version line and "What's new" heading, so no boilerplate).
       - name: Generate changelog
         id: changelog
         run: |
           PREV=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || true)
           if [ -n "$PREV" ]; then
-            LOG=$(git log --oneline --no-merges "$PREV..HEAD")
+            LOG=$(git log --format=%s --no-merges "$PREV..HEAD")
           else
-            LOG=$(git log --oneline --no-merges -20)
+            LOG=$(git log --format=%s --no-merges -20)
           fi
-          {
-            echo "KiloProxy build v${{ steps.vc.outputs.code }}"
-            echo ""
-            echo "What's new in this version:"
-            echo ""
-            echo "$LOG" | sed 's/^/- /'
-          } > changelog.md
+          echo "$LOG" > changelog.md
           echo "Changelog:"
           cat changelog.md
 
