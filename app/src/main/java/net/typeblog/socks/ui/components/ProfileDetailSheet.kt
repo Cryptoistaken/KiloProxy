@@ -1,11 +1,5 @@
 package net.typeblog.socks.ui.components
 
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateInt
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -24,7 +18,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -42,6 +38,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import net.typeblog.socks.R
 import net.typeblog.socks.ui.theme.GeistMonoFonts
@@ -315,20 +312,20 @@ private fun TestRow(
 }
 
 // Wifi arcs lighting inner -> outer (1, 12, 123) while a test runs.
+// Stepped by coroutine: this icon only exists during testing, so the loop
+// dies with the composition — no animation APIs needed.
 @Composable
 private fun WifiScanIcon(
     tint: Color,
     modifier: Modifier = Modifier
 ) {
-    val step by rememberInfiniteTransition(label = "wifi").animateInt(
-        initialValue = 0,
-        targetValue = 2,
-        animationSpec = infiniteRepeatable(
-            animation = tween(900, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "step"
-    )
+    var step by remember { mutableIntStateOf(0) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(300)
+            step = (step + 1) % 3
+        }
+    }
     Canvas(modifier = modifier.size(22.dp)) {
         val cx = size.width / 2f
         val cy = size.height * 0.74f
