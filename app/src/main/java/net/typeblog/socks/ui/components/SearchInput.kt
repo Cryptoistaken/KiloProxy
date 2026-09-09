@@ -40,7 +40,7 @@ import androidx.compose.ui.unit.sp
 import net.typeblog.socks.R
 
 // Reusable search bar, ported from SheetSubmit's search-input.tsx:
-// outer shell (tinted, 16dp radius, 4dp padding) wraps an inner 44dp
+// outer shell (tinted, 16dp radius, 4dp padding) wraps an inner 48dp
 // group (surface, outline border, 12dp radius) holding a 18dp search
 // icon plus a borderless text field. Focus tints the border, and a
 // clear button appears whenever there is text.
@@ -71,7 +71,7 @@ fun SearchInput(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(44.dp)
+                .height(48.dp)
                 .clip(RoundedCornerShape(12.dp))
                 .background(MaterialTheme.colorScheme.surface)
                 .border(
