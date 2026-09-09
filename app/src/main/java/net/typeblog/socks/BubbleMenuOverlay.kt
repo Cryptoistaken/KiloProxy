@@ -4,6 +4,7 @@ import android.animation.ObjectAnimator
 import android.animation.PropertyValuesHolder
 import android.animation.ValueAnimator
 import android.content.Context
+import android.content.res.Configuration
 import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.Rect
@@ -58,6 +59,10 @@ class BubbleMenuOverlay(
     fun onConfigurationChanged() {
         windowManager = createWindowManager()
     }
+
+    private fun isLightMode(): Boolean =
+        (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
+            Configuration.UI_MODE_NIGHT_NO
     private val handler = Handler(Looper.getMainLooper())
     private val messageHandler = Handler(Looper.getMainLooper())
     private var rootView: FrameLayout? = null
@@ -423,7 +428,7 @@ class BubbleMenuOverlay(
         textSize = 9f
         setTypeface(typeface, Typeface.BOLD)
         letterSpacing = 0.08f
-        setTextColor(Color.BLACK)
+        setTextColor(if (isLightMode()) Color.BLACK else Color.WHITE)
         setPadding(dp(5f), dp(1f), 0, dp(2f))
     }
 
@@ -434,7 +439,7 @@ class BubbleMenuOverlay(
         ).apply {
             setMargins(dp(6f), 0, dp(6f), 0)
         }
-        setBackgroundColor(Color.parseColor("#E4E4E7"))
+        setBackgroundColor(Color.parseColor(if (isLightMode()) "#E4E4E7" else "#3F3F46"))
     }
 
     private fun showMessage(msg: String) {
