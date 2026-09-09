@@ -174,6 +174,7 @@ fun UpdateDialog(
     if (permissionPending) {
         AlertDialog(
             onDismissRequest = { permissionPending = false },
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
             title = { Text(text = "Allow installing updates?") },
             text = {
                 Text(
@@ -205,6 +206,7 @@ fun UpdateDialog(
 
     AlertDialog(
         onDismissRequest = { if (!downloading) onDismiss() },
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
         title = {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Image(

@@ -39,6 +39,7 @@ import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -104,18 +105,26 @@ fun ProxiesScreen(
     var showAddSheet by rememberSaveable { mutableStateOf(false) }
     var selectedProvider by rememberSaveable { mutableStateOf<String?>(null) }
     var editTargetProfile by rememberSaveable { mutableStateOf<String?>(null) }
-    var deleteTarget by rememberSaveable { mutableStateOf<String?>(null) }
+    var deleteTargets by rememberSaveable { mutableStateOf(listOf<String>()) }
     var detailTarget by rememberSaveable { mutableStateOf<String?>(null) }
     var duplicateTarget by rememberSaveable { mutableStateOf<String?>(null) }
+    var selecting by rememberSaveable { mutableStateOf(false) }
+    var selected by rememberSaveable { mutableStateOf(listOf<String>()) }
     var profileSearch by rememberSaveable { mutableStateOf("") }
 
     // Proxy auto-sync is paused — proxies are managed manually on this screen.
     val scope = rememberCoroutineScope()
 
+    val filteredProfiles = remember(profiles, profileSearch) {
+        val q = profileSearch.trim().lowercase()
+        if (q.isEmpty()) profiles.toList()
+        else profiles.filter { it.lowercase().contains(q) }
+    }
+
     Scaffold(
         modifier = modifier,
         floatingActionButton = {
-            if (!pickMode) {
+            if (!pickMode && !selecting) {
                 IconButton(
                     onClick = {
                         selectedProvider = "custom"
@@ -130,6 +139,26 @@ fun ProxiesScreen(
                         tint = MaterialTheme.colorScheme.onSurface
                     )
                 }
+            }
+        },
+        bottomBar = {
+            if (selecting && !pickMode) {
+                BulkBar(
+                    count = selected.size,
+                    onSelectAll = {
+                        selected =
+                            if (filteredProfiles.isNotEmpty() && selected.size == filteredProfiles.size) {
+                                emptyList()
+                            } else {
+                                filteredProfiles
+                            }
+                    },
+                    onDelete = { deleteTargets = selected.toList() },
+                    onDone = {
+                        selecting = false
+                        selected = emptyList()
+                    }
+                )
             }
         }
     ) { padding ->
@@ -159,11 +188,6 @@ fun ProxiesScreen(
                 }
             }
         } else {
-            val filteredProfiles = remember(profiles, profileSearch) {
-                val q = profileSearch.trim().lowercase()
-                if (q.isEmpty()) profiles
-                else profiles.filter { it.lowercase().contains(q) }
-            }
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -211,9 +235,19 @@ fun ProxiesScreen(
                             liveUsageTx = if (lastProfileName == profileName) sentBytes else 0L,
                         onSelect = if (pickMode) {
                             { onPickProfile?.invoke(profileName) }
+                        } else if (selecting) {
+                            {
+                                selected = if (selected.contains(profileName)) {
+                                    selected - profileName
+                                } else {
+                                    selected + profileName
+                                }
+                            }
                         } else {
                             { detailTarget = profileName }
-                        }
+                        },
+                        selectionMode = selecting && !pickMode,
+                        checked = selected.contains(profileName)
                         )
                     }
                     // Bottom spacer for FAB
@@ -223,22 +257,37 @@ fun ProxiesScreen(
         }
     }
 
-    // ── Delete Confirmation ──
-    deleteTarget?.let { target ->
+    // ── Delete Confirmation (single or bulk) ──
+    if (deleteTargets.isNotEmpty()) {
+        val targets = deleteTargets
         AlertDialog(
-            onDismissRequest = { deleteTarget = null },
-            title = { Text("Delete profile?") },
-            text = { Text("Remove profile \"$target\"? This cannot be undone.") },
+            onDismissRequest = { deleteTargets = emptyList() },
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+            title = {
+                Text(
+                    if (targets.size == 1) "Delete profile?"
+                    else "Delete ${targets.size} profiles?"
+                )
+            },
+            text = {
+                Text(
+                    if (targets.size == 1) "Remove profile \"${targets[0]}\"? This cannot be undone."
+                    else "Remove ${targets.size} profiles? This cannot be undone."
+                )
+            },
             confirmButton = {
                 TextButton(
                     onClick = {
                         val pm = ProfileManager.getInstance(context)
-                        if (isRunning && activeProfileName == target) {
+                        if (isRunning && targets.contains(activeProfileName)) {
                             viewModel.stopVpn(context)
                         }
-                        pm.removeProfile(target)
+                        targets.forEach { pm.removeProfile(it) }
                         viewModel.reloadProfiles(context)
-                        deleteTarget = null
+                        val remaining = selected.filterNot { targets.contains(it) }
+                        selected = remaining
+                        if (remaining.isEmpty()) selecting = false
+                        deleteTargets = emptyList()
                     },
                     colors = ButtonDefaults.textButtonColors(
                         contentColor = MaterialTheme.colorScheme.error
@@ -248,7 +297,7 @@ fun ProxiesScreen(
                 }
             },
             dismissButton = {
-                TextButton(onClick = { deleteTarget = null }) {
+                TextButton(onClick = { deleteTargets = emptyList() }) {
                     Text("Cancel")
                 }
             }
@@ -277,9 +326,14 @@ fun ProxiesScreen(
                     detailTarget = null
                     duplicateTarget = target
                 },
+                onSelectMode = {
+                    detailTarget = null
+                    selected = emptyList()
+                    selecting = true
+                },
                 onDelete = {
                     detailTarget = null
-                    deleteTarget = target
+                    deleteTargets = listOf(target)
                 },
                 onDismiss = { detailTarget = null }
             )
@@ -294,6 +348,7 @@ fun ProxiesScreen(
         val nameTaken = remember(trimmed) { trimmed.isNotEmpty() && pm.getProfile(trimmed) != null }
         AlertDialog(
             onDismissRequest = { duplicateTarget = null },
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
             title = { Text("Duplicate profile?") },
             text = {
                 OutlinedTextField(
@@ -741,7 +796,7 @@ private fun AddEditProxySheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = MaterialTheme.colorScheme.surface,
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
         shape = RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp)
     ) {
         Column(
@@ -1214,6 +1269,53 @@ private fun parseProxyString(input: String): List<String>? {
         if (parts.size >= 3) parts[2].trim() else "",
         if (parts.size >= 4) parts[3].trim() else ""
     )
+}
+
+// Bulk-action bar for multi-select mode: count + Select all + Delete + Done.
+@Composable
+private fun BulkBar(
+    count: Int,
+    onSelectAll: () -> Unit,
+    onDelete: () -> Unit,
+    onDone: () -> Unit
+) {
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+        shape = RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                text = "$count selected",
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                modifier = Modifier.weight(1f)
+            )
+            TextButton(onClick = onSelectAll) {
+                Text("Select all", maxLines = 1)
+            }
+            TextButton(
+                onClick = onDelete,
+                enabled = count > 0,
+                colors = ButtonDefaults.textButtonColors(
+                    contentColor = MaterialTheme.colorScheme.error
+                )
+            ) {
+                Text("Delete", maxLines = 1)
+            }
+            TextButton(onClick = onDone) {
+                Text("Done", maxLines = 1)
+            }
+        }
+    }
 }
 
 // First free "<base> <n>" name (OwlProxy 1, OwlProxy 2, ...).

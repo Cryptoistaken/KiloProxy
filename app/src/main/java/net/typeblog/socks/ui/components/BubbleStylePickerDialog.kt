@@ -36,6 +36,7 @@ fun BubbleStylePickerDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
         title = { Text(text = "Bubble style") },
         text = {
             Column(modifier = Modifier.fillMaxWidth()) {

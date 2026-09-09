@@ -175,7 +175,7 @@ Notes on the merged notification/dot pass:
 ### `.../ui/`
 - `components/` — Compose components: ConnectionCard, ProxyCard, ProfileDetailSheet, ProtonControls (ProtonSwitch + ProtonRadio + ProtonDialogRadioRow, mock-exact mono controls), SearchInput, SettingsItem, UpdateDialog
   - `ConnectionCard.kt` — Connect/Disconnect button is now text-only (icon removed); spinner shown while connecting.
-  - `ProxyCard.kt` — Minimal card (profilecard.html v2): flag-emoji / server-glyph icon slot, name + app-green dot (hidden offline), host without port, Used total only. Whole card taps to `onSelect` (detail sheet, or pick in pickMode). No chips, no buttons.
+  - `ProxyCard.kt` — Minimal card (profilecard.html v2): flag-emoji / server-glyph icon slot, name + app-green dot (hidden offline), host without port, Used total only. Whole card taps to `onSelect` (detail sheet, or pick in pickMode). No chips, no buttons. Bulk-select mode shows a leading checkbox (`selectionMode`/`checked`, `lucide_check`).
   - `ProfileDetailSheet.kt` — Bottom sheet opened by tapping a card: icon + name + sub, Provider/Type + Used/Server(no port) facts, Test (SocksTester + Toast) / Edit / Duplicate (`duplicateProfile` in ProxiesScreen, `Profile.copyTo`, no engine change) / Delete rows with `ic_sheet_*` icons. Delete reuses the existing confirm dialog.
 - `navigation/AppNavigation.kt` — NavHost destinations (incl. `theme` route)
 - `screens/` — BubbleSettingsScreen, CountriesScreen, DebugLogsScreen, ProxiesScreen, SettingsScreen, SplitTunnelingScreen, StatusScreen, ThemeScreen

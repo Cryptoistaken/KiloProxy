@@ -60,6 +60,7 @@ fun ProfileDetailSheet(
     isConnected: Boolean,
     onEdit: () -> Unit,
     onDuplicate: () -> Unit,
+    onSelectMode: () -> Unit,
     onDelete: () -> Unit,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
@@ -175,6 +176,7 @@ fun ProfileDetailSheet(
             )
             SheetRow(icon = R.drawable.ic_sheet_edit, label = "Edit", onClick = onEdit)
             SheetRow(icon = R.drawable.ic_sheet_duplicate, label = "Duplicate", onClick = onDuplicate)
+            SheetRow(icon = R.drawable.ic_sheet_select, label = "Select", onClick = onSelectMode)
             SheetRow(
                 icon = R.drawable.ic_sheet_delete,
                 label = "Delete",

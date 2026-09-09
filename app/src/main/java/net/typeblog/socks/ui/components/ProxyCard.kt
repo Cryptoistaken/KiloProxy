@@ -2,6 +2,7 @@ package net.typeblog.socks.ui.components
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -81,7 +82,9 @@ fun ProxyCard(
     onSelect: () -> Unit,
     modifier: Modifier = Modifier,
     liveUsageRx: Long = 0L,
-    liveUsageTx: Long = 0L
+    liveUsageTx: Long = 0L,
+    selectionMode: Boolean = false,
+    checked: Boolean = false
 ) {
     val providerType = remember(username, server) { ProxyProviders.detectType(server, username) }
     val countryCode = remember(username, providerType) {
@@ -105,6 +108,34 @@ fun ProxyCard(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            // Selection checkbox, only in bulk-select mode.
+            if (selectionMode) {
+                Box(
+                    modifier = Modifier
+                        .size(20.dp)
+                        .clip(RoundedCornerShape(6.dp))
+                        .then(
+                            if (checked) {
+                                Modifier.background(MaterialTheme.colorScheme.tertiary)
+                            } else {
+                                Modifier.border(
+                                    BorderStroke(2.dp, MaterialTheme.colorScheme.onSurfaceVariant),
+                                    RoundedCornerShape(6.dp)
+                                )
+                            }
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (checked) {
+                        Icon(
+                            painter = painterResource(R.drawable.lucide_check),
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp),
+                            tint = MaterialTheme.colorScheme.onPrimary
+                        )
+                    }
+                }
+            }
             // Icon slot: flag only, bare glyph when no country.
             Box(
                 modifier = Modifier.width(38.dp),
