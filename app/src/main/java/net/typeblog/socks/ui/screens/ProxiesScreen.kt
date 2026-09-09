@@ -26,7 +26,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -116,17 +115,18 @@ fun ProxiesScreen(
         modifier = modifier,
         floatingActionButton = {
             if (!pickMode) {
-                FloatingActionButton(
+                IconButton(
                     onClick = {
                         selectedProvider = "custom"
                         showAddSheet = true
                     },
-                    containerColor = MaterialTheme.colorScheme.tertiary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary
+                    modifier = Modifier.size(56.dp)
                 ) {
                     Icon(
-                        painter = painterResource(R.drawable.lucide_plus),
-                        contentDescription = "Add proxy"
+                        painter = painterResource(R.drawable.fab_stack),
+                        contentDescription = "Add proxy",
+                        modifier = Modifier.size(42.dp),
+                        tint = MaterialTheme.colorScheme.onSurface
                     )
                 }
             }
