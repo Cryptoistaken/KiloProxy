@@ -377,7 +377,6 @@ private fun AddEditProxySheet(
     var ipdeepTime by remember { mutableStateOf(5) }
     var syncing by remember { mutableStateOf(false) }
     var ipModeMenuExpanded by remember { mutableStateOf(false) }
-    var page by rememberSaveable { mutableStateOf(0) }
 
     // Snapshot/restore the whole draft so a country-pick round-trip through
     // the Countries tab returns to the sheet untouched.
@@ -397,8 +396,7 @@ private fun AddEditProxySheet(
         owlMode = owlMode,
         owlTime = owlTime,
         ipdeepMode = ipdeepMode,
-        ipdeepTime = ipdeepTime,
-        page = page
+        ipdeepTime = ipdeepTime
     )
 
     fun restoreDraft(d: ProxyDraft) {
@@ -415,7 +413,6 @@ private fun AddEditProxySheet(
         owlTime = d.owlTime
         ipdeepMode = d.ipdeepMode
         ipdeepTime = d.ipdeepTime
-        page = d.page
     }
 
     // Detect provider + country from the username (host influences type too).
@@ -557,7 +554,7 @@ private fun AddEditProxySheet(
         detectFromUsername(newVal)
     }
 
-    // Hoisted for 2-page sheet: page 0 = connection, page 1 = name + IP mode.
+    // Hoisted IP-mode state shared by the name section below.
     val hasIpMode = proxyType == ProxyProviders.TYPE_OWL ||
         proxyType == ProxyProviders.TYPE_IPDEEP
     val curMode = if (proxyType == ProxyProviders.TYPE_IPDEEP) ipdeepMode else owlMode
@@ -717,13 +714,7 @@ private fun AddEditProxySheet(
                 text = if (isEdit) "Edit Proxy" else "Add Proxy",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(top = 14.dp, bottom = 2.dp)
-            )
-            Text(
-                text = if (page == 0) "Step 1 of 2 - Connection" else "Step 2 of 2 - Name and IP Mode",
-                fontSize = 12.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(bottom = 10.dp)
+                modifier = Modifier.padding(top = 14.dp, bottom = 10.dp)
             )
 
             // Scrollable fields; status line + action buttons stay pinned
@@ -736,7 +727,6 @@ private fun AddEditProxySheet(
                     .verticalScroll(rememberScrollState())
             ) {
 
-            if (page == 0) {
             // Copy / Paste connection string (works for both Custom and OwlProxy)
             Row(
                 modifier = Modifier
@@ -777,7 +767,6 @@ private fun AddEditProxySheet(
             }
 
             // Server details (Host : Port) - no grouping header, fields carry own names
-            // (still page 0)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -845,7 +834,7 @@ private fun AddEditProxySheet(
                 modifier = Modifier.fillMaxWidth()
             )
 
-            // ── Page 0 extras: country picker only - no grouping header
+            // ── Country picker only - no grouping header
             val showCountry = proxyType == ProxyProviders.TYPE_OWL ||
                 proxyType == ProxyProviders.TYPE_RAPID ||
                 proxyType == ProxyProviders.TYPE_CLIP ||
@@ -913,8 +902,6 @@ private fun AddEditProxySheet(
                 }
             }
 
-            } else {
-            // ── Page 1: name + IP mode, no duplicates from page 0
             FormField(
                 label = "Profile Name",
                 value = name,
@@ -1025,8 +1012,6 @@ private fun AddEditProxySheet(
                 }
             }
 
-            }
-
             // Single test status line
             Row(
                 modifier = Modifier
@@ -1065,14 +1050,12 @@ private fun AddEditProxySheet(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Page-aware action buttons, colored by action.
+            // Action buttons, colored by action.
             // Test button keeps Testing on one line (no wrap to second line).
-            val connFilled = hostValid && portValid && username.isNotEmpty() && password.isNotEmpty()
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                if (page == 0) {
                 Button(
                     onClick = {
                         scope.launch {
@@ -1090,51 +1073,6 @@ private fun AddEditProxySheet(
                     )
                 ) {
                     Text("Cancel", maxLines = 1, fontSize = 13.sp)
-                }
-                OutlinedButton(
-                    onClick = { runManualTest() },
-                    enabled = !testing,
-                    modifier = Modifier.weight(1f).height(42.dp),
-                    shape = RoundedCornerShape(8.dp),
-                    contentPadding = PaddingValues(horizontal = 2.dp, vertical = 0.dp),
-                    border = BorderStroke(
-                        1.dp,
-                        if (testFailedFlash) MaterialTheme.colorScheme.error
-                        else MaterialTheme.colorScheme.onSurface
-                    )
-                ) {
-                    if (testing) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(12.dp),
-                            strokeWidth = 2.dp,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Testing", maxLines = 1, fontSize = 13.sp)
-                    } else if (testFailedFlash) {
-                        Text("Failed", maxLines = 1, fontSize = 13.sp, color = MaterialTheme.colorScheme.error)
-                    } else {
-                        Text("Test", maxLines = 1, fontSize = 13.sp)
-                    }
-                }
-                Button(
-                    onClick = { page = 1 },
-                    enabled = connFilled,
-                    modifier = Modifier.weight(1f).height(42.dp),
-                    shape = RoundedCornerShape(8.dp),
-                    contentPadding = PaddingValues(horizontal = 2.dp, vertical = 0.dp)
-                ) {
-                    Text("Next", maxLines = 1, fontSize = 13.sp)
-                }
-                } else {
-                OutlinedButton(
-                    onClick = { page = 0 },
-                    modifier = Modifier.weight(1f).height(42.dp),
-                    shape = RoundedCornerShape(8.dp),
-                    contentPadding = PaddingValues(horizontal = 2.dp, vertical = 0.dp),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
-                ) {
-                    Text("Back", maxLines = 1, fontSize = 13.sp)
                 }
                 OutlinedButton(
                     onClick = { runManualTest() },
@@ -1187,7 +1125,6 @@ private fun AddEditProxySheet(
                     contentPadding = PaddingValues(horizontal = 2.dp, vertical = 0.dp)
                 ) {
                     Text("Save", maxLines = 1, fontSize = 13.sp)
-                }
                 }
             }
 

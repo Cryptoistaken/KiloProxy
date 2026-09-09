@@ -577,6 +577,5 @@ data class ProxyDraft(
     val owlMode: String = "unique",
     val owlTime: Int = 5,
     val ipdeepMode: String = "unique",
-    val ipdeepTime: Int = 5,
-    val page: Int = 0
+    val ipdeepTime: Int = 5
 )
