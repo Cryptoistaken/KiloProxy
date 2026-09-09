@@ -172,6 +172,10 @@ fun ProfileDetailSheet(
             }
 
             // Actions.
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
             CopyRow(
                 copyText = "$server:$port:$username:$password"
             )
@@ -190,6 +194,7 @@ fun ProfileDetailSheet(
                 danger = true,
                 onClick = onDelete
             )
+            }
         }
     }
 }

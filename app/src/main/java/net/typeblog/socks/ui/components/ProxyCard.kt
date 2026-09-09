@@ -97,7 +97,7 @@ fun ProxyCard(
         modifier = modifier
             .fillMaxWidth()
             .combinedClickable(onClick = onSelect, onLongClick = onLongPress),
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(0.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (checked) MaterialTheme.colorScheme.primaryContainer
             else MaterialTheme.colorScheme.surfaceContainerLow
