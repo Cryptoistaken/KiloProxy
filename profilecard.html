@@ -17,6 +17,7 @@
     --primary: #ffffff;
     --onprimary: #000000;
     --selbg: #1c1c1e;
+    --tile: #161616;
   }
   /* Light theme mirrors Color.kt light scheme */
   body.light {
@@ -31,6 +32,7 @@
     --primary: #000000;
     --onprimary: #ffffff;
     --selbg: #eeeeee;
+    --tile: #f4f4f4;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
@@ -46,7 +48,7 @@
      Hierarchy: icon = country flag only | line1 name + status | line2 country + provider | line3 host */
   .card {
     display: flex; align-items: center; gap: 12px;
-    background: var(--card); border: 1px solid transparent;
+    background: var(--tile); border: 1px solid transparent;
     border-radius: 0; padding: 12px 14px; margin-bottom: 10px;
     cursor: pointer;
   }

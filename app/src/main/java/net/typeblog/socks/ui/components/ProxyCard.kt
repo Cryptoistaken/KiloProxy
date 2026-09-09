@@ -101,7 +101,7 @@ fun ProxyCard(
         shape = RoundedCornerShape(0.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (checked) MaterialTheme.colorScheme.primaryContainer
-            else MaterialTheme.colorScheme.surfaceContainerLow
+            else MaterialTheme.colorScheme.surfaceContainer
         ),
         border = BorderStroke(
             1.dp,
