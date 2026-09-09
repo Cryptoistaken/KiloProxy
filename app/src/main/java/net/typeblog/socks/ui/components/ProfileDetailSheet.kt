@@ -163,7 +163,7 @@ fun ProfileDetailSheet(
                         text = Utility.formatBytes(displayUsed),
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.tertiary,
+                        color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -191,7 +191,6 @@ fun ProfileDetailSheet(
             SheetRow(
                 icon = R.drawable.ic_sheet_delete,
                 label = "Delete",
-                danger = true,
                 onClick = onDelete
             )
             }
@@ -229,11 +228,9 @@ private fun SheetRow(
     icon: Int,
     label: String,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    danger: Boolean = false
+    modifier: Modifier = Modifier
 ) {
-    val contentColor = if (danger) MaterialTheme.colorScheme.error
-    else MaterialTheme.colorScheme.onSurface
+    val contentColor = MaterialTheme.colorScheme.onSurface
     Row(
         modifier = modifier
             .fillMaxWidth()
