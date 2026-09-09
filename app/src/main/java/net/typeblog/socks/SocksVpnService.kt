@@ -619,7 +619,10 @@ class SocksVpnService : VpnService() {
             .setContentTitle(getString(R.string.notify_title))
             .setContentText("Connecting")
             .setSmallIcon(R.drawable.ic_notification)
-            .setLargeIcon(BitmapFactory.decodeResource(resources, R.mipmap.ic_launcher))
+            // Plain-drawable launcher copy: R.mipmap.ic_launcher resolves to the
+            // adaptive-icon XML on API 26+, which BitmapFactory cannot decode
+            // (returns null), leaving a stale or missing large icon.
+            .setLargeIcon(BitmapFactory.decodeResource(resources, R.drawable.app_icon))
             .setOngoing(true)
             .build()
 
@@ -643,7 +646,10 @@ class SocksVpnService : VpnService() {
             .setContentTitle(getString(R.string.notify_title))
             .setContentText(notificationText)
             .setSmallIcon(R.drawable.ic_notification)
-            .setLargeIcon(BitmapFactory.decodeResource(resources, R.mipmap.ic_launcher))
+            // Plain-drawable launcher copy: R.mipmap.ic_launcher resolves to the
+            // adaptive-icon XML on API 26+, which BitmapFactory cannot decode
+            // (returns null), leaving a stale or missing large icon.
+            .setLargeIcon(BitmapFactory.decodeResource(resources, R.drawable.app_icon))
             .setOngoing(true)
             .build()
 

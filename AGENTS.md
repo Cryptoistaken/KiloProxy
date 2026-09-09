@@ -81,8 +81,9 @@ git revert <commit-hash>                  # undo a specific commit
 | `pre-proton-settings` | (pre-proton-settings commit) | 2026-08-12 | Working state before ProtonVPN-style settings redesign (UI only). |
 | `pre-netshield` | (pushed) | 2026-08-12 | Before NetShield Phase 1 (pdnsd exclude-list DNS blocking). |
 | `pre-proton-2-settings` | (pushed) | 2026-09-08 | Before replacing Split tunneling + Theme settings with the ProtonVPN mock design. |
+| `pre-notif-and-dot-fixes` | (pushed) | 2026-09-09 | Before notification large-icon fix + effective-theme wiring for bubble/popup. |
 
-> **One-time (do before the notification/dot pass):** tag the current commit as `pre-notif-and-dot-fixes` before this UI pass starts — `git tag -a pre-notif-and-dot-fixes -m "Before notification/dot fixes"` then `git push origin pre-notif-and-dot-fixes`. Add it to the table above once created.
+> **One-time (do before the notification/dot pass):** done 2026-09-09 — tag `pre-notif-and-dot-fixes` created and pushed, table updated.
 
 ### Quick restore (pre-ui-redesign)
 ```bash
@@ -164,6 +165,7 @@ Notes on the merged notification/dot pass:
 | `ProxyProviders.kt` | Proxy provider catalog (proxy list presets) |
 | `Routes.kt` | VpnService route selection (route config) |
 | `SocksTester.kt` | SOCKS5 liveness/health probe |
+| `ThemeMode.kt` | Effective theme (manual theme_mode override, else device) + themedContext for -night inflation |
 | `Utility.kt` | **ENGINE** — pdnsd conf, ip lookups, misc helpers. NEVER modify for UI |
 
 ### `.../ui/`

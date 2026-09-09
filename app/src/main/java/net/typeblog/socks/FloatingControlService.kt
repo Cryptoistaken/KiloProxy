@@ -56,10 +56,12 @@ import net.typeblog.socks.util.Constants.ACTION_VPN_STATE_CHANGED
 import net.typeblog.socks.util.Constants.BUBBLE_STYLE_CLASSIC
 import net.typeblog.socks.util.Constants.BUBBLE_STYLE_LOCK
 import net.typeblog.socks.util.Constants.PREF_BUBBLE_STYLE
+import net.typeblog.socks.util.Constants.PREF_THEME_MODE
 import net.typeblog.socks.util.Constants.PREF_BUBBLE_X
 import net.typeblog.socks.util.Constants.PREF_BUBBLE_Y
 import net.typeblog.socks.util.ProfileManager
 import net.typeblog.socks.util.ProxyProviders
+import net.typeblog.socks.util.ThemeMode
 import net.typeblog.socks.util.Utility
 import java.util.Locale
 import kotlin.math.abs
@@ -128,11 +130,17 @@ class FloatingControlService : Service() {
     private var lockCycleAlt: Int = 0
     private var lockFlashing: Boolean = false
     private var prefListener: SharedPreferences.OnSharedPreferenceChangeListener? = null
+    // Last seen system night bit: onConfigurationChanged fires for rotation
+    // too, so only re-theme when night actually flipped (device-theme mode).
+    private var lastNightYes: Boolean = false
 
     fun getBubbleStyle(): String = bubbleStyle
     fun isLockStyle(): Boolean = bubbleStyle == Constants.BUBBLE_STYLE_LOCK
 
-    private fun isLightMode(): Boolean = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_NO
+    // Effective app theme (manual Settings > Theme override, else device):
+    // the bubble spinner and the "Connecting" label follow it, status colors
+    // stay fixed in every theme.
+    private fun isLightMode(): Boolean = !ThemeMode.isDarkTheme(this)
     // Status colors stay fixed in every theme; only the spinner and the
     // "Connecting" label flip between black and white.
     private fun lockGreen(): Int = Color.parseColor("#1C9C7C")
@@ -233,6 +241,8 @@ class FloatingControlService : Service() {
 
         bubbleStyle = PreferenceManager.getDefaultSharedPreferences(this)
             .getString(PREF_BUBBLE_STYLE, BUBBLE_STYLE_LOCK) ?: BUBBLE_STYLE_LOCK
+        lastNightYes = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
+            Configuration.UI_MODE_NIGHT_YES
         createNotificationChannel()
         touchSlop = ViewConfiguration.get(this).scaledTouchSlop
         // Use display context for WindowManager so overlay is a top-level system window,
@@ -268,6 +278,12 @@ class FloatingControlService : Service() {
                 if (newStyle != bubbleStyle) {
                     recreateBubbleForStyleChange(newStyle)
                 }
+            } else if (key == PREF_THEME_MODE) {
+                // Manual Theme pick: re-apply the theme-wired bubble elements
+                // (spinner tint, Connecting label) and re-inflate the popup so
+                // its -night resources match the effective theme.
+                updateBubbleUi(state)
+                menuOverlay?.refreshTheme()
             }
         }
         PreferenceManager.getDefaultSharedPreferences(this).registerOnSharedPreferenceChangeListener(prefListener)
@@ -288,6 +304,14 @@ class FloatingControlService : Service() {
         refreshWindowManager()
         menuOverlay?.onConfigurationChanged()
         reClampBubblePosition()
+        val nightYes = (newConfig.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
+            Configuration.UI_MODE_NIGHT_YES
+        if (nightYes != lastNightYes) {
+            lastNightYes = nightYes
+            updateBubbleUi(state)
+            // Popup refreshes itself inside menuOverlay.onConfigurationChanged()
+            // above; a manual Theme pick is handled by the pref listener.
+        }
     }
 
     private fun refreshWindowManager() {
@@ -1049,7 +1073,11 @@ class FloatingControlService : Service() {
             .setContentTitle(title)
             .setContentText(text)
             .setSmallIcon(R.drawable.ic_notification)
-            .setLargeIcon(BitmapFactory.decodeResource(resources, R.mipmap.ic_launcher))
+            // Plain-drawable copy of the launcher PNG: R.mipmap.ic_launcher
+            // resolves to the adaptive-icon XML on API 26+, which
+            // BitmapFactory cannot decode (returns null), leaving a stale or
+            // missing large icon in the notification shade.
+            .setLargeIcon(BitmapFactory.decodeResource(resources, R.drawable.app_icon))
             .setOngoing(true)
             .addAction(0, buttonText, buttonPending)
             .build()

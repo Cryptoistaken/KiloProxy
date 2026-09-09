@@ -4,7 +4,6 @@ import android.animation.ObjectAnimator
 import android.animation.PropertyValuesHolder
 import android.animation.ValueAnimator
 import android.content.Context
-import android.content.res.Configuration
 import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.Rect
@@ -30,6 +29,7 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import net.typeblog.socks.util.Countries
+import net.typeblog.socks.util.ThemeMode
 import net.typeblog.socks.util.Utility
 import java.util.Locale
 
@@ -58,11 +58,29 @@ class BubbleMenuOverlay(
 
     fun onConfigurationChanged() {
         windowManager = createWindowManager()
+        refreshTheme()
     }
 
-    private fun isLightMode(): Boolean =
-        (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
-            Configuration.UI_MODE_NIGHT_NO
+    // Effective app theme (manual Settings > Theme override, else device):
+    // section labels and separators follow it; panel/field/row/icon styling
+    // comes from -night resources inflated with the themed context below.
+    private fun isLightMode(): Boolean = !ThemeMode.isDarkTheme(context)
+    // Context used for the current inflation, so rows inflated later in the
+    // same show() resolve the same -night resources as the panel.
+    private var activeInflateContext: Context = context
+    // Last show() args, so a theme change while open can re-inflate in place.
+    private var lastBx = 0
+    private var lastBy = 0
+    private var lastBubbleSize = 0
+    private var lastCode: String? = null
+    private var lastSupportsSwitch = false
+
+    /** Re-inflate with the current effective theme if the popup is open. */
+    fun refreshTheme() {
+        if (!isShowing()) return
+        hide()
+        show(lastBx, lastBy, lastBubbleSize, lastCode, lastSupportsSwitch)
+    }
     private val handler = Handler(Looper.getMainLooper())
     private val messageHandler = Handler(Looper.getMainLooper())
     private var rootView: FrameLayout? = null
@@ -81,8 +99,17 @@ class BubbleMenuOverlay(
 
     fun show(bubbleCenterX: Int, bubbleCenterY: Int, bubbleSizePx: Int, connectedCountryCode: String?, supportsCountrySwitch: Boolean) {
         if (isShowing()) return
+        lastBx = bubbleCenterX
+        lastBy = bubbleCenterY
+        lastBubbleSize = bubbleSizePx
+        lastCode = connectedCountryCode
+        lastSupportsSwitch = supportsCountrySwitch
         countrySwitchEnabled = supportsCountrySwitch
-        val root = rootView ?: LayoutInflater.from(context)
+        // Inflate with the effective theme (manual Settings > Theme override,
+        // else device) so -night panel/field/row/icon resources match even
+        // when the manual pick differs from the system uiMode.
+        activeInflateContext = ThemeMode.themedContext(context)
+        val root = rootView ?: LayoutInflater.from(activeInflateContext)
             .inflate(R.layout.bubble_menu, null) as FrameLayout
         rootView = root
 
@@ -384,7 +411,7 @@ class BubbleMenuOverlay(
     fun isShowing(): Boolean = rootView?.isAttachedToWindow == true
 
     private fun makeRow(country: Countries.Country, isConnected: Boolean): View {
-        val row = LayoutInflater.from(context).inflate(R.layout.bubble_country_row, menuList, false)
+        val row = LayoutInflater.from(activeInflateContext).inflate(R.layout.bubble_country_row, menuList, false)
         row.findViewById<TextView>(R.id.row_flag).text = country.flag
         row.findViewById<TextView>(R.id.row_name).text = country.name
         row.findViewById<TextView>(R.id.row_code).text = country.code
