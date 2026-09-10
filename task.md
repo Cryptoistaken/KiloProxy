@@ -33,6 +33,7 @@ Target: subsequent connects to the same `host:port:user` feel instant (tunnel-up
 - [ ] On-device measure: baseline vs accelerated repeat-connect times.
 - [x] Own checker: `checker/` Worker source (V8 TS, zero deps; `request.cf` enrichment, `no-store`, optional `X-Check-Key`). Not yet deployed, app still points at ip-api.com.
 - [x] Checker wired: kiloip primary, cdn-cgi/trace fallback (IP+country only), always fresh. Healthy re-verify every 60s. Bubble never fabricates geo (no DE/flag defaults when unverified).
+- [x] Advanced Settings page (renamed from VPN Accelerator, sliders icon): master switch plus Primary checker, Checker mode, Cache last IP, Proxy health probe, Recheck interval, Cache proxy DNS. Checker timeouts 8s. Trace-first flow: fast IP and country at connect, kiloip after for full details.
 
 ## Prior art (Proton, read 2026-09-10)
 Proton Android client (`ProtonVPN/android-app`, GPL-3.0): the toggle is one

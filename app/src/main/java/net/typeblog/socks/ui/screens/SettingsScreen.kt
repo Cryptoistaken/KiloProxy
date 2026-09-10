@@ -60,7 +60,7 @@ fun SettingsScreen(
     onNavigateToTheme: () -> Unit,
     onNavigateToBubbleSettings: () -> Unit,
     onNavigateToDebugLogs: () -> Unit,
-    onNavigateToVpnAccelerator: () -> Unit,
+    onNavigateToAdvanceSettings: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -169,11 +169,11 @@ fun SettingsScreen(
                     onClick = onNavigateToBubbleSettings
                 )
                 SettingsItem(
-                    icon = painterResource(R.drawable.lucide_arrows_right_left),
-                    label = "VPN Accelerator",
+                    icon = painterResource(R.drawable.ic_settings_sliders),
+                    label = "Advanced Settings",
                     description = if (acceleratorEnabled) "On" else "Off",
                     showChevron = false,
-                    onClick = onNavigateToVpnAccelerator
+                    onClick = onNavigateToAdvanceSettings
                 )
             }
         }

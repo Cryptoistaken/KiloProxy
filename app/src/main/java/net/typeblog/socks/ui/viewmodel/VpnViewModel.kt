@@ -34,6 +34,7 @@ import net.typeblog.socks.util.Utility
 import net.typeblog.socks.util.Constants.PREF_ADV_APP_BYPASS
 import net.typeblog.socks.util.Constants.PREF_ADV_APP_LIST
 import net.typeblog.socks.util.Constants.PREF_ADV_PER_APP
+import net.typeblog.socks.util.Constants.PREF_ACCEL_DNS_CACHE
 import net.typeblog.socks.util.Constants.PREF_VPN_ACCELERATOR
 import net.typeblog.socks.util.Constants.ACTION_VPN_STATE_CHANGED
 import net.typeblog.socks.util.Constants.ACTION_STOP_VPN
@@ -239,6 +240,7 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 val prefs = PreferenceManager.getDefaultSharedPreferences(app)
                 if (!prefs.getBoolean(PREF_VPN_ACCELERATOR, false)) return@launch
+                if (!prefs.getBoolean(PREF_ACCEL_DNS_CACHE, true)) return@launch
                 val pm = ProfileManager.getInstance(app)
                 Utility.warmAccelDns(app, pm.getDefault().getServer())
             } catch (_: Exception) {

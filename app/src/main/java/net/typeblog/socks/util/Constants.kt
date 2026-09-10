@@ -27,10 +27,21 @@ object Constants {
     const val PREF_ADV_APP_LIST = "adv_app_list"
     const val PREF_THEME_MODE = "theme_mode"
     const val PREF_AUTO_STOP = "auto_stop"
-    // Experimental connect-time accelerator for repeat SOCKS5 connects
-    // (DNS cache + optimistic verified IP). UI toggle only for now;
-    // engine reads it in a later step. Default OFF.
+    // Accelerator master gate for repeat-connect experiments. Default OFF,
+    // which keeps every path below on stock behavior.
     const val PREF_VPN_ACCELERATOR = "vpn_accelerator"
+    // Advanced Settings options. Honored by the engine only while the
+    // accelerator master toggle is ON. Defaults preserve stock behavior.
+    const val PREF_ACCEL_PRIMARY = "accel_primary"
+    const val ACCEL_PRIMARY_TRACE = "trace"
+    const val ACCEL_PRIMARY_KILOIP = "kiloip"
+    const val PREF_ACCEL_MODE = "accel_mode"
+    const val ACCEL_MODE_BOTH = "both"
+    const val ACCEL_MODE_SINGLE = "single"
+    const val PREF_ACCEL_CACHE_IP = "accel_cache_ip"
+    const val PREF_ACCEL_PROBE = "accel_probe"
+    const val PREF_ACCEL_INTERVAL_MS = "accel_interval_ms"
+    const val PREF_ACCEL_DNS_CACHE = "accel_dns_cache"
 
     const val PREF_FLOATING_CONTROL = "floating_control"
     const val PREF_BUBBLE_STYLE = "bubble_style"

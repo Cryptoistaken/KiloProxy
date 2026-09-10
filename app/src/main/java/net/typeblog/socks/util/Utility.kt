@@ -210,12 +210,39 @@ object Utility {
 
     @JvmStatic
     fun checkPublicIp(server: String?, port: Int, username: String?, password: String?): IpInfo? {
-        // Primary: own checker. Fallback: Cloudflare trace (IP + country
-        // code only). Always fresh, never cached.
-        fetchCheckText(KILO_IP_URL, "kiloip", server, port, username, password, ::parseKiloIp)
-            ?.let { return it }
-        return fetchCheckText(TRACE_URL, "trace", server, port, username, password, ::parseTrace)
+        // Stock behavior: kiloip first, trace as fallback. Always fresh.
+        return checkWith(server, port, username, password, ACCEL_PRIMARY_KILOIP, true)
     }
+
+    /**
+     * Checker with Advanced Settings selection. primary is ACCEL_PRIMARY_*
+     * ("trace" = fast IP and country at connect time, "kiloip" = full
+     * details). both = run the other one after: as enrichment when the
+     * primary succeeds, as fallback when it fails.
+     */
+    @JvmStatic
+    fun checkWith(
+        server: String?,
+        port: Int,
+        username: String?,
+        password: String?,
+        primary: String,
+        both: Boolean
+    ): IpInfo? {
+        val first: (String?, Int, String?, String?) -> IpInfo? =
+            if (primary == ACCEL_PRIMARY_KILOIP) ::fetchKiloIp else ::fetchTrace
+        val second: (String?, Int, String?, String?) -> IpInfo? =
+            if (primary == ACCEL_PRIMARY_KILOIP) ::fetchTrace else ::fetchKiloIp
+        first(server, port, username, password)?.let { return it }
+        if (!both) return null
+        return second(server, port, username, password)
+    }
+
+    private fun fetchKiloIp(server: String?, port: Int, username: String?, password: String?): IpInfo? =
+        fetchCheckText(KILO_IP_URL, "kiloip", server, port, username, password, ::parseKiloIp)
+
+    private fun fetchTrace(server: String?, port: Int, username: String?, password: String?): IpInfo? =
+        fetchCheckText(TRACE_URL, "trace", server, port, username, password, ::parseTrace)
 
     private fun fetchCheckText(
         url: String,
@@ -242,8 +269,8 @@ object Utility {
                 })
                 authSet = true
             }
-            conn.connectTimeout = 3000
-            conn.readTimeout = 3000
+            conn.connectTimeout = 8000
+            conn.readTimeout = 8000
             val text = try {
                 BufferedReader(InputStreamReader(conn.inputStream)).use { it.readText() }
             } catch (_: Exception) {
@@ -394,6 +421,14 @@ object Utility {
     // File-backed caches (never in-memory): the :vpn process may die between
     // connects, and the UI process must be able to warm the DNS entry.
     private const val ACCEL_DNS_TTL_MS = 10 * 60 * 1000L
+    private const val ACCEL_IP_TTL_MS = 24 * 60 * 60 * 1000L
+
+    /** Cache key for one proxy identity. Same shape as usageSuffix(). */
+    @JvmStatic
+    fun accelKey(server: String?, port: Int, username: String?): String {
+        val raw = "${server ?: ""}:$port:${username ?: ""}"
+        return try { java.net.URLEncoder.encode(raw, "UTF-8") } catch (_: Exception) { raw.hashCode().toString() }
+    }
 
     /**
      * Resolve the SOCKS hostname, using the file DNS cache when accelerated.
@@ -457,6 +492,57 @@ object Utility {
                     .toString()
             )
         } catch (_: Exception) {
+        }
+    }
+
+    /** Persist the last verified exit IP per proxy for optimistic reconnect. */
+    @JvmStatic
+    fun saveAccelIp(context: Context, key: String, info: IpInfo) {
+        try {
+            File(context.filesDir, "accel_ip.json").writeText(
+                JSONObject()
+                    .put("key", key)
+                    .put("time", System.currentTimeMillis())
+                    .put("ip", info.ip)
+                    .put("countryCode", info.countryCode)
+                    .put("country", info.country)
+                    .put("regionName", info.regionName)
+                    .put("city", info.city)
+                    .put("isp", info.isp)
+                    .put("org", info.org)
+                    .put("asName", info.asName)
+                    .put("timezone", info.timezone)
+                    .toString()
+            )
+        } catch (_: Exception) {
+        }
+    }
+
+    /** Cached exit IP for this proxy, or null (miss / other proxy / expired). */
+    @JvmStatic
+    fun loadAccelIp(context: Context, key: String): IpInfo? {
+        return try {
+            val f = File(context.filesDir, "accel_ip.json")
+            if (!f.exists()) return null
+            val o = JSONObject(f.readText())
+            if (o.optString("key") != key) return null
+            val age = System.currentTimeMillis() - o.optLong("time", 0L)
+            if (age < 0 || age > ACCEL_IP_TTL_MS) return null
+            val ip = o.optString("ip")
+            if (ip.isEmpty()) return null
+            IpInfo(
+                ip = ip,
+                countryCode = o.optString("countryCode"),
+                country = o.optString("country"),
+                regionName = o.optString("regionName"),
+                city = o.optString("city"),
+                isp = o.optString("isp"),
+                org = o.optString("org"),
+                asName = o.optString("asName"),
+                timezone = o.optString("timezone")
+            )
+        } catch (_: Exception) {
+            null
         }
     }
 }

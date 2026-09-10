@@ -194,6 +194,13 @@ class SocksVpnService : VpnService() {
     // OFF means every path below behaves exactly like before.
     @Volatile
     private var mAccel = false
+    private var mAccelKey: String? = null
+    private var mAccelPrimary: String = Constants.ACCEL_PRIMARY_TRACE
+    private var mAccelBoth = true
+    private var mAccelCacheIp = false
+    private var mAccelProbe = true
+    private var mAccelDns = true
+    private var mAccelIntervalMs = 60000L
     private var mNotificationReceiverRegistered = false
     private var mScreenOffRegistered = false
     private var mScreenOnRegistered = false
@@ -301,7 +308,13 @@ class SocksVpnService : VpnService() {
             if (!mProbeInFlight.compareAndSet(false, true)) return
             mIpCheckExecutor.execute {
                 try {
-                    val info = Utility.checkPublicIp(server, port, username, password)
+                    // Master OFF keeps stock selection: kiloip first, trace
+                    // fallback. Master ON honors the Advanced Settings page.
+                    val info = if (mAccel) {
+                        Utility.checkWith(server, port, username, password, mAccelPrimary, mAccelBoth)
+                    } else {
+                        Utility.checkPublicIp(server, port, username, password)
+                    }
                     if (info != null) {
                         runOnMainThread {
                             mProbeInFlight.set(false)
@@ -309,13 +322,13 @@ class SocksVpnService : VpnService() {
                                 mPendingIpInfo = info
                             } else {
                                 applyIpInfo(info)
-                                mIpCheckHandler.postDelayed(this, IP_CHECK_INTERVAL)
+                                mIpCheckHandler.postDelayed(this, healthyInterval())
                             }
                         }
                     } else {
-                        // Public-IP lookup failed; this may simply mean ip-api.com is
-                        // unreachable. Connected state is already set at tunnel-up, so
-                        // this is pure enrichment. Only a real SOCKS handshake failure
+                        // Public-IP lookup failed; this may simply mean the
+                        // checker is unreachable. Connected state is already
+                        // set at tunnel-up, so this is pure enrichment. Only a real SOCKS handshake failure
                         // counts as a dead proxy and may tear down the VPN.
                         val probe = SocksTester.probeProxy(server, port, username, password)
                         runOnMainThread {
@@ -329,15 +342,16 @@ class SocksVpnService : VpnService() {
                             }
                             if (probe == SocksTester.ProxyProbe.OK) {
                                 // Proxy itself is healthy — do not count the lookup
-                                // failure, do not stop. The ip-api lookup may simply
-                                // be temporarily unreachable, so retry sooner than the
-                                // normal cadence so the country/pill appears quickly.
+                                // failure, do not stop. The checker lookup may
+                                // simply be temporarily unreachable, so retry
+                                // sooner than the normal cadence so the
+                                // country/pill appears quickly.
                                 mProxyVerified = true
                                 mIpCheckFailures = 0
                                 updateNotification()
                                 notifyStateChanged()
                                 mIpCheckHandler.postDelayed(this, IP_INFO_RETRY)
-                            } else {
+                            } else if (!mAccel || mAccelProbe) {
                                 if (mProxyVerified) {
                                     mProxyVerified = false
                                     notifyStateChanged()
@@ -359,6 +373,9 @@ class SocksVpnService : VpnService() {
                                     stopMe("proxy_connect_failed")
                                     return@runOnMainThread
                                 }
+                                mIpCheckHandler.postDelayed(this, IP_CHECK_RETRY)
+                            } else {
+                                // Probe off: never tear down, only retry enrichment.
                                 mIpCheckHandler.postDelayed(this, IP_CHECK_RETRY)
                             }
                         }
@@ -450,8 +467,16 @@ class SocksVpnService : VpnService() {
         val dnsPort = intent.getIntExtra(INTENT_DNS_PORT, 53)
         mDns = dns
         mDnsPort = dnsPort
-        mAccel = PreferenceManager.getDefaultSharedPreferences(this)
-            .getBoolean(Constants.PREF_VPN_ACCELERATOR, false)
+        val accelPrefs = PreferenceManager.getDefaultSharedPreferences(this)
+        mAccel = accelPrefs.getBoolean(Constants.PREF_VPN_ACCELERATOR, false)
+        mAccelKey = if (mAccel) Utility.accelKey(server, port, username) else null
+        mAccelPrimary = accelPrefs.getString(Constants.PREF_ACCEL_PRIMARY, Constants.ACCEL_PRIMARY_TRACE)
+            ?: Constants.ACCEL_PRIMARY_TRACE
+        mAccelBoth = accelPrefs.getString(Constants.PREF_ACCEL_MODE, Constants.ACCEL_MODE_BOTH) != Constants.ACCEL_MODE_SINGLE
+        mAccelCacheIp = accelPrefs.getBoolean(Constants.PREF_ACCEL_CACHE_IP, false)
+        mAccelProbe = accelPrefs.getBoolean(Constants.PREF_ACCEL_PROBE, true)
+        mAccelDns = accelPrefs.getBoolean(Constants.PREF_ACCEL_DNS_CACHE, true)
+        mAccelIntervalMs = accelPrefs.getLong(Constants.PREF_ACCEL_INTERVAL_MS, 60000L)
         val perApp = intent.getBooleanExtra(INTENT_PER_APP, false)
         val appBypass = intent.getBooleanExtra(INTENT_APP_BYPASS, false)
         val appList = intent.getStringArrayExtra(INTENT_APP_LIST)
@@ -599,6 +624,7 @@ class SocksVpnService : VpnService() {
         mProfileName = null
         mServer = null
         mResolvedServer = null
+        mAccelKey = null
         mPort = 0
         mUsername = null
         mPassword = null
@@ -807,10 +833,11 @@ class SocksVpnService : VpnService() {
         val dir = filesDir.absolutePath
         Thread {
             try {
-                // Accelerator: resolve the SOCKS hostname in parallel with
-                // pdnsd bring-up, so the wait is max(conf+pdnsd, dns).
+                // Accelerator + DNS cache option: resolve the SOCKS hostname
+                // in parallel with pdnsd bring-up, so the wait is
+                // max(conf+pdnsd, dns).
                 var accelDnsThread: Thread? = null
-                if (mAccel) {
+                if (mAccel && mAccelDns) {
                     accelDnsThread = Thread {
                         mResolvedServer = Utility.resolveServerHost(this, server, true)
                     }.apply { isDaemon = true; start() }
@@ -831,8 +858,8 @@ class SocksVpnService : VpnService() {
                 // thread and pass the resolved IP to tun2socks so the native binary
                 // does NOT perform its own getaddrinfo during bring-up.
                 // Accelerator: the parallel thread above already resolved (cache
-                // or fresh); just join it. Flag OFF keeps the original call.
-                val serverIp = if (mAccel) {
+                // or fresh); just join it. Otherwise keep the original call.
+                val serverIp = if (mAccel && mAccelDns) {
                     try {
                         accelDnsThread?.join(15000)
                     } catch (_: Exception) {
@@ -1007,11 +1034,20 @@ class SocksVpnService : VpnService() {
     }
 
     private fun applyIpInfo(info: IpInfo) {
+        applyIpInfo(info, fromCache = false)
+    }
+
+    private fun applyIpInfo(info: IpInfo, fromCache: Boolean) {
         mCurrentIp = info.ip
         mCountryCode = info.countryCode
         mIpInfo = info
         mProxyVerified = true
         mIpCheckFailures = 0
+        // Cache-last-IP option: persist network-verified results only; the
+        // optimistic pass below must not refresh a stale entry timestamp.
+        if (mAccel && mAccelCacheIp && !fromCache) {
+            mAccelKey?.let { Utility.saveAccelIp(this, it, info) }
+        }
         updateNotification()
         notifyStateChanged()
     }
@@ -1022,6 +1058,9 @@ class SocksVpnService : VpnService() {
             error?.let { putExtra(Constants.VPN_STATE_ERROR, it) }
         })
     }
+
+    /** Healthy re-verify cadence: stock 60s, or the Advanced Settings pick. */
+    private fun healthyInterval(): Long = if (mAccel) mAccelIntervalMs else IP_CHECK_INTERVAL
 
     private fun postStartOnMain() {
         if (!mRunning) return
@@ -1041,6 +1080,17 @@ class SocksVpnService : VpnService() {
         Log.d(TAG, "tunDBG ifaces=" + dumpInterfaces())
         mStatsHandler.post(mStatsRunnable)
         mTunnelUp = true
+        if (mAccel && mAccelCacheIp && !mProxyVerified) {
+            val key = mAccelKey
+            val cached = if (key != null) Utility.loadAccelIp(this, key) else null
+            if (cached != null) {
+                // Optimistic CONNECTED at tunnel-up from the last verified
+                // exit IP. The live check below still runs and overwrites
+                // with a fresh result, so stale geo self-corrects.
+                Log.d(TAG, "Accelerator: showing cached exit IP ${cached.ip}")
+                applyIpInfo(cached, fromCache = true)
+            }
+        }
         val buffered = mPendingIpInfo
         mPendingIpInfo = null
         if (buffered != null) {
@@ -1048,7 +1098,7 @@ class SocksVpnService : VpnService() {
             // spawning — surface it now, exactly as if it had just been
             // received on a normally-connected tunnel.
             applyIpInfo(buffered)
-            mIpCheckHandler.postDelayed(mIpCheckRunnable, IP_CHECK_INTERVAL)
+            mIpCheckHandler.postDelayed(mIpCheckRunnable, healthyInterval())
         } else {
             mIpCheckHandler.post(mIpCheckRunnable)
         }
