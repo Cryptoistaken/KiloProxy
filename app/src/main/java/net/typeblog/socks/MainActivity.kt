@@ -1,6 +1,7 @@
 package net.typeblog.socks
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -28,6 +29,16 @@ import net.typeblog.socks.util.Constants.PREF_SKIPPED_UPDATE_VERSION
 import net.typeblog.socks.util.UpdateChecker
 
 class MainActivity : ComponentActivity() {
+    companion object {
+        /** Open the app straight on the split-tunneling apps list. */
+        const val EXTRA_OPEN_SPLIT_APPS = "open_split_apps"
+    }
+
+    // Incremented whenever an intent asks for the apps list (bubble
+    // refuse-to-connect); AppNavigation observes it and navigates once.
+    var splitAppsRequest by mutableStateOf(0)
+        private set
+
     private val notificationPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
@@ -40,6 +51,9 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         startFloatingControlIfPersisted()
+        if (intent?.getBooleanExtra(EXTRA_OPEN_SPLIT_APPS, false) == true) {
+            splitAppsRequest++
+        }
 
         setContent {
             val context = this@MainActivity
@@ -60,7 +74,7 @@ class MainActivity : ComponentActivity() {
 
             KiloProxyTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
-                    AppNavigation()
+                    AppNavigation(splitAppsSignal = splitAppsRequest)
                 }
                 updatePrompt?.let { info ->
                     UpdateDialog(
@@ -76,6 +90,14 @@ class MainActivity : ComponentActivity() {
                     )
                 }
             }
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        if (intent.getBooleanExtra(EXTRA_OPEN_SPLIT_APPS, false)) {
+            splitAppsRequest++
         }
     }
 

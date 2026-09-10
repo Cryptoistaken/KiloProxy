@@ -10,6 +10,7 @@ import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -25,10 +26,12 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import androidx.lifecycle.viewmodel.compose.viewModel
 import net.typeblog.socks.R
 import net.typeblog.socks.ui.screens.ProxiesScreen
@@ -69,7 +72,7 @@ private val bottomNavRoutes = listOf(
 ).toSet()
 
 @Composable
-fun AppNavigation() {
+fun AppNavigation(splitAppsSignal: Int = 0) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
@@ -82,6 +85,16 @@ fun AppNavigation() {
     val inPickFlow = (profilePickMode && currentDestination?.route == Screen.Profiles.route) ||
         (countryPickMode && currentDestination?.route == Screen.Countries.route)
     val showBottomBar = currentDestination?.route in bottomNavRoutes && !inPickFlow
+
+    // External request (e.g. bubble refuse-to-connect): jump straight to the
+    // split-tunneling apps list so the user can pick apps.
+    LaunchedEffect(splitAppsSignal) {
+        if (splitAppsSignal > 0) {
+            navController.navigate(Screen.SplitTunneling.route + "?startOnApps=true") {
+                launchSingleTop = true
+            }
+        }
+    }
 
     fun navigateToTab(route: String) {
         navController.navigate(route) {
@@ -181,6 +194,9 @@ fun AppNavigation() {
                     onPickProfileClick = {
                         profilePickMode = true
                         navigateToTab(Screen.Profiles.route)
+                    },
+                    onOpenSplitAppsClick = {
+                        navController.navigate(Screen.SplitTunneling.route + "?startOnApps=true")
                     }
                 )
             }
@@ -225,12 +241,21 @@ fun AppNavigation() {
             composable(Screen.BubbleSettings.route) {
                 BubbleSettingsScreen(onNavigateBack = { navController.popBackStack() })
             }
-            composable(Screen.SplitTunneling.route) {
+            composable(
+                route = Screen.SplitTunneling.route + "?startOnApps={startOnApps}",
+                arguments = listOf(
+                    navArgument("startOnApps") {
+                        type = NavType.BoolType
+                        defaultValue = false
+                    }
+                )
+            ) { entry ->
                 SplitTunnelingScreen(
                     onNavigateBack = {
                         navController.popBackStack()
                     },
-                    viewModel = vpnViewModel
+                    viewModel = vpnViewModel,
+                    startOnApps = entry.arguments?.getBoolean("startOnApps") ?: false
                 )
             }
             composable(Screen.DebugLogs.route) {

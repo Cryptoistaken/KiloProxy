@@ -90,7 +90,8 @@ private data class InstalledApp(
 fun SplitTunnelingScreen(
     onNavigateBack: () -> Unit,
     viewModel: VpnViewModel,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    startOnApps: Boolean = false
 ) {
     val context = LocalContext.current
     val prefs = PreferenceManager.getDefaultSharedPreferences(context)
@@ -140,7 +141,7 @@ fun SplitTunnelingScreen(
         onDispose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
     }
 
-    var page by rememberSaveable { mutableStateOf(0) } // 0 = main, 1 = apps
+    var page by rememberSaveable { mutableStateOf(if (startOnApps) 1 else 0) } // 0 = main, 1 = apps
 
     var installedApps by remember { mutableStateOf<List<InstalledApp>>(emptyList()) }
 

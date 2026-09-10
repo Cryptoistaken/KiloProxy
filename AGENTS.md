@@ -183,10 +183,10 @@ Notes on the merged notification/dot pass:
 - `screens/` — BubbleSettingsScreen, CountriesScreen, DebugLogsScreen, ProxiesScreen, SettingsScreen, SplitTunnelingScreen, StatusScreen, ThemeScreen, VpnAcceleratorScreen
   - `VpnAcceleratorScreen.kt` — Experimental connect-time page (SOCKS5-client scope, not throughput): single `PREF_VPN_ACCELERATOR` toggle, default OFF. Engine (`SocksVpnService`, `Utility` accel DNS/IP file cache) honors it; OFF = old paths.
   - `ThemeScreen.kt` — Theme picker page: Light / Dark / Device theme cards with mini phone previews; writes PREF_THEME_MODE.
-  - `SplitTunnelingScreen.kt` — ProtonVPN mock design: feature header + toggle card, Mode row (dialog: Exclude/Include) + Apps row; apps page has search bar, selected-apps section (minus) and all-other-apps section (plus). Same engine prefs (PREF_ADV_PER_APP / PREF_ADV_APP_BYPASS / PREF_ADV_APP_LIST). IP-address rows skipped: engine has no IP split-tunneling support.
+  - `SplitTunnelingScreen.kt` — ProtonVPN mock design: feature header + toggle card, Mode row (dialog: Exclude/Include) + Apps row; apps page has search bar, selected-apps section (minus) and all-other-apps section (plus). Same engine prefs (PREF_ADV_PER_APP / PREF_ADV_APP_BYPASS / PREF_ADV_APP_LIST). IP-address rows skipped: engine has no IP split-tunneling support. Apps page opens directly via `startOnApps` arg (refuse-to-connect link).
   - `SettingsScreen.kt` — Features rows: "Split tunneling" (On/Off), "Theme" (subtitle = theme label), "Floating Bubble" (On/Off), "VPN Accelerator" (On/Off, opens VpnAcceleratorScreen); no chevrons.
 - `theme/` — Color, Fonts, Theme, Type (Compose theming, Geist fonts)
-- `viewmodel/VpnViewModel.kt` — Vpn state, AIDL binding
+- `viewmodel/VpnViewModel.kt` — Vpn state, AIDL binding, split Include-empty guard, accelerator DNS warm-up
 
 ### Drawables added for this pass
 - `drawable/lucide_minus.xml`, `ic_proton_filter.xml`, `ic_proton_apps.xml` (vector icons for the split tunneling rows)

@@ -1322,6 +1322,28 @@ class FloatingControlService : Service() {
         stopSelf()
     }
 
+    private fun isSplitIncludeEmpty(): Boolean {
+        val prefs = PreferenceManager.getDefaultSharedPreferences(this)
+        if (!prefs.getBoolean(Constants.PREF_ADV_PER_APP, false)) return false
+        if (prefs.getBoolean(Constants.PREF_ADV_APP_BYPASS, false)) return false
+        val list = prefs.getString(Constants.PREF_ADV_APP_LIST, "")
+            ?.split("\n")?.map { it.trim() }?.filter { it.isNotEmpty() }
+            ?: emptyList()
+        return list.isEmpty()
+    }
+
+    private fun openSplitAppsPage() {
+        try {
+            val intent = Intent(this, MainActivity::class.java).apply {
+                putExtra(MainActivity.EXTRA_OPEN_SPLIT_APPS, true)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            startActivity(intent)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to open split-tunneling apps page", e)
+        }
+    }
+
     private fun startVpn() {
         val manager = ProfileManager.getInstance(this)
         // getProfiles() always contains a leading "Default" placeholder even when
@@ -1336,6 +1358,18 @@ class FloatingControlService : Service() {
                 getString(R.string.bubble_no_proxy),
                 Toast.LENGTH_SHORT
             ).show()
+            return
+        }
+        // Include mode with zero apps can never connect (empty allow-list
+        // drags our own UID into the tunnel): refuse and open the apps list.
+        if (isSplitIncludeEmpty()) {
+            Log.w(TAG, "Bubble tap ignored: split tunneling Include mode with no apps")
+            Toast.makeText(
+                this,
+                "Select at least one app to connect",
+                Toast.LENGTH_LONG
+            ).show()
+            openSplitAppsPage()
             return
         }
         val defaultProfile = ProfileManager.getInstance(this).getDefault().getName()

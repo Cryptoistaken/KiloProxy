@@ -26,6 +26,9 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -34,6 +37,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -51,6 +55,7 @@ import androidx.compose.ui.unit.dp
 import androidx.preference.PreferenceManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import net.typeblog.socks.R
 import net.typeblog.socks.ui.components.ConnectionCard
@@ -66,9 +71,12 @@ import net.typeblog.socks.util.Utility
 fun StatusScreen(
     modifier: Modifier = Modifier,
     viewModel: VpnViewModel,
-    onPickProfileClick: () -> Unit = {}
+    onPickProfileClick: () -> Unit = {},
+    onOpenSplitAppsClick: () -> Unit = {}
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
     val isRunning by viewModel.isRunning.collectAsState()
     val currentIp by viewModel.currentIp.collectAsState()
     val countryCode by viewModel.countryCode.collectAsState()
@@ -225,12 +233,15 @@ fun StatusScreen(
         }
     }
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp)
+    Box(
+        modifier = modifier.fillMaxSize()
     ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp)
+        ) {
         val isDarkTheme = MaterialTheme.colorScheme.background.luminance() < 0.5f
         val logoSrc = if (isDarkTheme) R.drawable.logo_dark else R.drawable.logo_light
 
@@ -321,6 +332,20 @@ fun StatusScreen(
                 serverName = serverName,
                 connectedSince = connectedSince,
                 onStartClick = {
+                    // Include mode with zero apps can never connect: refuse
+                    // and point at the apps list instead of failing later.
+                    if (viewModel.isSplitIncludeEmpty(context)) {
+                        scope.launch {
+                            val result = snackbarHostState.showSnackbar(
+                                message = "Select at least one app to connect",
+                                actionLabel = "Select apps"
+                            )
+                            if (result == SnackbarResult.ActionPerformed) {
+                                onOpenSplitAppsClick()
+                            }
+                        }
+                        return@ConnectionCard
+                    }
                     val targetProfile = selectedProfile ?: activeProfileName ?: profiles.firstOrNull()
                     if (targetProfile != null) {
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
@@ -379,5 +404,13 @@ fun StatusScreen(
         }
 
         Spacer(modifier = Modifier.height(24.dp))
+        }
+
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(16.dp)
+        )
     }
 }
