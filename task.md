@@ -28,5 +28,13 @@ Target: subsequent connects to the same `host:port:user` feel instant (tunnel-up
 
 ## Status
 - [x] `task.md` created (no old file existed), scoped to SOCKS5 connect-time.
-- [ ] `PREF_VPN_ACCELERATOR` pref, Settings row, `vpn_accelerator` page (default OFF).
-- [ ] Engine wiring behind the flag (not started).
+- [x] `PREF_VPN_ACCELERATOR` pref, Settings row, `vpn_accelerator` page (default OFF).
+- [x] Engine wiring behind the flag: file DNS cache (10 min TTL) + optimistic verified IP (24 h TTL, live check overwrites) + parallel conf/DNS + app-start warm-up. Flag OFF = old paths.
+- [ ] On-device measure: baseline vs accelerated repeat-connect times.
+
+## Prior art (Proton, read 2026-09-10)
+Proton Android client (`ProtonVPN/android-app`, GPL-3.0): the toggle is one
+boolean (default ON) whose only consumer is `VpnBackend.getFeatures()` ->
+`setBool("split-tcp", ...)` forwarded live to their agent daemon; all speed
+work is server-side. Not replicable in a SOCKS5 client with no servers; our
+scope stays connect-time only.

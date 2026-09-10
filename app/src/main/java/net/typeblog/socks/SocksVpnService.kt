@@ -190,6 +190,11 @@ class SocksVpnService : VpnService() {
     // can detect it is stale and abort instead of resurrecting the tunnel.
     @Volatile
     private var mConnectSeq = 0
+    // VPN Accelerator (experimental): read once per connect from prefs.
+    // OFF means every path below behaves exactly like before.
+    @Volatile
+    private var mAccel = false
+    private var mAccelKey: String? = null
     private var mNotificationReceiverRegistered = false
     private var mScreenOffRegistered = false
     private var mScreenOnRegistered = false
@@ -446,6 +451,9 @@ class SocksVpnService : VpnService() {
         val dnsPort = intent.getIntExtra(INTENT_DNS_PORT, 53)
         mDns = dns
         mDnsPort = dnsPort
+        mAccel = PreferenceManager.getDefaultSharedPreferences(this)
+            .getBoolean(Constants.PREF_VPN_ACCELERATOR, false)
+        mAccelKey = if (mAccel) Utility.accelKey(server, port, username) else null
         val perApp = intent.getBooleanExtra(INTENT_PER_APP, false)
         val appBypass = intent.getBooleanExtra(INTENT_APP_BYPASS, false)
         val appList = intent.getStringArrayExtra(INTENT_APP_LIST)
@@ -593,6 +601,7 @@ class SocksVpnService : VpnService() {
         mProfileName = null
         mServer = null
         mResolvedServer = null
+        mAccelKey = null
         mPort = 0
         mUsername = null
         mPassword = null
@@ -801,6 +810,15 @@ class SocksVpnService : VpnService() {
         val dir = filesDir.absolutePath
         Thread {
             try {
+                // Accelerator: resolve the SOCKS hostname in parallel with
+                // pdnsd bring-up, so the wait is max(conf+pdnsd, dns).
+                var accelDnsThread: Thread? = null
+                if (mAccel) {
+                    accelDnsThread = Thread {
+                        mResolvedServer = Utility.resolveServerHost(this, server, true)
+                    }.apply { isDaemon = true; start() }
+                }
+
                 Utility.makePdnsdConf(this, dns ?: "8.8.8.8", dnsPort)
 
                 // Launch pdnsd non-blocking: no waitFor() (pdnsd.conf sets
@@ -815,13 +833,24 @@ class SocksVpnService : VpnService() {
                 // FIX #5: resolve the SOCKS server hostname once on this background
                 // thread and pass the resolved IP to tun2socks so the native binary
                 // does NOT perform its own getaddrinfo during bring-up.
-                val serverIp = try {
-                    java.net.InetAddress.getByName(server).hostAddress
-                } catch (e: Exception) {
-                    Log.e(TAG, "Failed to resolve SOCKS server '$server', using as-is", e)
-                    server
+                // Accelerator: the parallel thread above already resolved (cache
+                // or fresh); just join it. Flag OFF keeps the original call.
+                val serverIp = if (mAccel) {
+                    try {
+                        accelDnsThread?.join(15000)
+                    } catch (_: Exception) {
+                    }
+                    mResolvedServer ?: server
+                } else {
+                    val ip = try {
+                        java.net.InetAddress.getByName(server).hostAddress
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Failed to resolve SOCKS server '$server', using as-is", e)
+                        server
+                    }
+                    mResolvedServer = ip
+                    ip
                 }
-                mResolvedServer = serverIp
 
                 // Cancel checkpoint: DNS resolution blocks for seconds. If the
                 // user stopped while connecting, abort before spawning tun2socks
@@ -981,11 +1010,20 @@ class SocksVpnService : VpnService() {
     }
 
     private fun applyIpInfo(info: IpInfo) {
+        applyIpInfo(info, fromCache = false)
+    }
+
+    private fun applyIpInfo(info: IpInfo, fromCache: Boolean) {
         mCurrentIp = info.ip
         mCountryCode = info.countryCode
         mIpInfo = info
         mProxyVerified = true
         mIpCheckFailures = 0
+        // Accelerator: persist network-verified results only; the optimistic
+        // pass below must not refresh the timestamp of a stale entry.
+        if (mAccel && !fromCache) {
+            mAccelKey?.let { Utility.saveAccelIp(this, it, info) }
+        }
         updateNotification()
         notifyStateChanged()
     }
@@ -1015,6 +1053,17 @@ class SocksVpnService : VpnService() {
         Log.d(TAG, "tunDBG ifaces=" + dumpInterfaces())
         mStatsHandler.post(mStatsRunnable)
         mTunnelUp = true
+        if (mAccel && !mProxyVerified) {
+            val key = mAccelKey
+            val cached = if (key != null) Utility.loadAccelIp(this, key) else null
+            if (cached != null) {
+                // Optimistic CONNECTED at tunnel-up from the last verified
+                // exit IP. The live check below still runs and overwrites
+                // with a fresh result, so stale geo self-corrects.
+                Log.d(TAG, "Accelerator: showing cached exit IP ${cached.ip}")
+                applyIpInfo(cached, fromCache = true)
+            }
+        }
         val buffered = mPendingIpInfo
         mPendingIpInfo = null
         if (buffered != null) {

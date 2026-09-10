@@ -15,6 +15,7 @@ import android.os.Looper
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.preference.PreferenceManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -30,6 +31,7 @@ import net.typeblog.socks.IVpnService
 import net.typeblog.socks.SocksVpnService
 import net.typeblog.socks.util.ProfileManager
 import net.typeblog.socks.util.Utility
+import net.typeblog.socks.util.Constants.PREF_VPN_ACCELERATOR
 import net.typeblog.socks.util.Constants.ACTION_VPN_STATE_CHANGED
 import net.typeblog.socks.util.Constants.ACTION_STOP_VPN
 import net.typeblog.socks.util.Constants.VPN_STATE_AS_NAME
@@ -228,6 +230,17 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
             app.registerReceiver(stateReceiver, filter)
         }
         loadProfiles(app)
+        // Accelerator warm-up (UI side only): pre-resolve the default proxy
+        // hostname into the file DNS cache before the next connect.
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val prefs = PreferenceManager.getDefaultSharedPreferences(app)
+                if (!prefs.getBoolean(PREF_VPN_ACCELERATOR, false)) return@launch
+                val pm = ProfileManager.getInstance(app)
+                Utility.warmAccelDns(app, pm.getDefault().getServer())
+            } catch (_: Exception) {
+            }
+        }
         startPolling()
     }
 

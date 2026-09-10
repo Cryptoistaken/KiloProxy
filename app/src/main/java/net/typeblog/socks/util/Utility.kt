@@ -433,4 +433,133 @@ object Utility {
             else -> "$bytes B"
         }
     }
+
+    // ---- VPN Accelerator (experimental, behind PREF_VPN_ACCELERATOR) ----
+    // File-backed caches (never in-memory): the :vpn process may die between
+    // connects, and the UI process must be able to warm the DNS entry.
+    private const val ACCEL_DNS_TTL_MS = 10 * 60 * 1000L
+    private const val ACCEL_IP_TTL_MS = 24 * 60 * 60 * 1000L
+
+    /** Cache key for one proxy identity. Same shape as usageSuffix(). */
+    @JvmStatic
+    fun accelKey(server: String?, port: Int, username: String?): String {
+        val raw = "${server ?: ""}:$port:${username ?: ""}"
+        return try { java.net.URLEncoder.encode(raw, "UTF-8") } catch (_: Exception) { raw.hashCode().toString() }
+    }
+
+    /**
+     * Resolve the SOCKS hostname, using the file DNS cache when accelerated.
+     * Flag OFF (or cache miss/expiry) resolves exactly like before.
+     */
+    @JvmStatic
+    fun resolveServerHost(context: Context, server: String?, accelerated: Boolean): String? {
+        if (server.isNullOrEmpty()) return server
+        if (accelerated) {
+            readAccelDns(context, server)?.let { return it }
+        }
+        val ip = resolveHost(server)
+        if (accelerated && ip != null) writeAccelDns(context, server, ip)
+        return ip
+    }
+
+    /** Best-effort app-start warm-up; caller must run off the main thread. */
+    @JvmStatic
+    fun warmAccelDns(context: Context, server: String?) {
+        if (server.isNullOrEmpty()) return
+        try {
+            if (readAccelDns(context, server) == null) {
+                resolveHost(server)?.let { writeAccelDns(context, server, it) }
+            }
+        } catch (_: Exception) {
+        }
+    }
+
+    private fun resolveHost(server: String): String? {
+        return try {
+            java.net.InetAddress.getByName(server).hostAddress
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to resolve SOCKS server '$server', using as-is", e)
+            server
+        }
+    }
+
+    private fun accelDnsFile(context: Context) = File(context.filesDir, "accel_dns.json")
+
+    private fun readAccelDns(context: Context, host: String): String? {
+        return try {
+            val f = accelDnsFile(context)
+            if (!f.exists()) return null
+            val o = JSONObject(f.readText())
+            if (o.optString("host") != host) return null
+            val age = System.currentTimeMillis() - o.optLong("time", 0L)
+            if (age < 0 || age > ACCEL_DNS_TTL_MS) return null
+            o.optString("ip").ifEmpty { null }
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun writeAccelDns(context: Context, host: String, ip: String) {
+        try {
+            accelDnsFile(context).writeText(
+                JSONObject()
+                    .put("host", host)
+                    .put("ip", ip)
+                    .put("time", System.currentTimeMillis())
+                    .toString()
+            )
+        } catch (_: Exception) {
+        }
+    }
+
+    /** Persist the last verified exit IP per proxy for optimistic reconnect. */
+    @JvmStatic
+    fun saveAccelIp(context: Context, key: String, info: IpInfo) {
+        try {
+            File(context.filesDir, "accel_ip.json").writeText(
+                JSONObject()
+                    .put("key", key)
+                    .put("time", System.currentTimeMillis())
+                    .put("ip", info.ip)
+                    .put("countryCode", info.countryCode)
+                    .put("country", info.country)
+                    .put("regionName", info.regionName)
+                    .put("city", info.city)
+                    .put("isp", info.isp)
+                    .put("org", info.org)
+                    .put("asName", info.asName)
+                    .put("timezone", info.timezone)
+                    .toString()
+            )
+        } catch (_: Exception) {
+        }
+    }
+
+    /** Cached exit IP for this proxy, or null (miss / other proxy / expired). */
+    @JvmStatic
+    fun loadAccelIp(context: Context, key: String): IpInfo? {
+        return try {
+            val f = File(context.filesDir, "accel_ip.json")
+            if (!f.exists()) return null
+            val o = JSONObject(f.readText())
+            if (o.optString("key") != key) return null
+            val age = System.currentTimeMillis() - o.optLong("time", 0L)
+            if (age < 0 || age > ACCEL_IP_TTL_MS) return null
+            val ip = o.optString("ip")
+            if (ip.isEmpty()) return null
+            IpInfo(
+                ip = ip,
+                countryCode = o.optString("countryCode"),
+                country = o.optString("country"),
+                regionName = o.optString("regionName"),
+                city = o.optString("city"),
+                isp = o.optString("isp"),
+                org = o.optString("org"),
+                asName = o.optString("asName"),
+                timezone = o.optString("timezone")
+            )
+        } catch (_: Exception) {
+            null
+        }
+    }
 }

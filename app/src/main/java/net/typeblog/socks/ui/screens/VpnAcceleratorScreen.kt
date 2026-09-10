@@ -114,7 +114,7 @@ fun VpnAcceleratorScreen(
                     modifier = Modifier.padding(top = 16.dp)
                 )
                 Text(
-                    text = "Experimental. Speeds up repeat connects to the same proxy. No engine change yet.",
+                    text = "Experimental. Speeds up repeat connects to the same proxy. When off, connects work exactly as before.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 8.dp)
