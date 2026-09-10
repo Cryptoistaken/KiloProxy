@@ -39,6 +39,7 @@ import net.typeblog.socks.ui.screens.SettingsScreen
 import net.typeblog.socks.ui.screens.SplitTunnelingScreen
 import net.typeblog.socks.ui.screens.ThemeScreen
 import net.typeblog.socks.ui.screens.DebugLogsScreen
+import net.typeblog.socks.ui.screens.VpnAcceleratorScreen
 import net.typeblog.socks.ui.viewmodel.VpnViewModel
 
 sealed class Screen(val route: String) {
@@ -50,6 +51,7 @@ sealed class Screen(val route: String) {
     data object Theme : Screen("theme")
     data object BubbleSettings : Screen("bubble_settings")
     data object DebugLogs : Screen("debug_logs")
+    data object VpnAccelerator : Screen("vpn_accelerator")
 }
 
 private data class BottomNavItem(
@@ -211,6 +213,9 @@ fun AppNavigation() {
                     },
                     onNavigateToDebugLogs = {
                         navController.navigate(Screen.DebugLogs.route)
+                    },
+                    onNavigateToVpnAccelerator = {
+                        navController.navigate(Screen.VpnAccelerator.route)
                     }
                 )
             }
@@ -230,6 +235,13 @@ fun AppNavigation() {
             }
             composable(Screen.DebugLogs.route) {
                 DebugLogsScreen(
+                    onNavigateBack = {
+                        navController.popBackStack()
+                    }
+                )
+            }
+            composable(Screen.VpnAccelerator.route) {
+                VpnAcceleratorScreen(
                     onNavigateBack = {
                         navController.popBackStack()
                     }

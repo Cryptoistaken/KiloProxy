@@ -51,6 +51,7 @@ import net.typeblog.socks.ui.components.UpdateDialog
 import net.typeblog.socks.util.Constants.PREF_ADV_PER_APP
 import net.typeblog.socks.util.Constants.PREF_FLOATING_CONTROL
 import net.typeblog.socks.util.Constants.PREF_THEME_MODE
+import net.typeblog.socks.util.Constants.PREF_VPN_ACCELERATOR
 import net.typeblog.socks.util.UpdateChecker
 
 @Composable
@@ -59,6 +60,7 @@ fun SettingsScreen(
     onNavigateToTheme: () -> Unit,
     onNavigateToBubbleSettings: () -> Unit,
     onNavigateToDebugLogs: () -> Unit,
+    onNavigateToVpnAccelerator: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -73,12 +75,16 @@ fun SettingsScreen(
     var splitEnabled by remember {
         mutableStateOf(prefs.getBoolean(PREF_ADV_PER_APP, false))
     }
+    var acceleratorEnabled by remember {
+        mutableStateOf(prefs.getBoolean(PREF_VPN_ACCELERATOR, false))
+    }
     DisposableEffect(context) {
         val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
             when (key) {
                 PREF_THEME_MODE -> themeMode = prefs.getString(PREF_THEME_MODE, "system") ?: "system"
                 PREF_FLOATING_CONTROL -> floatingControl = prefs.getBoolean(PREF_FLOATING_CONTROL, false)
                 PREF_ADV_PER_APP -> splitEnabled = prefs.getBoolean(PREF_ADV_PER_APP, false)
+                PREF_VPN_ACCELERATOR -> acceleratorEnabled = prefs.getBoolean(PREF_VPN_ACCELERATOR, false)
             }
         }
         prefs.registerOnSharedPreferenceChangeListener(listener)
@@ -161,6 +167,13 @@ fun SettingsScreen(
                     description = if (floatingControl) "On" else "Off",
                     iconTint = if (floatingControl) bubbleGreen else bubbleRed,
                     onClick = onNavigateToBubbleSettings
+                )
+                SettingsItem(
+                    icon = painterResource(R.drawable.lucide_arrows_right_left),
+                    label = "VPN Accelerator",
+                    description = if (acceleratorEnabled) "On" else "Off",
+                    showChevron = false,
+                    onClick = onNavigateToVpnAccelerator
                 )
             }
         }

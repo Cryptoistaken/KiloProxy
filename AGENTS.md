@@ -124,6 +124,7 @@ Keep messages short and direct. State what happened, nothing else.
 | Path | Purpose |
 |---|---|
 | `AGENTS.md` | This file — agent rules, build/install flow, snapshots, filesystem map |
+| `task.md` | VPN Accelerator task (experimental connect-time goal, SOCKS5-client scope) |
 | `protonvpn-settings.html` | Settings mock reference (tracked; `design/` docs were deleted) |
 | `build.gradle` | Root Gradle build (plugins: android.application, Kotlin compose) |
 | `settings.gradle` / `gradle.properties` / `gradle/wrapper/gradle-wrapper.properties` | Gradle config (Gradle 9.4.1, AGP 9.2.1, Kotlin 2.2.10, Java 17) |
@@ -178,10 +179,11 @@ Notes on the merged notification/dot pass:
   - `ProxyCard.kt` — Minimal card (profilecard.html v2): square, borderless (transparent 1dp keeps picked outline + layout), lifted `surfaceContainer` tile on `surface` page (`--tile` in mock), flag-emoji / server-glyph icon slot, name + app-green dot (hidden offline), host without port, Used total only. Whole card taps to `onSelect` (detail sheet, or pick in pickMode). No chips, no buttons. Long-press (`onLongPress`) enters multi-select and picks the card; picked cards (`checked`) use the overlay style (primary border + primaryContainer tint, no checkbox). Swipe right opens Edit, swipe left deletes immediately with a 5s Undo snackbar (no confirm); swipe disabled in pickMode/multi-select.
   - `ProfileDetailSheet.kt` — Bottom sheet opened by tapping a card: icon + name + sub, Provider/Type + Used/Server(no port) facts, Copy (clipboard `host:port:user:pass`, flips to green Copied, no Toast) / Test (SocksTester + Toast) / Edit / Duplicate (`duplicateProfile` in ProxiesScreen, `Profile.copyTo`, no engine change) / Delete rows with `ic_sheet_*` icons (`lucide_copy` for Copy). Delete reuses the existing confirm dialog. Opens fully expanded (`skipPartiallyExpanded`).
 - `navigation/AppNavigation.kt` — NavHost destinations (incl. `theme` route)
-- `screens/` — BubbleSettingsScreen, CountriesScreen, DebugLogsScreen, ProxiesScreen, SettingsScreen, SplitTunnelingScreen, StatusScreen, ThemeScreen
+- `screens/` — BubbleSettingsScreen, CountriesScreen, DebugLogsScreen, ProxiesScreen, SettingsScreen, SplitTunnelingScreen, StatusScreen, ThemeScreen, VpnAcceleratorScreen
+  - `VpnAcceleratorScreen.kt` — Experimental connect-time page (SOCKS5-client scope, not throughput): single `PREF_VPN_ACCELERATOR` toggle, default OFF. UI only, no engine behavior change yet.
   - `ThemeScreen.kt` — Theme picker page: Light / Dark / Device theme cards with mini phone previews; writes PREF_THEME_MODE.
   - `SplitTunnelingScreen.kt` — ProtonVPN mock design: feature header + toggle card, Mode row (dialog: Exclude/Include) + Apps row; apps page has search bar, selected-apps section (minus) and all-other-apps section (plus). Same engine prefs (PREF_ADV_PER_APP / PREF_ADV_APP_BYPASS / PREF_ADV_APP_LIST). IP-address rows skipped: engine has no IP split-tunneling support.
-  - `SettingsScreen.kt` — the 2 ProtonVPN-mock rows: "Split tunneling" (On/Off) and "Theme" (subtitle = theme label), no chevrons, theme opens ThemeScreen.
+  - `SettingsScreen.kt` — Features rows: "Split tunneling" (On/Off), "Theme" (subtitle = theme label), "Floating Bubble" (On/Off), "VPN Accelerator" (On/Off, opens VpnAcceleratorScreen); no chevrons.
 - `theme/` — Color, Fonts, Theme, Type (Compose theming, Geist fonts)
 - `viewmodel/VpnViewModel.kt` — Vpn state, AIDL binding
 
