@@ -210,46 +210,29 @@ object Utility {
 
     @JvmStatic
     fun checkPublicIp(server: String?, port: Int, username: String?, password: String?): IpInfo? {
-        // Single provider (ip-api.com), always fresh: no fallback race, no
-        // cached reuse. Runs on the caller's background thread.
-        return fetchPublicIp(
-            "https://ip-api.com/json/?fields=status,query,country,countryCode,regionName,city,isp,org,as,timezone",
-            ::parseIpApiCom,
-            server, port, username, password
-        )
+        // Primary: own checker. Fallback: Cloudflare trace (IP + country
+        // code only). Always fresh, never cached.
+        fetchCheckText(KILO_IP_URL, "kiloip", server, port, username, password, ::parseKiloIp)
+            ?.let { return it }
+        return fetchCheckText(TRACE_URL, "trace", server, port, username, password, ::parseTrace)
     }
 
-    private fun parseIpApiCom(obj: JSONObject): IpInfo? {
-        if (obj.optString("status") != "success") return null
-        return IpInfo(
-            ip = obj.getString("query"),
-            countryCode = obj.getString("countryCode"),
-            country = obj.optString("country"),
-            regionName = obj.optString("regionName"),
-            city = obj.optString("city"),
-            isp = obj.optString("isp"),
-            org = obj.optString("org"),
-            asName = obj.optString("as"),
-            timezone = obj.optString("timezone")
-        )
-    }
-
-    private fun fetchPublicIp(
+    private fun fetchCheckText(
         url: String,
-        parse: (JSONObject) -> IpInfo?,
+        tag: String,
         server: String?,
         port: Int,
         username: String?,
-        password: String?
+        password: String?,
+        parse: (String) -> IpInfo?
     ): IpInfo? {
         var conn: HttpURLConnection? = null
         var authSet = false
         return try {
-            val u = URL(url)
             conn = if (server.isNullOrEmpty()) {
-                u.openConnection() as HttpURLConnection
+                URL(url).openConnection() as HttpURLConnection
             } else {
-                u.openConnection(Proxy(Proxy.Type.SOCKS, InetSocketAddress(server, port))) as HttpURLConnection
+                URL(url).openConnection(Proxy(Proxy.Type.SOCKS, InetSocketAddress(server, port))) as HttpURLConnection
             }
             if (!server.isNullOrEmpty() && !username.isNullOrEmpty()) {
                 val user = username
@@ -266,15 +249,56 @@ object Utility {
             } catch (_: Exception) {
                 return null
             }
-            parse(JSONObject(text))
+            parse(text)
         } catch (e: Exception) {
-            Log.d("Utility", "checkPublicIp($url) failed: ${e.message}")
+            Log.d("Utility", "checkPublicIp($tag) failed: ${e.message}")
             null
         } finally {
             conn?.disconnect()
             if (authSet) Authenticator.setDefault(null)
         }
     }
+
+    private fun parseKiloIp(text: String): IpInfo? {
+        return try {
+            val obj = JSONObject(text)
+            val ip = obj.optString("ip")
+            if (ip.isEmpty()) return null
+            IpInfo(
+                ip = ip,
+                countryCode = obj.optString("countryCode"),
+                country = obj.optString("country"),
+                regionName = obj.optString("regionName"),
+                city = obj.optString("city"),
+                isp = obj.optString("isp"),
+                org = obj.optString("org"),
+                asName = obj.optString("asName"),
+                timezone = obj.optString("timezone")
+            )
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun parseTrace(text: String): IpInfo? {
+        return try {
+            var ip = ""
+            var loc = ""
+            text.lineSequence().forEach { line ->
+                when {
+                    line.startsWith("ip=") -> ip = line.substringAfter("=").trim()
+                    line.startsWith("loc=") -> loc = line.substringAfter("=").trim()
+                }
+            }
+            if (ip.isEmpty()) return null
+            IpInfo(ip = ip, countryCode = loc)
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private const val KILO_IP_URL = "https://kiloproxy.traderspopy.workers.dev/"
+    private const val TRACE_URL = "https://www.cloudflare.com/cdn-cgi/trace"
 
     // Canonical usage-stats key suffix: same in :vpn (writer) and UI (reader).
     @JvmStatic

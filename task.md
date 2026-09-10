@@ -32,6 +32,7 @@ Target: subsequent connects to the same `host:port:user` feel instant (tunnel-up
 - [x] Engine wiring behind the flag: file DNS cache (10 min TTL) + parallel conf/DNS + app-start warm-up. Verification is always fresh via ip-api.com only (no provider race, no cached exit-IP reuse). Flag OFF = old paths.
 - [ ] On-device measure: baseline vs accelerated repeat-connect times.
 - [x] Own checker: `checker/` Worker source (V8 TS, zero deps; `request.cf` enrichment, `no-store`, optional `X-Check-Key`). Not yet deployed, app still points at ip-api.com.
+- [x] Checker wired: kiloip primary, cdn-cgi/trace fallback (IP+country only), always fresh. Healthy re-verify every 60s. Bubble never fabricates geo (no DE/flag defaults when unverified).
 
 ## Prior art (Proton, read 2026-09-10)
 Proton Android client (`ProtonVPN/android-app`, GPL-3.0): the toggle is one

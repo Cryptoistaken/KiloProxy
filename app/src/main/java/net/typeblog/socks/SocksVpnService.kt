@@ -1074,7 +1074,7 @@ class SocksVpnService : VpnService() {
         private const val TAG = "SocksVpnService"
         private const val CHANNEL_ID = "floating_control"
         private const val NOTIFICATION_ID = 2
-        private const val IP_CHECK_INTERVAL = 30000L
+        private const val IP_CHECK_INTERVAL = 60000L
         private const val IP_INFO_RETRY = 500L
         private const val IP_CHECK_RETRY = 5000L
         private const val MAX_IP_CHECK_FAILURES = 3

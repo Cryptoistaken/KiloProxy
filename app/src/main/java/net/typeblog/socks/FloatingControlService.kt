@@ -1707,6 +1707,13 @@ class FloatingControlService : Service() {
         stopTimer()
         val tv = timerView ?: return
         val green = lockGreen()
+        if (lockCountryCode().isEmpty()) {
+            // No verified geo: never show a placeholder flag. Timer only.
+            updateTimerText()
+            tv.alpha = 1f
+            startTimer()
+            return
+        }
         // Protected 1.5s - large green
         tv.alpha = 1f
         tv.setTextColor(green)
@@ -1721,6 +1728,15 @@ class FloatingControlService : Service() {
             tv.animate().alpha(0f).setDuration(200).withEndAction {
                 if (state != BubbleState.CONNECTED) return@withEndAction
                 val (flag, digits) = lockFlagDigits()
+                if (flag.isEmpty()) {
+                    // Geo vanished mid-sequence (stale bind): fall back to
+                    // the timer instead of a blank row.
+                    updateTimerText()
+                    tv.alpha = 0f
+                    tv.animate().alpha(1f).setDuration(200).start()
+                    startTimer()
+                    return@withEndAction
+                }
                 tv.setTextColor(Color.BLACK)
                 tv.textSize = 11f
                 tv.letterSpacing = 0.02f
@@ -1777,6 +1793,7 @@ class FloatingControlService : Service() {
     private fun doLockFlash() {
         val tv = timerView ?: return
         if (state != BubbleState.CONNECTED) return
+        if (lockCountryCode().isEmpty()) return
         lockFlashing = true
         val isCode = lockCycleAlt == 0
         lockCycleAlt = 1 - lockCycleAlt
@@ -1786,10 +1803,11 @@ class FloatingControlService : Service() {
             if (state != BubbleState.CONNECTED) { lockFlashing = false; return@withEndAction }
             val (flag, digits) = lockFlagDigits()
             val code = lockCountryCode()
+            if (code.isEmpty() || flag.isEmpty()) return@withEndAction
             tv.setTextColor(Color.BLACK)
             if (isCode) {
                 tv.textSize = 12f
-                tv.text = if (code.isNotEmpty()) flag + " " + code else flag + " DE"
+                tv.text = flag + " " + code
             } else {
                 tv.textSize = 11f
                 tv.text = flag + " " + digits
@@ -1814,13 +1832,17 @@ class FloatingControlService : Service() {
 
     private fun lockFlagDigits(): Pair<String, String> {
         val code = try { vpnService?.countryCode ?: "" } catch (_: Exception) { "" }
-        val flag = if (code.isNotEmpty()) Utility.countryCodeToFlag(code) else "🇩🇪"
+        // No verified geo: empty, never a placeholder. Callers skip the
+        // flag phases when this is empty so the bubble cannot show a stale
+        // country as connected.
+        if (code.isEmpty()) return Pair("", "")
+        val flag = Utility.countryCodeToFlag(code)
         val ip = try { vpnService?.currentIp ?: "" } catch (_: Exception) { "" }
         val lastOctet = when {
             ip.contains('.') -> ip.substringAfterLast('.')
             ip.contains(':') -> ip.substringAfterLast(':').takeLast(4)
-            else -> "153"
-        }.ifEmpty { "153" }
+            else -> ""
+        }.ifEmpty { "" }
         return Pair(flag, lastOctet)
     }
 
