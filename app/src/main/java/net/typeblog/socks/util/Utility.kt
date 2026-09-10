@@ -22,6 +22,7 @@ import net.typeblog.socks.util.Constants.INTENT_UDP_GW
 import net.typeblog.socks.util.Constants.PREF_ADV_APP_BYPASS
 import net.typeblog.socks.util.Constants.PREF_ADV_APP_LIST
 import net.typeblog.socks.util.Constants.PREF_ADV_PER_APP
+import net.typeblog.socks.util.Constants.ACCEL_PRIMARY_KILOIP
 
 import java.io.BufferedReader
 import java.io.File
