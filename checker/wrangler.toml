@@ -1,0 +1,9 @@
+name = "kiloproxy-check"
+main = "src/index.ts"
+compatibility_date = "2026-09-10"
+workers_dev = true
+
+# Optional shared secret. If set (wrangler secret put CHECK_KEY), the
+# handler requires an X-Check-Key header with the same value.
+# [vars]
+# CHECK_KEY = ""

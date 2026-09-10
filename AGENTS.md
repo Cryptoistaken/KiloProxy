@@ -126,6 +126,7 @@ Keep messages short and direct. State what happened, nothing else.
 |---|---|
 | `AGENTS.md` | This file — agent rules, build/install flow, snapshots, filesystem map |
 | `task.md` | VPN Accelerator task (experimental connect-time goal, SOCKS5-client scope) |
+| `checker/` | Own exit-IP checker (Cloudflare Worker source; deploys via wrangler, outside the APK build) |
 | `protonvpn-settings.html` | Settings mock reference (tracked; `design/` docs were deleted) |
 | `build.gradle` | Root Gradle build (plugins: android.application, Kotlin compose) |
 | `settings.gradle` / `gradle.properties` / `gradle/wrapper/gradle-wrapper.properties` | Gradle config (Gradle 9.4.1, AGP 9.2.1, Kotlin 2.2.10, Java 17) |
