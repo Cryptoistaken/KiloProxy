@@ -35,10 +35,6 @@ import java.net.NetworkInterface
 import java.net.PasswordAuthentication
 import java.net.Proxy
 import java.net.URL
-import java.util.concurrent.Callable
-import java.util.concurrent.Executors
-import java.util.concurrent.Future
-import java.util.concurrent.TimeUnit
 import org.json.JSONObject
 
 data class IpInfo(
@@ -214,92 +210,28 @@ object Utility {
 
     @JvmStatic
     fun checkPublicIp(server: String?, port: Int, username: String?, password: String?): IpInfo? {
-        val providers = listOf(
-            "https://ip-api.com/json/?fields=status,query,country,countryCode,regionName,city,isp,org,as,timezone" to { obj: JSONObject ->
-                if (obj.optString("status") != "success") null else IpInfo(
-                        ip = obj.getString("query"),
-                        countryCode = obj.getString("countryCode"),
-                        country = obj.optString("country"),
-                        regionName = obj.optString("regionName"),
-                        city = obj.optString("city"),
-                        isp = obj.optString("isp"),
-                        org = obj.optString("org"),
-                        asName = obj.optString("as"),
-                        timezone = obj.optString("timezone")
-                    )
-            },
-            "https://ipapi.co/json/" to { obj: JSONObject ->
-                val ip = obj.optString("ip")
-                if (ip.isEmpty()) null else IpInfo(
-                        ip = ip,
-                        countryCode = obj.optString("country_code", obj.optString("countryCode")),
-                        country = obj.optString("country_name", obj.optString("country")),
-                        regionName = obj.optString("region"),
-                        city = obj.optString("city"),
-                        isp = obj.optString("org"),
-                        org = obj.optString("org"),
-                        asName = obj.optString("asn"),
-                        timezone = obj.optString("timezone")
-                    )
-            },
-            "https://ipwho.is/" to { obj: JSONObject ->
-                val ip = obj.optString("ip")
-                if (ip.isEmpty() || obj.optString("success") == "false") null else {
-                    val conn = obj.optJSONObject("connection")
-                    val tz = obj.optJSONObject("timezone")
-                    val asn = conn?.optString("asn", "") ?: ""
-                    IpInfo(
-                        ip = ip,
-                        countryCode = obj.optString("country_code"),
-                        country = obj.optString("country"),
-                        regionName = obj.optString("region"),
-                        city = obj.optString("city"),
-                        isp = conn?.optString("isp", "") ?: "",
-                        org = conn?.optString("org", "") ?: "",
-                        asName = if (asn.isEmpty() || asn.startsWith("AS")) asn else "AS$asn",
-                        timezone = tz?.optString("id", "") ?: ""
-                    )
-                }
-            },
-            "https://free.freeipapi.com/api/json" to { obj: JSONObject ->
-                val ip = obj.optString("ipAddress")
-                if (ip.isEmpty()) null else {
-                    val asn = obj.optString("asn")
-                    IpInfo(
-                        ip = ip,
-                        countryCode = obj.optString("countryCode"),
-                        country = obj.optString("countryName"),
-                        regionName = obj.optString("regionName"),
-                        city = obj.optString("cityName"),
-                        isp = obj.optString("asnOrganization"),
-                        org = obj.optString("asnOrganization"),
-                        asName = if (asn.isEmpty() || asn.startsWith("AS")) asn else "AS$asn",
-                        timezone = obj.optJSONArray("timeZones")?.optString(0, "") ?: ""
-                    )
-                }
-            }
+        // Single provider (ip-api.com), always fresh: no fallback race, no
+        // cached reuse. Runs on the caller's background thread.
+        return fetchPublicIp(
+            "https://ip-api.com/json/?fields=status,query,country,countryCode,regionName,city,isp,org,as,timezone",
+            ::parseIpApiCom,
+            server, port, username, password
         )
-        val exec = Executors.newFixedThreadPool(providers.size) { r ->
-            Thread(r).apply { isDaemon = true }
-        }
-        return try {
-            val futures: List<Future<IpInfo?>> = providers.map { (url, parse) ->
-                exec.submit(Callable<IpInfo?> { fetchPublicIp(url, parse, server, port, username, password) })
-            }
-            var result: IpInfo? = null
-            val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10)
-            for (f in futures) {
-                val remaining = deadline - System.nanoTime()
-                if (remaining <= 0) break
-                try {
-                    val info = f.get(remaining, TimeUnit.NANOSECONDS)
-                    if (info != null) { result = info; break }
-                } catch (_: Exception) {}
-            }
-            result
-        } finally {
-            exec.shutdownNow()
-        }
+    }
+
+    private fun parseIpApiCom(obj: JSONObject): IpInfo? {
+        if (obj.optString("status") != "success") return null
+        return IpInfo(
+            ip = obj.getString("query"),
+            countryCode = obj.getString("countryCode"),
+            country = obj.optString("country"),
+            regionName = obj.optString("regionName"),
+            city = obj.optString("city"),
+            isp = obj.optString("isp"),
+            org = obj.optString("org"),
+            asName = obj.optString("as"),
+            timezone = obj.optString("timezone")
+        )
     }
 
     private fun fetchPublicIp(
@@ -438,14 +370,6 @@ object Utility {
     // File-backed caches (never in-memory): the :vpn process may die between
     // connects, and the UI process must be able to warm the DNS entry.
     private const val ACCEL_DNS_TTL_MS = 10 * 60 * 1000L
-    private const val ACCEL_IP_TTL_MS = 24 * 60 * 60 * 1000L
-
-    /** Cache key for one proxy identity. Same shape as usageSuffix(). */
-    @JvmStatic
-    fun accelKey(server: String?, port: Int, username: String?): String {
-        val raw = "${server ?: ""}:$port:${username ?: ""}"
-        return try { java.net.URLEncoder.encode(raw, "UTF-8") } catch (_: Exception) { raw.hashCode().toString() }
-    }
 
     /**
      * Resolve the SOCKS hostname, using the file DNS cache when accelerated.
@@ -509,57 +433,6 @@ object Utility {
                     .toString()
             )
         } catch (_: Exception) {
-        }
-    }
-
-    /** Persist the last verified exit IP per proxy for optimistic reconnect. */
-    @JvmStatic
-    fun saveAccelIp(context: Context, key: String, info: IpInfo) {
-        try {
-            File(context.filesDir, "accel_ip.json").writeText(
-                JSONObject()
-                    .put("key", key)
-                    .put("time", System.currentTimeMillis())
-                    .put("ip", info.ip)
-                    .put("countryCode", info.countryCode)
-                    .put("country", info.country)
-                    .put("regionName", info.regionName)
-                    .put("city", info.city)
-                    .put("isp", info.isp)
-                    .put("org", info.org)
-                    .put("asName", info.asName)
-                    .put("timezone", info.timezone)
-                    .toString()
-            )
-        } catch (_: Exception) {
-        }
-    }
-
-    /** Cached exit IP for this proxy, or null (miss / other proxy / expired). */
-    @JvmStatic
-    fun loadAccelIp(context: Context, key: String): IpInfo? {
-        return try {
-            val f = File(context.filesDir, "accel_ip.json")
-            if (!f.exists()) return null
-            val o = JSONObject(f.readText())
-            if (o.optString("key") != key) return null
-            val age = System.currentTimeMillis() - o.optLong("time", 0L)
-            if (age < 0 || age > ACCEL_IP_TTL_MS) return null
-            val ip = o.optString("ip")
-            if (ip.isEmpty()) return null
-            IpInfo(
-                ip = ip,
-                countryCode = o.optString("countryCode"),
-                country = o.optString("country"),
-                regionName = o.optString("regionName"),
-                city = o.optString("city"),
-                isp = o.optString("isp"),
-                org = o.optString("org"),
-                asName = o.optString("asName"),
-                timezone = o.optString("timezone")
-            )
-        } catch (_: Exception) {
-            null
         }
     }
 }

@@ -29,7 +29,7 @@ Target: subsequent connects to the same `host:port:user` feel instant (tunnel-up
 ## Status
 - [x] `task.md` created (no old file existed), scoped to SOCKS5 connect-time.
 - [x] `PREF_VPN_ACCELERATOR` pref, Settings row, `vpn_accelerator` page (default OFF).
-- [x] Engine wiring behind the flag: file DNS cache (10 min TTL) + optimistic verified IP (24 h TTL, live check overwrites) + parallel conf/DNS + app-start warm-up. Flag OFF = old paths.
+- [x] Engine wiring behind the flag: file DNS cache (10 min TTL) + parallel conf/DNS + app-start warm-up. Verification is always fresh via ip-api.com only (no provider race, no cached exit-IP reuse). Flag OFF = old paths.
 - [ ] On-device measure: baseline vs accelerated repeat-connect times.
 
 ## Prior art (Proton, read 2026-09-10)

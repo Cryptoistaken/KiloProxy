@@ -194,7 +194,6 @@ class SocksVpnService : VpnService() {
     // OFF means every path below behaves exactly like before.
     @Volatile
     private var mAccel = false
-    private var mAccelKey: String? = null
     private var mNotificationReceiverRegistered = false
     private var mScreenOffRegistered = false
     private var mScreenOnRegistered = false
@@ -453,7 +452,6 @@ class SocksVpnService : VpnService() {
         mDnsPort = dnsPort
         mAccel = PreferenceManager.getDefaultSharedPreferences(this)
             .getBoolean(Constants.PREF_VPN_ACCELERATOR, false)
-        mAccelKey = if (mAccel) Utility.accelKey(server, port, username) else null
         val perApp = intent.getBooleanExtra(INTENT_PER_APP, false)
         val appBypass = intent.getBooleanExtra(INTENT_APP_BYPASS, false)
         val appList = intent.getStringArrayExtra(INTENT_APP_LIST)
@@ -601,7 +599,6 @@ class SocksVpnService : VpnService() {
         mProfileName = null
         mServer = null
         mResolvedServer = null
-        mAccelKey = null
         mPort = 0
         mUsername = null
         mPassword = null
@@ -1010,20 +1007,11 @@ class SocksVpnService : VpnService() {
     }
 
     private fun applyIpInfo(info: IpInfo) {
-        applyIpInfo(info, fromCache = false)
-    }
-
-    private fun applyIpInfo(info: IpInfo, fromCache: Boolean) {
         mCurrentIp = info.ip
         mCountryCode = info.countryCode
         mIpInfo = info
         mProxyVerified = true
         mIpCheckFailures = 0
-        // Accelerator: persist network-verified results only; the optimistic
-        // pass below must not refresh the timestamp of a stale entry.
-        if (mAccel && !fromCache) {
-            mAccelKey?.let { Utility.saveAccelIp(this, it, info) }
-        }
         updateNotification()
         notifyStateChanged()
     }
@@ -1053,17 +1041,6 @@ class SocksVpnService : VpnService() {
         Log.d(TAG, "tunDBG ifaces=" + dumpInterfaces())
         mStatsHandler.post(mStatsRunnable)
         mTunnelUp = true
-        if (mAccel && !mProxyVerified) {
-            val key = mAccelKey
-            val cached = if (key != null) Utility.loadAccelIp(this, key) else null
-            if (cached != null) {
-                // Optimistic CONNECTED at tunnel-up from the last verified
-                // exit IP. The live check below still runs and overwrites
-                // with a fresh result, so stale geo self-corrects.
-                Log.d(TAG, "Accelerator: showing cached exit IP ${cached.ip}")
-                applyIpInfo(cached, fromCache = true)
-            }
-        }
         val buffered = mPendingIpInfo
         mPendingIpInfo = null
         if (buffered != null) {
