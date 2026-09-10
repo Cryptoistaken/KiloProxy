@@ -17,10 +17,6 @@
  * quota). Deploy: npx wrangler deploy (from the checker/ folder).
  */
 
-interface Env {
-  CHECK_KEY?: string;
-}
-
 // request.cf is untyped without @cloudflare/workers-types (kept
 // dependency-free on purpose); read it defensively.
 function cfStr(cf: unknown, key: string): string {
@@ -98,12 +94,9 @@ const COUNTRY_NAMES: Record<string, string> = {
 };
 
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(request: Request): Promise<Response> {
     if (request.method !== "GET") {
       return new Response("Method not allowed", { status: 405 });
-    }
-    if (env.CHECK_KEY && request.headers.get("X-Check-Key") !== env.CHECK_KEY) {
-      return new Response("Forbidden", { status: 403 });
     }
     const cf: unknown = (request as unknown as Record<string, unknown>)["cf"] || {};
     const code = cfStr(cf, "country").toUpperCase();
