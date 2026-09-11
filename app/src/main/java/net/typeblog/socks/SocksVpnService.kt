@@ -310,8 +310,19 @@ class SocksVpnService : VpnService() {
                 try {
                     // Master OFF keeps stock selection: kiloip first, trace
                     // fallback. Master ON honors the Advanced Settings page.
+                    // Trace-primary + Both paints the fast answer first, then
+                    // enriches with kiloip details.
+                    val onEarly: ((IpInfo) -> Unit)? =
+                        if (mAccel && mAccelBoth && mAccelPrimary == Constants.ACCEL_PRIMARY_TRACE) {
+                            { early ->
+                                runOnMainThread {
+                                    if (!mTunnelUp) mPendingIpInfo = early
+                                    else applyIpInfo(early)
+                                }
+                            }
+                        } else null
                     val info = if (mAccel) {
-                        Utility.checkWith(server, port, username, password, mAccelPrimary, mAccelBoth)
+                        Utility.checkWith(server, port, username, password, mAccelPrimary, mAccelBoth, onEarly)
                     } else {
                         Utility.checkPublicIp(server, port, username, password)
                     }
