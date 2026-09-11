@@ -219,9 +219,7 @@ object Utility {
      * Checker with Advanced Settings selection. primary is ACCEL_PRIMARY_*
      * ("trace" = fast IP and country at connect time, "kiloip" = full
      * details). both = run the other one after: as enrichment when the
-     * primary succeeds, as fallback when it fails. onEarly fires with the
-     * fast trace answer (same thread) so the caller can paint it before
-     * the enrichment lands.
+     * primary succeeds, as fallback when it fails.
      */
     @JvmStatic
     fun checkWith(
@@ -230,23 +228,15 @@ object Utility {
         username: String?,
         password: String?,
         primary: String,
-        both: Boolean,
-        onEarly: ((IpInfo) -> Unit)? = null
+        both: Boolean
     ): IpInfo? {
         val first: (String?, Int, String?, String?) -> IpInfo? =
             if (primary == ACCEL_PRIMARY_KILOIP) ::fetchKiloIp else ::fetchTrace
         val second: (String?, Int, String?, String?) -> IpInfo? =
             if (primary == ACCEL_PRIMARY_KILOIP) ::fetchTrace else ::fetchKiloIp
-        val firstResult = first(server, port, username, password)
-        if (!both) return firstResult
-        if (firstResult == null) return second(server, port, username, password)
-        // Both + trace primary: trace was the fast answer (IP and country).
-        // Hand it out for immediate display, then enrich with kiloip.
-        if (primary != ACCEL_PRIMARY_KILOIP) {
-            onEarly?.invoke(firstResult)
-            second(server, port, username, password)?.let { return it }
-        }
-        return firstResult
+        first(server, port, username, password)?.let { return it }
+        if (!both) return null
+        return second(server, port, username, password)
     }
 
     private fun fetchKiloIp(server: String?, port: Int, username: String?, password: String?): IpInfo? =
