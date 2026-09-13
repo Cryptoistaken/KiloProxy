@@ -200,7 +200,7 @@ Notes on the merged notification/dot pass:
 | Area | Purpose |
 |---|---|
 | `Android.mk`, `Application.mk` | ndkBuild top-level build files. All modules link `-Wl,-z,max-page-size=16384 -Wl,-z,common-page-size=16384` (16 KB ELF alignment, required on Android 15/16 16 KB-page devices; NDK r27 does not align by default). |
-| `badvpn/` | tun2socks engine (full badvpn fork: tun2socks/, lwip/ stack, client/, system/, etc.) |
+| `badvpn/` | tun2socks engine (full badvpn fork: tun2socks/, lwip/ stack, client/, system/, etc.). `lwip/custom/lwipopts.h` tunes `TCP_WND`/`TCP_SND_BUF` to 65535 (lwIP default 4*MSS caps a single stream at ~0.5 Mbps on 100 ms proxy RTT). |
 | `pdnsd/` | pdnsd DNS proxy source |
 | `libancillary/` | ancillary fd passing (sendfd recvfd) |
 | `system.cpp` | JNI — `sendfd()` used by VPN tunnel setup |

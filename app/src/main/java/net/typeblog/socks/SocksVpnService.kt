@@ -356,6 +356,11 @@ class SocksVpnService : VpnService() {
                                 notifyStateChanged()
                                 mIpCheckHandler.postDelayed(this, IP_INFO_RETRY)
                             } else if (!mAccel || mAccelProbe) {
+                                // SOCKS handshake failed against the address in
+                                // use. In accelerated mode that address may come
+                                // from the DNS cache; drop it so the next connect
+                                // resolves fresh instead of reusing a dead IP.
+                                if (mAccel) Utility.clearAccelDns(this)
                                 if (mProxyVerified) {
                                     mProxyVerified = false
                                     notifyStateChanged()
@@ -380,6 +385,7 @@ class SocksVpnService : VpnService() {
                                 mIpCheckHandler.postDelayed(this, IP_CHECK_RETRY)
                             } else {
                                 // Probe off: never tear down, only retry enrichment.
+                                if (mAccel) Utility.clearAccelDns(this)
                                 mIpCheckHandler.postDelayed(this, IP_CHECK_RETRY)
                             }
                         }

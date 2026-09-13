@@ -448,7 +448,7 @@ object Utility {
             readAccelDns(context, server)?.let { return it }
         }
         val ip = resolveHost(server)
-        if (accelerated && ip != null) writeAccelDns(context, server, ip)
+        if (accelerated && ip != null && isNumericAddress(ip)) writeAccelDns(context, server, ip)
         return ip
     }
 
@@ -458,18 +458,48 @@ object Utility {
         if (server.isNullOrEmpty()) return
         try {
             if (readAccelDns(context, server) == null) {
-                resolveHost(server)?.let { writeAccelDns(context, server, it) }
+                resolveHost(server)?.takeIf { isNumericAddress(it) }?.let { writeAccelDns(context, server, it) }
             }
         } catch (_: Exception) {
         }
     }
 
+    /** Drops the accelerator DNS cache so the next connect resolves fresh. */
+    @JvmStatic
+    fun clearAccelDns(context: Context) {
+        try {
+            accelDnsFile(context).delete()
+        } catch (_: Exception) {
+        }
+    }
+
+    /**
+     * Prefer IPv4 upstreams and never fabricate a result. A first-resolved
+     * IPv6 literal breaks on IPv4-only or broken-IPv6 networks, and caching a
+     * hostname on a failed lookup poisoned every subsequent accelerated
+     * connect (the native engine then parsed a hostname as an address).
+     */
     private fun resolveHost(server: String): String? {
         return try {
-            java.net.InetAddress.getByName(server).hostAddress
+            val all = java.net.InetAddress.getAllByName(server)
+            (all.firstOrNull { it is java.net.Inet4Address } ?: all.firstOrNull())?.hostAddress
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to resolve SOCKS server '$server', using as-is", e)
-            server
+            Log.e(TAG, "Failed to resolve SOCKS server '$server'", e)
+            null
+        }
+    }
+
+    private fun isNumericAddress(value: String): Boolean {
+        if (value.isEmpty()) return false
+        return try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                android.net.InetAddresses.isNumericAddress(value)
+            } else {
+                value.matches(Regex("^\\d{1,3}(\\.\\d{1,3}){3}$")) ||
+                    (value.contains(':') && value.all { it.isDigit() || it in "abcdefABCDEF:." })
+            }
+        } catch (_: Exception) {
+            false
         }
     }
 
@@ -483,7 +513,11 @@ object Utility {
             if (o.optString("host") != host) return null
             val age = System.currentTimeMillis() - o.optLong("time", 0L)
             if (age < 0 || age > ACCEL_DNS_TTL_MS) return null
-            o.optString("ip").ifEmpty { null }
+            val ip = o.optString("ip")
+            // Reject entries poisoned by older builds (hostname stored as an
+            // "IP"); they made the tunnel connect to a bogus address.
+            if (!isNumericAddress(ip)) return null
+            ip
         } catch (_: Exception) {
             null
         }
