@@ -157,7 +157,7 @@ object Utility {
     }
 
     @JvmStatic
-    fun startVpn(context: Context, profile: Profile) {
+    fun buildVpnIntent(context: Context, profile: Profile): Intent {
         val prefs = PreferenceManager.getDefaultSharedPreferences(context)
         // Single source of truth: global SplitTunnelingScreen prefs. Profile perapp is legacy; global takes precedence when enabled.
         val globalPerApp = prefs.getBoolean(PREF_ADV_PER_APP, false)
@@ -196,6 +196,12 @@ object Utility {
         if (profile.hasUDP()) {
             i.putExtra(INTENT_UDP_GW, profile.getUDPGW())
         }
+        return i
+    }
+
+    @JvmStatic
+    fun startVpn(context: Context, profile: Profile) {
+        val i = buildVpnIntent(context, profile)
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             context.startForegroundService(i)
