@@ -360,7 +360,7 @@ class SocksVpnService : VpnService() {
                                 // use. In accelerated mode that address may come
                                 // from the DNS cache; drop it so the next connect
                                 // resolves fresh instead of reusing a dead IP.
-                                if (mAccel) Utility.clearAccelDns(this)
+                                if (mAccel) Utility.clearAccelDns(this@SocksVpnService)
                                 if (mProxyVerified) {
                                     mProxyVerified = false
                                     notifyStateChanged()
@@ -385,7 +385,7 @@ class SocksVpnService : VpnService() {
                                 mIpCheckHandler.postDelayed(this, IP_CHECK_RETRY)
                             } else {
                                 // Probe off: never tear down, only retry enrichment.
-                                if (mAccel) Utility.clearAccelDns(this)
+                                if (mAccel) Utility.clearAccelDns(this@SocksVpnService)
                                 mIpCheckHandler.postDelayed(this, IP_CHECK_RETRY)
                             }
                         }
