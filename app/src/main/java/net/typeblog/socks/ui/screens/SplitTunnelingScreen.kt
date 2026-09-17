@@ -72,6 +72,7 @@ import net.typeblog.socks.ui.components.SettingsItem
 import net.typeblog.socks.ui.viewmodel.VpnViewModel
 import net.typeblog.socks.util.Constants.PREF_ADV_APP_LIST
 import net.typeblog.socks.util.Constants.PREF_ADV_PER_APP
+import java.util.concurrent.ConcurrentHashMap
 
 private data class InstalledApp(
     val name: String,
@@ -157,23 +158,36 @@ fun SplitTunnelingScreen(
     var page by rememberSaveable { mutableStateOf(if (startOnApps) 1 else 0) } // 0 = main, 1 = included, 2 = add apps
 
     var installedApps by remember { mutableStateOf<List<InstalledApp>>(emptyList()) }
+    // Screen-scoped decoded-icon cache: page switches recompose rows from
+    // scratch, so without this every navigation would reconvert drawables
+    // (flashing the letter fallback first). Keyed by package; a reload hands
+    // AppIcon new drawable instances, which reconvert and overwrite.
+    val iconCache = remember { ConcurrentHashMap<String, android.graphics.Bitmap>() }
 
     var cleanedStale by remember { mutableStateOf(false) }
 
     suspend fun loadApps() {
         val selfPkg = context.packageName
-        val apps = packageManager.getInstalledApplications(PackageManager.GET_META_DATA)
-            .filter { it.flags and ApplicationInfo.FLAG_INSTALLED != 0 }
-            .filter { it.packageName != selfPkg }
-            .filter { packageManager.getLaunchIntentForPackage(it.packageName) != null }
-            .map {
-                InstalledApp(
-                    name = it.loadLabel(packageManager).toString(),
-                    packageName = it.packageName,
-                    icon = it.loadIcon(packageManager)
-                )
-            }
-            .sortedBy { it.name.lowercase() }
+        // PackageManager queries + label/icon loads are binder calls: keep
+        // them off the main thread so entry never stutters.
+        val apps = withContext(Dispatchers.IO) {
+            packageManager.getInstalledApplications(PackageManager.GET_META_DATA)
+                .filter { it.flags and ApplicationInfo.FLAG_INSTALLED != 0 }
+                .filter { it.packageName != selfPkg }
+                .filter { packageManager.getLaunchIntentForPackage(it.packageName) != null }
+                .map {
+                    InstalledApp(
+                        name = it.loadLabel(packageManager).toString(),
+                        packageName = it.packageName,
+                        icon = try {
+                            it.loadIcon(packageManager)
+                        } catch (_: Exception) {
+                            null
+                        }
+                    )
+                }
+                .sortedBy { it.name.lowercase() }
+        }
         installedApps = apps
         // Drop stale (uninstalled) and self entries from the persisted list
         // once per screen open; the engine skips them anyway.
@@ -187,14 +201,14 @@ fun SplitTunnelingScreen(
         }
     }
 
-    // Load on every page (not just the apps page) so the main-page subtitle
-    // can resolve persisted selections to app names immediately.
-    LaunchedEffect(page) { loadApps() }
+    // Load once per screen entry: page switches reuse the same list and
+    // drawable instances, so icons never reload from the source.
+    LaunchedEffect(Unit) { loadApps() }
 
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner, page) {
         val obs = androidx.lifecycle.LifecycleEventObserver { _, e ->
-            if (e == androidx.lifecycle.Lifecycle.Event.ON_RESUME && page == 1) {
+            if (e == androidx.lifecycle.Lifecycle.Event.ON_RESUME && (page == 1 || page == 2)) {
                 scope.launch { loadApps() }
             }
         }
@@ -377,6 +391,7 @@ fun SplitTunnelingScreen(
                 paddingValues = paddingValues,
                 installedApps = installedApps,
                 toggleStates = toggleStates,
+                iconCache = iconCache,
                 onSetApp = { pkg, on ->
                     toggleStates[pkg] = on
                     prefs.edit()
@@ -390,6 +405,7 @@ fun SplitTunnelingScreen(
                 paddingValues = paddingValues,
                 installedApps = installedApps,
                 toggleStates = toggleStates,
+                iconCache = iconCache,
                 query = query,
                 onQueryChange = { query = it },
                 onSetApp = { pkg, on ->
@@ -409,6 +425,7 @@ private fun IncludedPage(
     paddingValues: androidx.compose.foundation.layout.PaddingValues,
     installedApps: List<InstalledApp>,
     toggleStates: Map<String, Boolean>,
+    iconCache: ConcurrentHashMap<String, android.graphics.Bitmap>,
     onSetApp: (String, Boolean) -> Unit
 ) {
     // Read live (no remember): toggleStates mutates in place, so a cached
@@ -463,7 +480,8 @@ private fun IncludedPage(
                         app = app,
                         trailingIcon = R.drawable.ic_proton_minus_circle_filled,
                         modifier = Modifier.animateItem(),
-                        onAction = { onSetApp(app.packageName, false) }
+                        onAction = { onSetApp(app.packageName, false) },
+                        iconCache = iconCache
                     )
                 }
             }
@@ -476,6 +494,7 @@ private fun AddAppsPage(
     paddingValues: androidx.compose.foundation.layout.PaddingValues,
     installedApps: List<InstalledApp>,
     toggleStates: Map<String, Boolean>,
+    iconCache: ConcurrentHashMap<String, android.graphics.Bitmap>,
     query: String,
     onQueryChange: (String) -> Unit,
     onSetApp: (String, Boolean) -> Unit
@@ -521,7 +540,8 @@ private fun AddAppsPage(
                         trailingIcon = if (added) R.drawable.lucide_check
                             else R.drawable.ic_proton_plus_circle,
                         modifier = Modifier.animateItem(),
-                        onAction = { if (!added) onSetApp(app.packageName, true) }
+                        onAction = { if (!added) onSetApp(app.packageName, true) },
+                        iconCache = iconCache
                     )
                 }
             }
@@ -555,7 +575,8 @@ private fun AppRow(
     app: InstalledApp,
     trailingIcon: Int,
     modifier: Modifier = Modifier,
-    onAction: () -> Unit
+    onAction: () -> Unit,
+    iconCache: ConcurrentHashMap<String, android.graphics.Bitmap>
 ) {
     Row(
         modifier = modifier
@@ -564,7 +585,7 @@ private fun AppRow(
             .padding(horizontal = 20.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        AppIcon(icon = app.icon, appName = app.name)
+        AppIcon(icon = app.icon, appName = app.name, cacheKey = app.packageName, iconCache = iconCache)
         Spacer(modifier = Modifier.width(14.dp))
         Text(
             text = app.name,
@@ -587,7 +608,12 @@ private fun AppRow(
 }
 
 @Composable
-private fun AppIcon(icon: android.graphics.drawable.Drawable?, appName: String) {
+private fun AppIcon(
+    icon: android.graphics.drawable.Drawable?,
+    appName: String,
+    cacheKey: String,
+    iconCache: ConcurrentHashMap<String, android.graphics.Bitmap>
+) {
     Box(
         modifier = Modifier
             .size(36.dp)
@@ -595,21 +621,31 @@ private fun AppIcon(icon: android.graphics.drawable.Drawable?, appName: String) 
         contentAlignment = Alignment.Center
     ) {
         if (icon != null) {
-            val bitmap by produceState<android.graphics.Bitmap?>(initialValue = null, icon) {
-                value = withContext(Dispatchers.IO) {
-                    try {
-                        val bmp = android.graphics.Bitmap.createBitmap(
-                            icon.intrinsicWidth.coerceAtLeast(1),
-                            icon.intrinsicHeight.coerceAtLeast(1),
-                            android.graphics.Bitmap.Config.ARGB_8888
-                        )
-                        val canvas = android.graphics.Canvas(bmp)
-                        icon.setBounds(0, 0, canvas.width, canvas.height)
-                        icon.draw(canvas)
-                        bmp
-                    } catch (_: Exception) {
-                        null
-                    }
+            // Cached bitmap first: recompositions from page switches reuse
+            // it with no flash. Keyed on the drawable instance too, so a
+            // reload (new instances) reconverts and refreshes the cache.
+            val bitmap by produceState<android.graphics.Bitmap?>(
+                initialValue = iconCache[cacheKey], icon, cacheKey
+            ) {
+                val fresh = iconCache[cacheKey]
+                value = if (fresh != null) {
+                    fresh
+                } else {
+                    withContext(Dispatchers.IO) {
+                        try {
+                            val bmp = android.graphics.Bitmap.createBitmap(
+                                icon.intrinsicWidth.coerceAtLeast(1),
+                                icon.intrinsicHeight.coerceAtLeast(1),
+                                android.graphics.Bitmap.Config.ARGB_8888
+                            )
+                            val canvas = android.graphics.Canvas(bmp)
+                            icon.setBounds(0, 0, canvas.width, canvas.height)
+                            icon.draw(canvas)
+                            bmp
+                        } catch (_: Exception) {
+                            null
+                        }
+                    }?.also { iconCache[cacheKey] = it }
                 }
             }
             if (bitmap != null) {
