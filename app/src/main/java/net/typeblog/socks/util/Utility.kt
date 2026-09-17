@@ -217,7 +217,11 @@ object Utility {
 
     @JvmStatic
     fun checkPublicIp(server: String?, port: Int, username: String?, password: String?): IpInfo? {
-        // Stock behavior: kiloip first, trace as fallback. Always fresh.
+        // Stock behavior: ip-api first (fast + rich geo), then kiloip, then
+        // trace. A throttled (429) or failed ip-api answer parses to null and
+        // falls through automatically, so the rate limit can never break
+        // verification while a fallback checker is reachable.
+        fetchIpApi(server, port, username, password)?.let { return it }
         return checkWith(server, port, username, password, ACCEL_PRIMARY_KILOIP, true)
     }
 
@@ -250,6 +254,9 @@ object Utility {
 
     private fun fetchTrace(server: String?, port: Int, username: String?, password: String?): IpInfo? =
         fetchCheckText(TRACE_URL, "trace", server, port, username, password, ::parseTrace)
+
+    private fun fetchIpApi(server: String?, port: Int, username: String?, password: String?): IpInfo? =
+        fetchCheckText(IP_API_URL, "ipapi", server, port, username, password, ::parseIpApi)
 
     private fun fetchCheckText(
         url: String,
@@ -327,12 +334,40 @@ object Utility {
             if (ip.isEmpty()) return null
             IpInfo(ip = ip, countryCode = loc)
         } catch (_: Exception) {
-            null
+            return null
+        }
+    }
+
+    private fun parseIpApi(text: String): IpInfo? {
+        return try {
+            val obj = JSONObject(text)
+            // Fail bodies carry status=fail (+message); throttled (429) or
+            // truncated bodies fail here too — all mean "try the next checker".
+            if (obj.optString("status") != "success") return null
+            val ip = obj.optString("query")
+            if (ip.isEmpty()) return null
+            IpInfo(
+                ip = ip,
+                countryCode = obj.optString("countryCode"),
+                country = obj.optString("country"),
+                regionName = obj.optString("regionName"),
+                city = obj.optString("city"),
+                isp = obj.optString("isp"),
+                org = obj.optString("org"),
+                asName = obj.optString("asname"),
+                timezone = obj.optString("timezone")
+            )
+        } catch (_: Exception) {
+            return null
         }
     }
 
     private const val KILO_IP_URL = "https://kiloproxy.traderspopy.workers.dev/"
     private const val TRACE_URL = "https://www.cloudflare.com/cdn-cgi/trace"
+    // Free tier is HTTP-only; the fetch still rides inside the SOCKS tunnel.
+    // Slim fields keeps the answer near ~150B with everything IpInfo holds.
+    private const val IP_API_URL =
+        "http://ip-api.com/json/?fields=status,message,query,country,countryCode,regionName,city,isp,org,asname,timezone"
 
     // Canonical usage-stats key suffix: same in :vpn (writer) and UI (reader).
     @JvmStatic
