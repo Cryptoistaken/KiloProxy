@@ -119,6 +119,31 @@ Good: `"Proxy works"`, `"Checking for updates"`, `"Connected to %s"`
 
 Keep messages short and direct. State what happened, nothing else.
 
+## Code Cleanliness Rules
+
+Learned from the Batch 1-3 dedup passes (Sept 2026) — follow these so the
+codebase stays clean without future cleanups:
+
+1. **One home per logic.** Never copy a block to a second caller. Shared logic
+   lives in `util/` and every caller delegates: `SplitTunnel` (app-list
+   parse/format + include-empty guard), `ProxyProviders.displayCountry` /
+   `switchCountry` (country derivation), `Utility.usageRxKey` / `usageTxKey` /
+   `readUsage` (stats keys), `ServiceRebind.backoffDelayMs` (retry ladders).
+2. **Prefs-backed UI state uses `rememberPref`** (`ui/components/PrefsState.kt`).
+   No hand-rolled `remember` + `OnSharedPreferenceChangeListener` blocks in
+   screens or theme. Local writes still go through `prefs.edit()` directly.
+3. **One file, one job.** Screens stay list/navigation-level; move sheets,
+   dialogs, and form logic to their own files in the same package (e.g.
+   `AddEditProxySheet.kt`). If a file passes ~800 lines, split it.
+4. **No dead code.** Delete unused files/dialogs instead of leaving them
+   (verify zero callers with `rg` first). Remove imports your edit orphaned.
+5. **Pure string/key logic lives in `util` objects**, not in `when` blocks
+   inside services or screens — so all callers agree by construction.
+6. **Log the inputs of every routing-affecting decision** (mode + count, not
+   just the outcome), so logcat can prove what ran.
+7. **Refactors: snapshot tag first, one concern per commit**, update the
+   Filesystem Map in the same commit, CI green before the next batch.
+
 ## Filesystem Map & References (KEEP UPDATED)
 
 > **Rule:** Whenever the repo structure changes (files/dirs added, moved, renamed, or deleted), update this map in the same commit. Read this section first for fast orientation instead of re-scanning the tree.
