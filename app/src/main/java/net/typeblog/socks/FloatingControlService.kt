@@ -61,6 +61,7 @@ import net.typeblog.socks.util.Constants.PREF_BUBBLE_X
 import net.typeblog.socks.util.Constants.PREF_BUBBLE_Y
 import net.typeblog.socks.util.ProfileManager
 import net.typeblog.socks.util.ProxyProviders
+import net.typeblog.socks.util.NotifText
 import net.typeblog.socks.util.ServiceRebind
 import net.typeblog.socks.util.SplitTunnel
 import net.typeblog.socks.util.ThemeMode
@@ -1164,7 +1165,7 @@ class FloatingControlService : Service() {
         )
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(title)
-            .setContentText(text)
+            .setContentText(NotifText.fit(text))
             .setSmallIcon(R.drawable.ic_notification_transparent)
             // Plain-drawable copy of the launcher PNG: R.mipmap.ic_launcher
             // resolves to the adaptive-icon XML on API 26+, which

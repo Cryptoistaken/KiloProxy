@@ -198,6 +198,7 @@ Notes on the merged notification/dot pass:
 | `ProfileManager.kt` | **ENGINE** — profile CRUD, prefs. NEVER modify for UI |
 | `ProxyProviders.kt` | Proxy provider catalog (proxy list presets) + country display derivation + country-switch rewrite |
 | `Routes.kt` | VpnService route selection (route config) |
+| `NotifText.kt` | Notification text caps (static titles, body capped at 40, no big notifications) |
 | `SocksTester.kt` | SOCKS5 liveness/health probe |
 | `ServiceRebind.kt` | Shared AIDL rebind backoff ladder (200/1000/3000ms by attempt) |
 | `SplitTunnel.kt` | Split-tunnel list parse/format + include-empty guard (single home for UI + engine guards) |

@@ -33,6 +33,7 @@ import net.typeblog.socks.R
 import net.typeblog.socks.util.Constants
 import net.typeblog.socks.util.Constants.ACTION_STOP_VPN
 import net.typeblog.socks.util.Countries
+import net.typeblog.socks.util.NotifText
 import net.typeblog.socks.util.Constants.INTENT_APP_BYPASS
 import net.typeblog.socks.util.Constants.INTENT_APP_LIST
 import net.typeblog.socks.util.Constants.INTENT_DNS
@@ -842,12 +843,18 @@ class SocksVpnService : VpnService() {
     }
 
     private fun showNotification() {
-        // Posted at service start when the tunnel is not up yet: title already
-        // names the state (Proton style), updateNotification() flips both
-        // lines once the IP is known.
+        // Title stays static (titles truncate to one line per official docs),
+        // profile name lives in the body, hard-capped so the system never
+        // truncates it. No big notifications.
+        val profile = mProfileName.orEmpty()
+        val full = if (profile.isNotEmpty()) {
+            getString(R.string.notify_connecting_to, profile)
+        } else {
+            getString(R.string.notify_establishing)
+        }
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle(getString(R.string.notify_connecting_to, mProfileName ?: ""))
-            .setContentText(getString(R.string.notify_establishing))
+            .setContentTitle(getString(R.string.bubble_state_connecting))
+            .setContentText(NotifText.fit(full))
             .setSmallIcon(R.drawable.ic_notification_transparent)
             // Plain-drawable launcher copy: R.mipmap.ic_launcher resolves to the
             // adaptive-icon XML on API 26+, which BitmapFactory cannot decode
@@ -888,19 +895,25 @@ class SocksVpnService : VpnService() {
     private fun updateNotification() {
         if (!mRunning) return
 
-        // Title always names the state (Proton style); body carries detail.
+        // Static short titles; detail in the capped body. No big notifications.
         val hasIp = !mCurrentIp.isNullOrEmpty()
         val title = if (hasIp) {
-            getString(R.string.notify_connected_to, mProfileName ?: "")
+            getString(R.string.bubble_state_connected)
         } else {
-            getString(R.string.notify_connecting_to, mProfileName ?: "")
+            getString(R.string.bubble_state_connecting)
         }
-        val notificationText = if (hasIp) {
+        val full = if (hasIp) {
             val country = mCountryCode?.let { Countries.fromCode(it)?.name }
             if (!country.isNullOrEmpty()) "$country - ${mCurrentIp}" else "${mCurrentIp}"
         } else {
-            getString(R.string.notify_verifying)
+            val profile = mProfileName.orEmpty()
+            if (profile.isNotEmpty()) {
+                getString(R.string.notify_connecting_to, profile)
+            } else {
+                getString(R.string.notify_verifying)
+            }
         }
+        val notificationText = NotifText.fit(full)
 
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(title)
