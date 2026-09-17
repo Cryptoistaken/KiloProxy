@@ -171,7 +171,7 @@ Notes on the merged notification/dot pass:
 | `LogCollector.kt` | In-app log capture (Debug Logs screen) |
 | `Profile.kt` / `ProfileFactory.kt` | Profile data class + factory (pre-defined server profiles) |
 | `ProfileManager.kt` | **ENGINE** — profile CRUD, prefs. NEVER modify for UI |
-| `ProxyProviders.kt` | Proxy provider catalog (proxy list presets) + country display derivation |
+| `ProxyProviders.kt` | Proxy provider catalog (proxy list presets) + country display derivation + country-switch rewrite |
 | `Routes.kt` | VpnService route selection (route config) |
 | `SocksTester.kt` | SOCKS5 liveness/health probe |
 | `SplitTunnel.kt` | Split-tunnel list parse/format + include-empty guard (single home for UI + engine guards) |
@@ -179,18 +179,18 @@ Notes on the merged notification/dot pass:
 | `Utility.kt` | **ENGINE** — pdnsd conf, ip lookups, usage-stats keys, misc helpers. NEVER modify for UI |
 
 ### `.../ui/`
-- `components/` — Compose components: ConnectionCard, ProxyCard, ProfileDetailSheet, ProtonControls (ProtonSwitch + ProtonRadio + ProtonDialogRadioRow, mock-exact mono controls), SearchInput, SettingsItem, UpdateDialog
+- `components/` — Compose components: ConnectionCard, ProxyCard, ProfileDetailSheet, ProtonControls (ProtonSwitch + ProtonRadio + ProtonDialogRadioRow, mock-exact mono controls), SearchInput, SettingsItem, UpdateDialog, PrefsState (`rememberPref` mirrors a prefs key as state)
   - `ConnectionCard.kt` — Connect/Disconnect button is now text-only (icon removed); spinner shown while connecting.
   - `ProxyCard.kt` — Minimal card (profilecard.html v2): square, borderless (transparent 1dp keeps picked outline + layout), lifted `surfaceContainer` tile on `surface` page (`--tile` in mock), flag-emoji / server-glyph icon slot, name + app-green dot (hidden offline), host without port, Used total only. Whole card taps to `onSelect` (detail sheet, or pick in pickMode). No chips, no buttons. Long-press (`onLongPress`) enters multi-select and picks the card; picked cards (`checked`) use the overlay style (primary border + primaryContainer tint, no checkbox). Swipe right opens Edit, swipe left deletes immediately with a 5s Undo snackbar (no confirm); swipe disabled in pickMode/multi-select.
   - `ProfileDetailSheet.kt` — Bottom sheet opened by tapping a card: icon + name + sub, Provider/Type + Used/Server(no port) facts, Copy (clipboard `host:port:user:pass`, flips to green Copied, no Toast) / Test (SocksTester + Toast) / Edit / Duplicate (`duplicateProfile` in ProxiesScreen, `Profile.copyTo`, no engine change) / Delete rows with `ic_sheet_*` icons (`lucide_copy` for Copy). Delete reuses the existing confirm dialog. Opens fully expanded (`skipPartiallyExpanded`).
 - `navigation/AppNavigation.kt` — NavHost destinations (incl. `theme` route)
-- `screens/` — BubbleSettingsScreen, CountriesScreen, DebugLogsScreen, ProxiesScreen, SettingsScreen, SplitTunnelingScreen, StatusScreen, ThemeScreen, AdvancedSettingsScreen
+- `screens/` — BubbleSettingsScreen, CountriesScreen, DebugLogsScreen, ProxiesScreen (list + swipe + dialogs; form lives in AddEditProxySheet), AddEditProxySheet (add/edit form + proxy-string parse), SettingsScreen, SplitTunnelingScreen, StatusScreen, ThemeScreen, AdvancedSettingsScreen
   - `AdvancedSettingsScreen.kt` — Advanced Settings page (Accelerator master + Primary checker + Checker mode + Cache last IP + Proxy health probe + Recheck interval + Cache proxy DNS). Engine honors prefs only while master is ON.
   - `ThemeScreen.kt` — Theme picker page: Light / Dark / Device theme cards with mini phone previews; writes PREF_THEME_MODE.
   - `SplitTunnelingScreen.kt` — Include-only single mode: feature header + toggle card (enabling jumps to Included page) + Included-apps row. Three pages: main, Included (dedicated list + FAB to add, empty state, minus to remove), Add apps (searchable full list, + flips to check). Same engine prefs minus bypass (`PREF_ADV_PER_APP` / `PREF_ADV_APP_LIST`; legacy `PREF_ADV_APP_BYPASS` ignored, removed from `settings.xml`). Picker hides own package, prunes stale entries on open, auto-turns split OFF when leaving with zero effective apps. IP-address rows skipped: engine has no IP split-tunneling support. Included page opens directly via `startOnApps` arg (refuse-to-connect link).
   - `SettingsScreen.kt` — Features rows: "Split tunneling" (On/Off), "Theme" (subtitle = theme label), "Floating Bubble" (On/Off), "Advanced Settings" (On/Off, opens AdvancedSettingsScreen); no chevrons.
 - `theme/` — Color, Fonts, Theme, Type (Compose theming, Geist fonts)
-- `viewmodel/VpnViewModel.kt` — Vpn state, AIDL binding, split Include-empty guard, accelerator DNS warm-up
+- `viewmodel/VpnViewModel.kt` — Vpn state, AIDL binding, split Include-empty guard, `awaitStopped` restart wait, accelerator DNS warm-up
 
 ### Drawables added for this pass
 - `drawable/lucide_minus.xml`, `ic_proton_filter.xml`, `ic_proton_apps.xml` (vector icons for the split tunneling rows)

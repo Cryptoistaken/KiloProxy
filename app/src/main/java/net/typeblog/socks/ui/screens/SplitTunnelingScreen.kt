@@ -1,6 +1,5 @@
 package net.typeblog.socks.ui.screens
 
-import android.content.SharedPreferences
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import androidx.activity.compose.BackHandler
@@ -67,6 +66,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import net.typeblog.socks.R
 import net.typeblog.socks.ui.components.SearchInput
+import net.typeblog.socks.ui.components.rememberPref
 import net.typeblog.socks.ui.components.ProtonSwitch
 import net.typeblog.socks.ui.components.SettingsItem
 import net.typeblog.socks.ui.viewmodel.VpnViewModel
@@ -119,20 +119,11 @@ fun SplitTunnelingScreen(
         }
     }
 
-    var splitEnabled by remember { mutableStateOf(prefs.getBoolean(PREF_ADV_PER_APP, false)) }
-    var persistedList by remember {
-        mutableStateOf(SplitTunnel.parseAppList(prefs.getString(PREF_ADV_APP_LIST, "")))
+    var splitEnabled by rememberPref(prefs, PREF_ADV_PER_APP) {
+        it.getBoolean(PREF_ADV_PER_APP, false)
     }
-    DisposableEffect(context) {
-        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
-            when (key) {
-                PREF_ADV_PER_APP -> splitEnabled = prefs.getBoolean(PREF_ADV_PER_APP, false)
-                PREF_ADV_APP_LIST -> persistedList =
-                    SplitTunnel.parseAppList(prefs.getString(PREF_ADV_APP_LIST, ""))
-            }
-        }
-        prefs.registerOnSharedPreferenceChangeListener(listener)
-        onDispose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
+    var persistedList by rememberPref(prefs, PREF_ADV_APP_LIST) {
+        SplitTunnel.parseAppList(it.getString(PREF_ADV_APP_LIST, ""))
     }
 
     // Single Include-only mode: only selected apps connect through the VPN.

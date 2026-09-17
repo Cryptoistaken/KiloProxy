@@ -1,6 +1,5 @@
 package net.typeblog.socks.ui.screens
 
-import android.content.SharedPreferences
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -24,7 +23,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -41,6 +39,7 @@ import net.typeblog.socks.R
 import net.typeblog.socks.ui.components.ProtonDialogRadioRow
 import net.typeblog.socks.ui.components.ProtonSwitch
 import net.typeblog.socks.ui.components.SettingsItem
+import net.typeblog.socks.ui.components.rememberPref
 import net.typeblog.socks.util.Constants.ACCEL_MODE_BOTH
 import net.typeblog.socks.util.Constants.ACCEL_MODE_SINGLE
 import net.typeblog.socks.util.Constants.ACCEL_PRIMARY_KILOIP
@@ -74,41 +73,26 @@ fun AdvancedSettingsScreen(
     val context = LocalContext.current
     val prefs = PreferenceManager.getDefaultSharedPreferences(context)
 
-    var acceleratorEnabled by remember {
-        mutableStateOf(prefs.getBoolean(PREF_VPN_ACCELERATOR, false))
+    var acceleratorEnabled by rememberPref(prefs, PREF_VPN_ACCELERATOR) {
+        it.getBoolean(PREF_VPN_ACCELERATOR, false)
     }
-    var primary by remember {
-        mutableStateOf(prefs.getString(PREF_ACCEL_PRIMARY, ACCEL_PRIMARY_TRACE) ?: ACCEL_PRIMARY_TRACE)
+    var primary by rememberPref(prefs, PREF_ACCEL_PRIMARY) {
+        it.getString(PREF_ACCEL_PRIMARY, ACCEL_PRIMARY_TRACE) ?: ACCEL_PRIMARY_TRACE
     }
-    var mode by remember {
-        mutableStateOf(prefs.getString(PREF_ACCEL_MODE, ACCEL_MODE_BOTH) ?: ACCEL_MODE_BOTH)
+    var mode by rememberPref(prefs, PREF_ACCEL_MODE) {
+        it.getString(PREF_ACCEL_MODE, ACCEL_MODE_BOTH) ?: ACCEL_MODE_BOTH
     }
-    var cacheIp by remember {
-        mutableStateOf(prefs.getBoolean(PREF_ACCEL_CACHE_IP, false))
+    var cacheIp by rememberPref(prefs, PREF_ACCEL_CACHE_IP) {
+        it.getBoolean(PREF_ACCEL_CACHE_IP, false)
     }
-    var probe by remember {
-        mutableStateOf(prefs.getBoolean(PREF_ACCEL_PROBE, true))
+    var probe by rememberPref(prefs, PREF_ACCEL_PROBE) {
+        it.getBoolean(PREF_ACCEL_PROBE, true)
     }
-    var intervalMs by remember {
-        mutableStateOf(prefs.getLong(PREF_ACCEL_INTERVAL_MS, 60000L))
+    var intervalMs by rememberPref(prefs, PREF_ACCEL_INTERVAL_MS) {
+        it.getLong(PREF_ACCEL_INTERVAL_MS, 60000L)
     }
-    var dnsCache by remember {
-        mutableStateOf(prefs.getBoolean(PREF_ACCEL_DNS_CACHE, true))
-    }
-    DisposableEffect(context) {
-        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
-            when (key) {
-                PREF_VPN_ACCELERATOR -> acceleratorEnabled = prefs.getBoolean(PREF_VPN_ACCELERATOR, false)
-                PREF_ACCEL_PRIMARY -> primary = prefs.getString(PREF_ACCEL_PRIMARY, ACCEL_PRIMARY_TRACE) ?: ACCEL_PRIMARY_TRACE
-                PREF_ACCEL_MODE -> mode = prefs.getString(PREF_ACCEL_MODE, ACCEL_MODE_BOTH) ?: ACCEL_MODE_BOTH
-                PREF_ACCEL_CACHE_IP -> cacheIp = prefs.getBoolean(PREF_ACCEL_CACHE_IP, false)
-                PREF_ACCEL_PROBE -> probe = prefs.getBoolean(PREF_ACCEL_PROBE, true)
-                PREF_ACCEL_INTERVAL_MS -> intervalMs = prefs.getLong(PREF_ACCEL_INTERVAL_MS, 60000L)
-                PREF_ACCEL_DNS_CACHE -> dnsCache = prefs.getBoolean(PREF_ACCEL_DNS_CACHE, true)
-            }
-        }
-        prefs.registerOnSharedPreferenceChangeListener(listener)
-        onDispose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
+    var dnsCache by rememberPref(prefs, PREF_ACCEL_DNS_CACHE) {
+        it.getBoolean(PREF_ACCEL_DNS_CACHE, true)
     }
 
     var showPrimaryDialog by remember { mutableStateOf(false) }

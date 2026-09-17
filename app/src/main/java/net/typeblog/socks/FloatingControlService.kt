@@ -1253,31 +1253,7 @@ class FloatingControlService : Service() {
         try {
             val profile = ProfileManager.getInstance(this).getDefault()
             val username = profile.getUsername()
-            val type = ProxyProviders.detectType(profile.getServer(), username)
-
-            val newUsername: String = when (type) {
-                ProxyProviders.TYPE_OWL -> {
-                    // Preserve sticky suffix if present; rebuild only the country zone.
-                    val match = Regex("^(.+?)_custom_zone_[a-zA-Z]{2}(_st__city_sid_\\d+_time_\\d+)?$").find(username)
-                    val base = match?.groupValues?.get(1) ?: return
-                    "${base}_custom_zone_${code.lowercase()}${match.groupValues[2]}"
-                }
-                ProxyProviders.TYPE_RAPID, ProxyProviders.TYPE_CLIP -> {
-                    val base = ProxyProviders.extractBase(username, type) ?: return
-                    ProxyProviders.buildUsername(base, type, code) ?: return
-                }
-                ProxyProviders.TYPE_IPDEEP -> {
-                    ProxyProviders.switchIpDeepCountry(username, code) ?: return
-                }
-                ProxyProviders.TYPE_GENERIC -> {
-                    val parts = ProxyProviders.genericParts(username) ?: return
-                    ProxyProviders.buildUsername(
-                        parts.base, type, code,
-                        separator = parts.separator, upper = parts.upper
-                    ) ?: return
-                }
-                else -> return
-            }
+            val newUsername = ProxyProviders.switchCountry(profile.getServer(), username, code) ?: return
             profile.setUsername(newUsername)
             Utility.addRecentCountry(this, code)
             bubbleView?.performHapticFeedback(HapticFeedbackConstants.CONFIRM)

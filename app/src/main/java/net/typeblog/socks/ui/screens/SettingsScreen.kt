@@ -21,9 +21,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import android.content.SharedPreferences
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -48,6 +46,7 @@ import net.typeblog.socks.BuildConfig
 import net.typeblog.socks.R
 import net.typeblog.socks.ui.components.SettingsItem
 import net.typeblog.socks.ui.components.UpdateDialog
+import net.typeblog.socks.ui.components.rememberPref
 import net.typeblog.socks.util.Constants.PREF_ADV_PER_APP
 import net.typeblog.socks.util.Constants.PREF_FLOATING_CONTROL
 import net.typeblog.socks.util.Constants.PREF_THEME_MODE
@@ -66,29 +65,17 @@ fun SettingsScreen(
     val context = LocalContext.current
     val prefs = PreferenceManager.getDefaultSharedPreferences(context)
 
-    var themeMode by remember {
-        mutableStateOf(prefs.getString(PREF_THEME_MODE, "system") ?: "system")
+    var themeMode by rememberPref(prefs, PREF_THEME_MODE) {
+        it.getString(PREF_THEME_MODE, "system") ?: "system"
     }
-    var floatingControl by remember {
-        mutableStateOf(prefs.getBoolean(PREF_FLOATING_CONTROL, false))
+    var floatingControl by rememberPref(prefs, PREF_FLOATING_CONTROL) {
+        it.getBoolean(PREF_FLOATING_CONTROL, false)
     }
-    var splitEnabled by remember {
-        mutableStateOf(prefs.getBoolean(PREF_ADV_PER_APP, false))
+    var splitEnabled by rememberPref(prefs, PREF_ADV_PER_APP) {
+        it.getBoolean(PREF_ADV_PER_APP, false)
     }
-    var acceleratorEnabled by remember {
-        mutableStateOf(prefs.getBoolean(PREF_VPN_ACCELERATOR, false))
-    }
-    DisposableEffect(context) {
-        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
-            when (key) {
-                PREF_THEME_MODE -> themeMode = prefs.getString(PREF_THEME_MODE, "system") ?: "system"
-                PREF_FLOATING_CONTROL -> floatingControl = prefs.getBoolean(PREF_FLOATING_CONTROL, false)
-                PREF_ADV_PER_APP -> splitEnabled = prefs.getBoolean(PREF_ADV_PER_APP, false)
-                PREF_VPN_ACCELERATOR -> acceleratorEnabled = prefs.getBoolean(PREF_VPN_ACCELERATOR, false)
-            }
-        }
-        prefs.registerOnSharedPreferenceChangeListener(listener)
-        onDispose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
+    var acceleratorEnabled by rememberPref(prefs, PREF_VPN_ACCELERATOR) {
+        it.getBoolean(PREF_VPN_ACCELERATOR, false)
     }
     var checkingUpdates by remember { mutableStateOf(false) }
     var updateInfo by remember { mutableStateOf<UpdateChecker.UpdateInfo?>(null) }

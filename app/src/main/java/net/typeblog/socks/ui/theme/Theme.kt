@@ -5,14 +5,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import android.content.SharedPreferences
 import androidx.compose.ui.platform.LocalContext
 import androidx.preference.PreferenceManager
+import net.typeblog.socks.ui.components.rememberPref
 import net.typeblog.socks.util.Constants.PREF_THEME_MODE
 
 private val LightColorScheme = lightColorScheme(
@@ -59,18 +56,8 @@ private val DarkColorScheme = darkColorScheme(
 fun KiloProxyTheme(content: @Composable () -> Unit) {
     val context = LocalContext.current
     val prefs = PreferenceManager.getDefaultSharedPreferences(context)
-    var themeMode by remember { mutableStateOf(prefs.getString(PREF_THEME_MODE, "system") ?: "system") }
-
-    DisposableEffect(context) {
-        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
-            when (key) {
-                PREF_THEME_MODE -> themeMode = prefs.getString(PREF_THEME_MODE, "system") ?: "system"
-            }
-        }
-        prefs.registerOnSharedPreferenceChangeListener(listener)
-        onDispose {
-            prefs.unregisterOnSharedPreferenceChangeListener(listener)
-        }
+    var themeMode by rememberPref(prefs, PREF_THEME_MODE) {
+        it.getString(PREF_THEME_MODE, "system") ?: "system"
     }
 
     val useDarkTheme = when (themeMode) {

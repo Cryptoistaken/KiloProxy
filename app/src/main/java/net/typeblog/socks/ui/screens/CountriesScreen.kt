@@ -39,7 +39,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import net.typeblog.socks.R
 import net.typeblog.socks.ui.components.SearchInput
@@ -138,45 +137,22 @@ fun CountriesScreen(
         onPickCountry?.invoke(code)
     }
 
-    // Replicates FloatingControlService.onBubbleCountrySelected: rewrite the
-    // default profile's username to the provider country zone, store the recent,
-    // then (re)start the VPN so the new zone takes effect.
+    // Rewrite the default profile's username to the provider country zone
+    // (ProxyProviders.switchCountry, shared with the bubble's country
+    // picker), store the recent, then (re)start the VPN.
     fun onCountryTap(code: String) {
         try {
             val pm = ProfileManager.getInstance(context)
             val profile = pm.getDefault()
             val username = profile.getUsername()
-            val type = ProxyProviders.detectType(profile.getServer(), username)
-            val newUsername = when (type) {
-                ProxyProviders.TYPE_OWL -> {
-                    // Preserve sticky suffix if present; rebuild only the country zone.
-                    val match = Regex("^(.+?)_custom_zone_[a-zA-Z]{2}(_st__city_sid_\\d+_time_\\d+)?$")
-                        .find(username)
-                    val base = match?.groupValues?.get(1) ?: return
-                    "${base}_custom_zone_${code.lowercase()}${match.groupValues[2]}"
-                }
-                ProxyProviders.TYPE_RAPID, ProxyProviders.TYPE_CLIP -> {
-                    val base = ProxyProviders.extractBase(username, type) ?: return
-                    ProxyProviders.buildUsername(base, type, code) ?: return
-                }
-                ProxyProviders.TYPE_IPDEEP -> {
-                    ProxyProviders.switchIpDeepCountry(username, code) ?: return
-                }
-                ProxyProviders.TYPE_GENERIC -> {
-                    val parts = ProxyProviders.genericParts(username) ?: return
-                    ProxyProviders.buildUsername(
-                        parts.base, type, code,
-                        separator = parts.separator, upper = parts.upper
-                    ) ?: return
-                }
-                else -> {
-                    Toast.makeText(
-                        context,
-                        "Country switching is not available for this profile",
-                        Toast.LENGTH_SHORT
-                    ).show()
-                    return
-                }
+            val newUsername = ProxyProviders.switchCountry(profile.getServer(), username, code)
+            if (newUsername == null) {
+                Toast.makeText(
+                    context,
+                    "Country switching is not available for this profile",
+                    Toast.LENGTH_SHORT
+                ).show()
+                return
             }
             profile.setUsername(newUsername)
             Utility.addRecentCountry(context, code)
@@ -186,10 +162,7 @@ fun CountriesScreen(
             if (isRunning) {
                 scope.launch {
                     viewModel.stopVpn(context)
-                    val deadline = System.currentTimeMillis() + 5000
-                    while (viewModel.isRunning.value && System.currentTimeMillis() < deadline) {
-                        delay(150)
-                    }
+                    viewModel.awaitStopped()
                     connectToProfile(target)
                 }
             } else {

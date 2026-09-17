@@ -176,4 +176,34 @@ object ProxyProviders {
         val h = host.trim().lowercase()
         return h == domain || h.endsWith(".$domain")
     }
+
+    /**
+     * Rewrite a username to a new provider country zone, or null when the
+     * profile type does not support country switching. Pure string logic;
+     * callers persist the result and restart the VPN themselves.
+     */
+    fun switchCountry(host: String, username: String, countryCode: String): String? {
+        return when (val type = detectType(host, username)) {
+            TYPE_OWL -> {
+                // Preserve sticky suffix if present; rebuild only the country zone.
+                val match = Regex("^(.+?)_custom_zone_[a-zA-Z]{2}(_st__city_sid_\\d+_time_\\d+)?$")
+                    .find(username) ?: return null
+                val base = match.groupValues[1]
+                "${base}_custom_zone_${countryCode.lowercase()}${match.groupValues[2]}"
+            }
+            TYPE_RAPID, TYPE_CLIP -> {
+                val base = extractBase(username, type) ?: return null
+                buildUsername(base, type, countryCode)
+            }
+            TYPE_IPDEEP -> switchIpDeepCountry(username, countryCode)
+            TYPE_GENERIC -> {
+                val parts = genericParts(username) ?: return null
+                buildUsername(
+                    parts.base, type, countryCode,
+                    separator = parts.separator, upper = parts.upper
+                )
+            }
+            else -> null
+        }
+    }
 }

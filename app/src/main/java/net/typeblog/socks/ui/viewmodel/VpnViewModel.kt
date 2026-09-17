@@ -514,6 +514,17 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /**
+     * Wait until the VPN reports stopped, or timeoutMs elapses. Shared by
+     * every stop-then-start flow so they all wait identically.
+     */
+    suspend fun awaitStopped(timeoutMs: Long = 5000L) {
+        val deadline = System.currentTimeMillis() + timeoutMs
+        while (_isRunning.value && System.currentTimeMillis() < deadline) {
+            delay(150)
+        }
+    }
+
     fun restartVpn(context: Context) {
         val profileName = _activeProfileName.value ?: return
         if (!_isRunning.value) return
@@ -523,10 +534,7 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                 if (bound && vpnService != null) vpnService!!.stop()
             } catch (_: Exception) {
             }
-            val deadline = System.currentTimeMillis() + 5000
-            while (_isRunning.value && System.currentTimeMillis() < deadline) {
-                delay(150)
-            }
+            awaitStopped()
             startVpn(context, profileName)
         }
     }

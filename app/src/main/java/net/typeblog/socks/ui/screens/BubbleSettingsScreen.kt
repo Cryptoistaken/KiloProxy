@@ -36,7 +36,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -52,9 +51,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.preference.PreferenceManager
-import android.content.SharedPreferences
 import net.typeblog.socks.FloatingControlService
 import net.typeblog.socks.R
+import net.typeblog.socks.ui.components.rememberPref
 import net.typeblog.socks.util.Constants.BUBBLE_STYLE_CLASSIC
 import net.typeblog.socks.util.Constants.BUBBLE_STYLE_LOCK
 import net.typeblog.socks.util.Constants.PREF_BUBBLE_STYLE
@@ -69,18 +68,11 @@ fun BubbleSettingsScreen(
     val context = LocalContext.current
     val prefs = PreferenceManager.getDefaultSharedPreferences(context)
 
-    var floatingEnabled by remember { mutableStateOf(prefs.getBoolean(PREF_FLOATING_CONTROL, false)) }
-    var bubbleStyle by remember { mutableStateOf(prefs.getString(PREF_BUBBLE_STYLE, BUBBLE_STYLE_LOCK) ?: BUBBLE_STYLE_LOCK) }
-
-    DisposableEffect(context) {
-        val l = SharedPreferences.OnSharedPreferenceChangeListener { _, k ->
-            when (k) {
-                PREF_FLOATING_CONTROL -> floatingEnabled = prefs.getBoolean(PREF_FLOATING_CONTROL, false)
-                PREF_BUBBLE_STYLE -> bubbleStyle = prefs.getString(PREF_BUBBLE_STYLE, BUBBLE_STYLE_LOCK) ?: BUBBLE_STYLE_LOCK
-            }
-        }
-        prefs.registerOnSharedPreferenceChangeListener(l)
-        onDispose { prefs.unregisterOnSharedPreferenceChangeListener(l) }
+    var floatingEnabled by rememberPref(prefs, PREF_FLOATING_CONTROL) {
+        it.getBoolean(PREF_FLOATING_CONTROL, false)
+    }
+    var bubbleStyle by rememberPref(prefs, PREF_BUBBLE_STYLE) {
+        it.getString(PREF_BUBBLE_STYLE, BUBBLE_STYLE_LOCK) ?: BUBBLE_STYLE_LOCK
     }
 
     fun canDrawOverlays(c: Context): Boolean = Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.canDrawOverlays(c)
