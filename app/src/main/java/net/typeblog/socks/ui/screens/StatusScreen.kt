@@ -333,7 +333,7 @@ fun StatusScreen(
                     if (viewModel.isSplitIncludeEmpty(context)) {
                         scope.launch {
                             val result = snackbarHostState.showSnackbar(
-                                message = "Select at least one app to connect",
+                                message = "Select an app",
                                 actionLabel = "Select apps"
                             )
                             if (result == SnackbarResult.ActionPerformed) {

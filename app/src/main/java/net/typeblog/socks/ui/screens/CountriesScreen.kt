@@ -149,7 +149,7 @@ fun CountriesScreen(
             if (newUsername == null) {
                 Toast.makeText(
                     context,
-                    "Country switching is not available for this profile",
+                    "No country switch",
                     Toast.LENGTH_SHORT
                 ).show()
                 return

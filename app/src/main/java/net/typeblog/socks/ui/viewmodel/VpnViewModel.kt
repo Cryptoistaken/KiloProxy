@@ -393,7 +393,7 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
             }
         } catch (e: Exception) {
             clearState()
-            _errorMessage.value = e.message ?: "VPN service error"
+            _errorMessage.value = e.message ?: "Service error"
         }
     }
 
@@ -428,7 +428,7 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                 val pm = ProfileManager.getInstance(context)
                 val profile = pm.getProfile(profileName) ?: run {
                     Log.e("KiloProxyVM", "startVpn: profile not found: $profileName")
-                    _errorMessage.value = "Profile not found: $profileName"
+                    _errorMessage.value = "No profile"
                     return@launch
                 }
                 Utility.startVpn(context, profile)
@@ -438,7 +438,7 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                 Log.d("KiloProxyVM", "startVpn succeeded for: $profileName")
             } catch (e: Exception) {
                 Log.e("KiloProxyVM", "startVpn failed: ${e.message}")
-                _errorMessage.value = "Failed to start VPN: ${e.message ?: "unknown error"}"
+                _errorMessage.value = "Start failed"
             }
         }
     }
@@ -455,7 +455,7 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
                     Log.d("KiloProxyVM", "stopVpn succeeded")
                 } catch (e: Exception) {
                     Log.e("KiloProxyVM", "stopVpn failed: ${e.message}")
-                    _errorMessage.value = "Failed to stop VPN: ${e.message ?: "unknown error"}"
+                    _errorMessage.value = "Stop failed"
                 }
             } else {
                 Log.w("KiloProxyVM", "stopVpn: service not bound")
@@ -507,7 +507,7 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
         // proxy (currentIp populated by the service's proxy-routed IP check). Don't
         // clobber a more specific error the service already surfaced.
         if (_currentIp.value == null && _errorMessage.value == null) {
-            _errorMessage.value = "Connection failed: proxy did not verify within 20 seconds. Check the proxy server and try again."
+            _errorMessage.value = "Connection timed out"
         }
     }
 

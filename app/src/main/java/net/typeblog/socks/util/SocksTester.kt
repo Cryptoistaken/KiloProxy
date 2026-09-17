@@ -122,21 +122,22 @@ object SocksTester {
     }
 
     /**
-     * Returns a short plain-ASCII status string for display.
-     * Safe to call from any thread; runs on the IO dispatcher.
+     * Short plain-ASCII label for a [ProxyProbe]. One home for probe wording:
+     * the UI test display and the VPN error path both use this.
      */
+    fun shortMessage(probe: ProxyProbe): String = when (probe) {
+        ProxyProbe.OK -> TEST_OK
+        ProxyProbe.AUTH_FAILED -> "Auth failed"
+        ProxyProbe.NOT_SOCKS5 -> "Not a SOCKS5 proxy"
+        ProxyProbe.CONNECT_FAILED -> "Connection failed"
+        ProxyProbe.UNREACHABLE -> "Proxy unreachable"
+    }
     suspend fun testProxy(
         server: String,
         port: Int,
         username: String,
         password: String
     ): String = withContext(Dispatchers.IO) {
-        when (probeProxy(server, port, username, password)) {
-            ProxyProbe.OK -> TEST_OK
-            ProxyProbe.AUTH_FAILED -> "Auth failed"
-            ProxyProbe.NOT_SOCKS5 -> "Not a SOCKS5 proxy"
-            ProxyProbe.CONNECT_FAILED -> "Connection failed"
-            ProxyProbe.UNREACHABLE -> "Proxy unreachable"
-        }
+        shortMessage(probeProxy(server, port, username, password))
     }
 }

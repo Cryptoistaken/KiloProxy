@@ -1354,7 +1354,7 @@ class FloatingControlService : Service() {
             Log.w(TAG, "Bubble tap ignored: split tunneling with no apps")
             Toast.makeText(
                 this,
-                "Select at least one app to connect",
+                "Select an app",
                 Toast.LENGTH_LONG
             ).show()
             openSplitAppsPage()

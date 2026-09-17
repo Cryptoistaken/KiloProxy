@@ -111,7 +111,7 @@ fun SplitTunnelingScreen(
             if (isRunning) {
                 android.widget.Toast.makeText(
                     context,
-                    "Restarting VPN to apply changes",
+                    "Restarting VPN",
                     android.widget.Toast.LENGTH_SHORT
                 ).show()
                 viewModel.restartVpn(context)

@@ -209,7 +209,6 @@ object UpdateChecker {
                 try { File(context.cacheDir, "update.apk").delete() } catch (_: Exception) { }
             }
         } catch (_: Exception) { }
-        var lastException: Exception? = null
         repeat(MAX_RETRIES) { attempt ->
             var connection: HttpURLConnection? = null
             try {
@@ -309,11 +308,10 @@ object UpdateChecker {
                         Thread.sleep(1000L * (attempt + 1))
                         return@repeat
                     }
-                    return "Download incomplete, please try again"
+                    return "Download incomplete"
                 }
                 return null
             } catch (e: Exception) {
-                lastException = e
                 Log.w(TAG, "downloadToCache() -> attempt ${attempt + 1} failed: ${e::class.simpleName}: ${e.message}", e)
                 connection?.disconnect()
                 // A cancel that landed mid-read or mid-backoff resolves here
@@ -327,13 +325,13 @@ object UpdateChecker {
                 }
             }
         }
-        return lastException?.message ?: "Update failed"
+        return "Update failed"
     }
 
     /** Launches the package installer for the previously downloaded update.apk. */
     fun installCached(context: Context, tag: String = ""): String? {
         val file = cacheFile(context, tag)
-        if (!file.exists()) return "Downloaded file is missing"
+        if (!file.exists()) return "File missing"
         // Verify the file is a parseable APK for OUR package before handing
         // it to the installer: a stitched/truncated file would otherwise
         // surface as a system "problem parsing the package" error with no
@@ -364,7 +362,7 @@ object UpdateChecker {
             null
         } catch (e: Exception) {
             Log.e(TAG, "installCached() -> startActivity(installer) threw: ${e::class.simpleName}: ${e.message}", e)
-            "Could not open installer: ${e.message}"
+            "Open failed"
         }
     }
 }

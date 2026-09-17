@@ -157,7 +157,7 @@ fun UpdateDialog(
         } else {
             Toast.makeText(
                 context,
-                "Please allow 'Install unknown apps' for KiloProxy, then try again",
+                "Allow installs, then retry",
                 Toast.LENGTH_LONG
             ).show()
         }
