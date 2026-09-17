@@ -370,7 +370,7 @@ class SocksVpnService : VpnService() {
                                 runOnMainThread {
                                     mProbeInFlight.set(false)
                                     mError = probeErrorMessage(early)
-                                    Log.e(TAG, "Connect fast-fail: $early")
+                                    Log.e(TAG, "Connect fast-fail: probe=$early server=$server:$port seq=$mConnectSeq err=$mError")
                                     stopMe("proxy_probe_fast_fail")
                                 }
                                 return@execute
@@ -382,7 +382,7 @@ class SocksVpnService : VpnService() {
                                     runOnMainThread {
                                         mProbeInFlight.set(false)
                                         mError = probeErrorMessage(early)
-                                        Log.e(TAG, "Connect fast-fail: $early x$mPreTunnelProbeFailures")
+                                        Log.e(TAG, "Connect fast-fail: probe=$early strikes=$mPreTunnelProbeFailures server=$server:$port seq=$mConnectSeq err=$mError")
                                         stopMe("proxy_probe_fast_fail")
                                     }
                                     return@execute
@@ -458,10 +458,10 @@ class SocksVpnService : VpnService() {
                                     notifyStateChanged()
                                 }
                                 mIpCheckFailures++
-                                Log.e(TAG, "IP check failed ($mIpCheckFailures/$MAX_IP_CHECK_FAILURES): $probe")
+                                Log.e(TAG, "IP check failed: strikes=$mIpCheckFailures/$MAX_IP_CHECK_FAILURES probe=$probe server=$server:$port")
                                 if (mIpCheckFailures >= MAX_IP_CHECK_FAILURES) {
                                     mError = probeErrorMessage(probe)
-                                    Log.e(TAG, "Connectivity never verified — stopping: $mError")
+                                    Log.e(TAG, "Connectivity never verified, stopping: strikes=$mIpCheckFailures probe=$probe server=$server:$port err=$mError")
                                     stopMe("proxy_connect_failed")
                                     return@runOnMainThread
                                 }
@@ -611,6 +611,9 @@ class SocksVpnService : VpnService() {
         mConnectSeq++
         mPreTunnelProbeFailures = 0
         val connectSeq = mConnectSeq
+        // Wide event for this connect: everything that shapes the attempt on
+        // one greppable line (seq correlates every later log for it).
+        Log.d(TAG, "connect seq=$connectSeq accel=$mAccel primary=$mAccelPrimary both=$mAccelBoth cacheIp=$mAccelCacheIp probe=$mAccelProbe dns=$mAccelDns intervalMs=$mAccelIntervalMs")
 
             // Register notification action receiver
         registerReceiverCompat(mNotificationActionReceiver, IntentFilter(ACTION_STOP_VPN))
@@ -711,7 +714,7 @@ class SocksVpnService : VpnService() {
                 stateChanged = true
             }
         }
-        Log.d(TAG, "stopMe called" + if (reason.isNotEmpty()) " - reason: $reason" else "")
+        Log.d(TAG, "stopMe reason=$reason wasRunning=$stateChanged verified=$mProxyVerified tunnelUp=$mTunnelUp ip=$mCurrentIp err=$mError")
         if (reason.isEmpty()) {
             // Log stack trace when no reason is given to identify caller
             Log.d(TAG, "stopMe stack trace:", Throwable("stopMe caller trace"))
@@ -943,6 +946,7 @@ class SocksVpnService : VpnService() {
         mLastNotificationText = textNow
         mLastNotificationTitle = title
         mLastNotificationActions = notification.actions?.size ?: 0
+        Log.d(TAG, "notify title=$title text=$textNow profile=$mProfileName ip=$mCurrentIp")
         nm.notify(NOTIFICATION_ID, notification)
     }
 
@@ -1253,18 +1257,9 @@ class SocksVpnService : VpnService() {
         }
     }
 
-    /** User-facing message for a dead proxy. Shared by the 3-strike teardown
-     * and the connect-time fast-fail so both report identically. */
-    private fun probeErrorMessage(probe: SocksTester.ProxyProbe?): String = when (probe) {
-        SocksTester.ProxyProbe.AUTH_FAILED ->
-            "Connection failed: proxy authentication failed. Check your username and password."
-        SocksTester.ProxyProbe.NOT_SOCKS5 ->
-            "Connection failed: server is not a SOCKS5 proxy."
-        SocksTester.ProxyProbe.CONNECT_FAILED ->
-            "Connection failed: proxy refused the connection."
-        else ->
-            "Connection failed: proxy unreachable or not responding."
-    }
+    /** User-facing message for a dead proxy. Short labels from [SocksTester]. */
+    private fun probeErrorMessage(probe: SocksTester.ProxyProbe?): String =
+        SocksTester.shortMessage(probe ?: SocksTester.ProxyProbe.UNREACHABLE)
 
     /**
      * Parallel connect-time health gate (additive, touches no existing flow).
@@ -1283,23 +1278,27 @@ class SocksVpnService : VpnService() {
         connectSeq: Int
     ) {
         mProbeExecutor.execute {
+            val t0 = System.currentTimeMillis()
             val first = try {
                 SocksTester.probeProxy(server, port, user, passwd)
             } catch (_: Exception) {
                 SocksTester.ProxyProbe.UNREACHABLE
             }
-            Log.d(TAG, "Health gate: server=$server:$port user=${if (user.isNullOrEmpty()) "-" else user} first=$first seq=$connectSeq")
+            val d1 = System.currentTimeMillis() - t0
+            Log.d(TAG, "Health gate: server=$server:$port user=${if (user.isNullOrEmpty()) "-" else user} first=$first durMs=$d1 seq=$connectSeq")
             if (first == SocksTester.ProxyProbe.OK) return@execute
             val dead: SocksTester.ProxyProbe = when (first) {
                 SocksTester.ProxyProbe.AUTH_FAILED,
                 SocksTester.ProxyProbe.NOT_SOCKS5 -> first
                 else -> {
+                    val t1 = System.currentTimeMillis()
                     val second = try {
                         SocksTester.probeProxy(server, port, user, passwd)
                     } catch (_: Exception) {
                         SocksTester.ProxyProbe.UNREACHABLE
                     }
-                    Log.d(TAG, "Health gate: server=$server:$port second=$second seq=$connectSeq")
+                    val d2 = System.currentTimeMillis() - t1
+                    Log.d(TAG, "Health gate: server=$server:$port second=$second durMs=$d2 seq=$connectSeq")
                     if (second == SocksTester.ProxyProbe.OK) return@execute
                     second
                 }
@@ -1308,7 +1307,7 @@ class SocksVpnService : VpnService() {
                 if (connectSeq != mConnectSeq || !mRunning) return@runOnMainThread
                 if (mProxyVerified || mCurrentIp != null) return@runOnMainThread
                 mError = probeErrorMessage(dead)
-                Log.e(TAG, "Health gate dead: $dead seq=$connectSeq")
+                Log.e(TAG, "Health gate dead: probe=$dead seq=$connectSeq verified=$mProxyVerified ip=$mCurrentIp err=$mError")
                 stopMe("proxy_health_gate:$dead")
             }
         }
