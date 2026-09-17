@@ -57,7 +57,6 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
 import androidx.preference.PreferenceManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -65,12 +64,10 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import net.typeblog.socks.R
-import net.typeblog.socks.ui.components.ProtonDialogRadioRow
 import net.typeblog.socks.ui.components.SearchInput
 import net.typeblog.socks.ui.components.ProtonSwitch
 import net.typeblog.socks.ui.components.SettingsItem
 import net.typeblog.socks.ui.viewmodel.VpnViewModel
-import net.typeblog.socks.util.Constants.PREF_ADV_APP_BYPASS
 import net.typeblog.socks.util.Constants.PREF_ADV_APP_LIST
 import net.typeblog.socks.util.Constants.PREF_ADV_PER_APP
 
@@ -119,7 +116,6 @@ fun SplitTunnelingScreen(
     }
 
     var splitEnabled by remember { mutableStateOf(prefs.getBoolean(PREF_ADV_PER_APP, false)) }
-    var bypassMode by remember { mutableStateOf(prefs.getBoolean(PREF_ADV_APP_BYPASS, false)) }
     var persistedList by remember {
         mutableStateOf(
             prefs.getString(PREF_ADV_APP_LIST, "")?.split("\n")
@@ -132,7 +128,6 @@ fun SplitTunnelingScreen(
         val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
             when (key) {
                 PREF_ADV_PER_APP -> splitEnabled = prefs.getBoolean(PREF_ADV_PER_APP, false)
-                PREF_ADV_APP_BYPASS -> bypassMode = prefs.getBoolean(PREF_ADV_APP_BYPASS, false)
                 PREF_ADV_APP_LIST -> persistedList = prefs.getString(PREF_ADV_APP_LIST, "")?.split("\n")
                     ?.map { it.trim() }?.filter { it.isNotEmpty() }?.toSet() ?: emptySet()
             }
@@ -141,13 +136,33 @@ fun SplitTunnelingScreen(
         onDispose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
     }
 
+    // Single Include-only mode: only selected apps connect through the VPN.
+    // Leaving with zero effective apps auto-turns split off, so an empty
+    // allow-list can never reach the engine.
+    fun effectiveApps(): List<String> =
+        prefs.getString(PREF_ADV_APP_LIST, "")?.split("\n")
+            ?.map { it.trim() }
+            ?.filter { it.isNotEmpty() && it != context.packageName }
+            ?: emptyList()
+
+    fun autoOffIfEmpty() {
+        if (prefs.getBoolean(PREF_ADV_PER_APP, false) && effectiveApps().isEmpty()) {
+            prefs.edit().putBoolean(PREF_ADV_PER_APP, false).apply()
+        }
+    }
+    DisposableEffect(Unit) { onDispose { autoOffIfEmpty() } }
+
     var page by rememberSaveable { mutableStateOf(if (startOnApps) 1 else 0) } // 0 = main, 1 = apps
 
     var installedApps by remember { mutableStateOf<List<InstalledApp>>(emptyList()) }
 
+    var cleanedStale by remember { mutableStateOf(false) }
+
     suspend fun loadApps() {
+        val selfPkg = context.packageName
         val apps = packageManager.getInstalledApplications(PackageManager.GET_META_DATA)
             .filter { it.flags and ApplicationInfo.FLAG_INSTALLED != 0 }
+            .filter { it.packageName != selfPkg }
             .filter { packageManager.getLaunchIntentForPackage(it.packageName) != null }
             .map {
                 InstalledApp(
@@ -158,6 +173,16 @@ fun SplitTunnelingScreen(
             }
             .sortedBy { it.name.lowercase() }
         installedApps = apps
+        // Drop stale (uninstalled) and self entries from the persisted list
+        // once per screen open; the engine skips them anyway.
+        if (!cleanedStale) {
+            cleanedStale = true
+            val valid = apps.map { it.packageName }.toSet()
+            val pruned = persistedList.filter { valid.contains(it) }.toSet()
+            if (pruned != persistedList) {
+                prefs.edit().putString(PREF_ADV_APP_LIST, pruned.joinToString("\n")).apply()
+            }
+        }
     }
 
     LaunchedEffect(page) { if (page == 1) loadApps() }
@@ -191,9 +216,11 @@ fun SplitTunnelingScreen(
         }
     }
 
-    var showModeDialog by remember { mutableStateOf(false) }
     var query by rememberSaveable { mutableStateOf("") }
-    BackHandler(enabled = page == 1) { page = 0 }
+    BackHandler(enabled = page == 1) {
+        autoOffIfEmpty()
+        page = 0
+    }
 
     val nameByPkg = remember(installedApps) {
         installedApps.associate { it.packageName to it.name }
@@ -205,28 +232,18 @@ fun SplitTunnelingScreen(
         else -> "${selectedPkgs.size} apps"
     }
 
-    if (showModeDialog) {
-        ModeDialog(
-            bypassMode = bypassMode,
-            onSelect = { exclude ->
-                bypassMode = exclude
-                prefs.edit().putBoolean(PREF_ADV_APP_BYPASS, exclude).apply()
-                scheduleRestart()
-                showModeDialog = false
-            },
-            onDismiss = { showModeDialog = false }
-        )
-    }
-
     Scaffold(
         modifier = modifier,
         contentWindowInsets = WindowInsets(0),
         topBar = {
             TopAppBar(
-                title = { if (page == 1) Text(if (bypassMode) "Excluded apps" else "Included apps") },
+                title = { if (page == 1) Text("Included apps") },
                 windowInsets = WindowInsets(0),
                 navigationIcon = {
-                    IconButton(onClick = { if (page == 1) page = 0 else onNavigateBack() }) {
+                    IconButton(onClick = {
+                        autoOffIfEmpty()
+                        if (page == 1) page = 0 else onNavigateBack()
+                    }) {
                         Icon(
                             painter = painterResource(R.drawable.lucide_arrow_left),
                             contentDescription = "Back"
@@ -308,15 +325,8 @@ fun SplitTunnelingScreen(
 
                 if (splitEnabled) {
                     SettingsItem(
-                        icon = painterResource(R.drawable.ic_proton_filter),
-                        label = "Mode",
-                        description = if (bypassMode) "Exclude" else "Include",
-                        showChevron = false,
-                        onClick = { showModeDialog = true }
-                    )
-                    SettingsItem(
                         icon = painterResource(R.drawable.ic_proton_apps),
-                        label = if (bypassMode) "Excluded apps" else "Included apps",
+                        label = "Included apps",
                         description = appsSubtitle,
                         showChevron = false,
                         onClick = { page = 1 }
@@ -327,7 +337,6 @@ fun SplitTunnelingScreen(
         } else {
             AppsPage(
                 paddingValues = paddingValues,
-                bypassMode = bypassMode,
                 installedApps = installedApps,
                 toggleStates = toggleStates,
                 query = query,
@@ -345,54 +354,8 @@ fun SplitTunnelingScreen(
 }
 
 @Composable
-private fun ModeDialog(
-    bypassMode: Boolean,
-    onSelect: (Boolean) -> Unit,
-    onDismiss: () -> Unit
-) {
-    Dialog(onDismissRequest = onDismiss) {
-        Surface(
-            shape = RoundedCornerShape(24.dp),
-            color = MaterialTheme.colorScheme.surfaceContainerLow
-        ) {
-            Column(modifier = Modifier.padding(24.dp)) {
-                Text(
-                    text = "Mode",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Spacer(modifier = Modifier.height(12.dp))
-                ProtonDialogRadioRow(
-                    title = "Include",
-                    description = "Only selected apps connect through the VPN; all other traffic is unprotected.",
-                    selected = !bypassMode,
-                    onClick = { onSelect(false) }
-                )
-                HorizontalHairline()
-                ProtonDialogRadioRow(
-                    title = "Exclude",
-                    description = "Selected apps are excluded from the VPN connection.",
-                    selected = bypassMode,
-                    onClick = { onSelect(true) }
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun HorizontalHairline() {
-    Surface(
-        modifier = Modifier.fillMaxWidth().height(1.dp),
-        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
-    ) {}
-}
-
-@Composable
 private fun AppsPage(
     paddingValues: androidx.compose.foundation.layout.PaddingValues,
-    bypassMode: Boolean,
     installedApps: List<InstalledApp>,
     toggleStates: Map<String, Boolean>,
     query: String,
@@ -435,11 +398,8 @@ private fun AppsPage(
             } else {
                 item {
                     SectionHeader(
-                        title = if (bypassMode) "Excluded apps (${selectedApps.size})" else "Included apps (${selectedApps.size})",
-                        description = if (bypassMode)
-                            "These apps are excluded from your VPN connection."
-                        else
-                            "Only these apps connect through the VPN."
+                        title = "Included apps (${selectedApps.size})",
+                        description = "Only these apps connect through the VPN."
                     )
                 }
                 items(selectedApps, key = { it.packageName }) { app ->

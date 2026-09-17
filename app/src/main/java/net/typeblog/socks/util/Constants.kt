@@ -23,8 +23,14 @@ object Constants {
     const val PREF_PROFILE = "profile"
     const val PREF_LAST_PROFILE = "last_profile"
     const val PREF_ADV_PER_APP = "adv_per_app"
+    // Legacy: Exclude/Include selector, removed in the single-mode (Include-only)
+    // rework. Kept so the one-time migration can delete it; nothing reads it.
     const val PREF_ADV_APP_BYPASS = "adv_app_bypass"
     const val PREF_ADV_APP_LIST = "adv_app_list"
+    // One-time migration flag for the single-mode rework: wipes split-tunnel
+    // config (global + per-profile) while keeping proxy profiles, so split
+    // starts OFF for updaters. See SocksApplication.migrateSplitSingleMode.
+    const val PREF_SPLIT_SINGLE_MODE_MIGRATED = "split_single_mode_migrated_v1"
     const val PREF_THEME_MODE = "theme_mode"
     const val PREF_AUTO_STOP = "auto_stop"
     // Accelerator master gate for repeat-connect experiments. Default OFF,
@@ -50,8 +56,12 @@ object Constants {
     const val PREF_BUBBLE_X = "bubble_x"
     const val PREF_BUBBLE_Y = "bubble_y"
     const val PREF_SKIPPED_UPDATE_VERSION = "skipped_update_version"
-    // Split-tunnel: global keys (PREF_ADV_*) are single source of truth (written by SplitTunnelingScreen);
-    // Profile keys "perapp"/"appbypass"/"applist" are legacy per-profile aliases kept for compat.
+    // Split-tunnel: single Include-only mode. Global keys (PREF_ADV_*) are the
+    // single source of truth (written by SplitTunnelingScreen); the legacy
+    // Exclude/Include selector is gone and the engine forces bypass=false.
+    // Profile keys "perapp"/"appbypass"/"applist" are legacy aliases cleared
+    // by the single-mode migration; surviving perapp flags are honored as
+    // Include-only.
     // Unique to this app's package so a sibling app built from the same base
     // code can never wake our receivers with its own broadcasts (and vice versa).
     const val ACTION_STOP_VPN = "com.kiloproxy.app.STOP_VPN"

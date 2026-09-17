@@ -1329,9 +1329,9 @@ class FloatingControlService : Service() {
     private fun isSplitIncludeEmpty(): Boolean {
         val prefs = PreferenceManager.getDefaultSharedPreferences(this)
         if (!prefs.getBoolean(Constants.PREF_ADV_PER_APP, false)) return false
-        if (prefs.getBoolean(Constants.PREF_ADV_APP_BYPASS, false)) return false
         val list = prefs.getString(Constants.PREF_ADV_APP_LIST, "")
-            ?.split("\n")?.map { it.trim() }?.filter { it.isNotEmpty() }
+            ?.split("\n")?.map { it.trim() }
+            ?.filter { it.isNotEmpty() && it != packageName }
             ?: emptyList()
         return list.isEmpty()
     }
@@ -1364,10 +1364,11 @@ class FloatingControlService : Service() {
             ).show()
             return
         }
-        // Include mode with zero apps can never connect (empty allow-list
-        // drags our own UID into the tunnel): refuse and open the apps list.
+        // Split tunneling with zero effective apps can never connect (empty
+        // allow-list drags our own UID into the tunnel): refuse and open the
+        // apps list.
         if (isSplitIncludeEmpty()) {
-            Log.w(TAG, "Bubble tap ignored: split tunneling Include mode with no apps")
+            Log.w(TAG, "Bubble tap ignored: split tunneling with no apps")
             Toast.makeText(
                 this,
                 "Select at least one app to connect",

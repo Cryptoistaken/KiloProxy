@@ -516,7 +516,7 @@ class SocksVpnService : VpnService() {
         val ipv6 = cmd.getBooleanExtra(INTENT_IPV6_PROXY, false)
         val udpgw = cmd.getStringExtra(INTENT_UDP_GW)
 
-        Log.d(TAG, "onStartCommand: profile=$mProfileName server=$server:$port user=$username route=$route dns=$dns:$dnsPort perApp=$perApp ipv6=$ipv6 udpgw=$udpgw")
+        Log.d(TAG, "onStartCommand: profile=$mProfileName server=$server:$port user=$username route=$route dns=$dns:$dnsPort perApp=$perApp bypass=$appBypass apps=${appList?.size ?: 0} ipv6=$ipv6 udpgw=$udpgw")
 
         createNotificationChannel()
 
@@ -887,12 +887,28 @@ class SocksVpnService : VpnService() {
                     }
                 }
             } else {
-                for (p in apps.orEmpty()) {
-                    if (TextUtils.isEmpty(p) || p.trim { it <= ' ' } == packageName) continue
+                // Include-only mode: only listed apps use the VPN. Our own UID
+                // is always skipped (tun2socks/pdnsd must bypass). If nothing
+                // effective remains (empty list, only self, or stale pkgs),
+                // fall back to a full tunnel instead of establishing zero
+                // allow-rules, which would drag our own UID in and deadlock.
+                val effective = apps.orEmpty()
+                    .map { it.trim { c -> c <= ' ' } }
+                    .filter { it.isNotEmpty() && it != packageName }
+                if (effective.isEmpty()) {
+                    Log.w(TAG, "Include mode with no effective apps; falling back to full tunnel")
                     try {
-                        b.addAllowedApplication(p.trim { it <= ' ' })
+                        b.addDisallowedApplication(packageName)
                     } catch (e: Exception) {
                         Log.e(TAG, "Error: ${e.message}", e)
+                    }
+                } else {
+                    for (p in effective) {
+                        try {
+                            b.addAllowedApplication(p)
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Error: ${e.message}", e)
+                        }
                     }
                 }
             }

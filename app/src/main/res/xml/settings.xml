@@ -21,12 +21,6 @@
 			android:key="adv_per_app"
 			android:title="@string/adv_per_app"/>
 
-		<CheckBoxPreference
-			android:key="adv_app_bypass"
-			android:title="@string/adv_app_bypass"
-			android:summary="@string/adv_app_bypass_sum"
-			android:dependency="adv_per_app"/>
-
 		<Preference
 			android:key="adv_app_selector"
 			android:title="@string/adv_app_selector"

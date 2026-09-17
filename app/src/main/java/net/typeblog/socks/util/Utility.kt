@@ -19,7 +19,6 @@ import net.typeblog.socks.util.Constants.INTENT_SERVER
 import net.typeblog.socks.util.Constants.INTENT_USERNAME
 import net.typeblog.socks.util.Constants.INTENT_PASSWORD
 import net.typeblog.socks.util.Constants.INTENT_UDP_GW
-import net.typeblog.socks.util.Constants.PREF_ADV_APP_BYPASS
 import net.typeblog.socks.util.Constants.PREF_ADV_APP_LIST
 import net.typeblog.socks.util.Constants.PREF_ADV_PER_APP
 import net.typeblog.socks.util.Constants.ACCEL_PRIMARY_KILOIP
@@ -160,18 +159,18 @@ object Utility {
     fun buildVpnIntent(context: Context, profile: Profile): Intent {
         val prefs = PreferenceManager.getDefaultSharedPreferences(context)
         // Single source of truth: global SplitTunnelingScreen prefs. Profile perapp is legacy; global takes precedence when enabled.
+        // Single Include-only mode: bypass is always false. The legacy
+        // adv_app_bypass pref and per-profile appbypass flag are ignored, and
+        // any surviving per-profile perapp list is honored as Include-only.
         val globalPerApp = prefs.getBoolean(PREF_ADV_PER_APP, false)
         val perApp = profile.isPerApp() || globalPerApp
-        val bypass: Boolean
+        val bypass = false
         val appList: String
         if (globalPerApp) {
-            bypass = prefs.getBoolean(PREF_ADV_APP_BYPASS, false)
             appList = prefs.getString(PREF_ADV_APP_LIST, "") ?: ""
         } else if (profile.isPerApp()) {
-            bypass = profile.isBypassApp()
             appList = profile.getAppList()
         } else {
-            bypass = false
             appList = ""
         }
 

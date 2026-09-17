@@ -88,6 +88,7 @@ git revert <commit-hash>                  # undo a specific commit
 | `pre-notif-and-dot-fixes` | (pushed) | 2026-09-09 | Before notification large-icon fix + effective-theme wiring for bubble/popup. |
 | `pre-accelerator` | `353da5e` | 2026-09-10 | Before VPN Accelerator engine work (UI toggle only, engine untouched). |
 | `pre-android-parity` | `816486d` | 2026-09-13 | Before Android 15/16 parity fixes (16 KB ELF alignment, setMetered(false), always-on VPN start, stale-notification cleanup). |
+| `pre-split-include-only` | `9ead889` | 2026-09-17 | Before single-mode Include-only split tunneling rework (KiloProxy only; migration wipes split config, keeps profiles). |
 
 > **One-time (do before the notification/dot pass):** done 2026-09-09 — tag `pre-notif-and-dot-fixes` created and pushed, table updated.
 
@@ -150,8 +151,8 @@ Keep messages short and direct. State what happened, nothing else.
 | File | Responsibility |
 |---|---|
 | `MainActivity.kt` | Compose host activity, entry point, launcher |
-| `SocksApplication.kt` | Application class (init, context wiring) |
-| `SocksVpnService.kt` | **Engine** — VpnService + tun2socks/pdnsd spawn, tunnelling, notifications, stats, IP check. NEVER modify for UI. |
+| `SocksApplication.kt` | Application class (init, context wiring) + one-time single-mode split migration (wipes global/per-profile split config, keeps proxy profiles, split starts OFF) |
+| `SocksVpnService.kt` | **Engine** — VpnService + tun2socks/pdnsd spawn, tunnelling, notifications, stats, IP check. NEVER modify for UI. Split is Include-only: `configure()` forces allow-list, skips own UID, falls back to full tunnel on empty effective list; `onStartCommand` logs `bypass` + app count. |
 | `FloatingControlService.kt` | Floating bubble (60dp) + flag pill overlays, long-press popup; WindowManager, SYSTEM_ALERT_WINDOW |
 | `BubbleMenuOverlay.kt` | Popup overlay shown near bubble: country list, search, positioning; window params/IME handling |
 | `BootReceiver.kt` | BOOT_COMPLETED + MY_PACKAGE_REPLACED auto-start receiver (restores VPN for auto-connect profiles and the floating bubble after reboot and after in-app updates) |
@@ -186,7 +187,7 @@ Notes on the merged notification/dot pass:
 - `screens/` — BubbleSettingsScreen, CountriesScreen, DebugLogsScreen, ProxiesScreen, SettingsScreen, SplitTunnelingScreen, StatusScreen, ThemeScreen, AdvancedSettingsScreen
   - `AdvancedSettingsScreen.kt` — Advanced Settings page (Accelerator master + Primary checker + Checker mode + Cache last IP + Proxy health probe + Recheck interval + Cache proxy DNS). Engine honors prefs only while master is ON.
   - `ThemeScreen.kt` — Theme picker page: Light / Dark / Device theme cards with mini phone previews; writes PREF_THEME_MODE.
-  - `SplitTunnelingScreen.kt` — ProtonVPN mock design: feature header + toggle card, Mode row (dialog: Exclude/Include) + Apps row; apps page has search bar, selected-apps section (minus) and all-other-apps section (plus). Same engine prefs (PREF_ADV_PER_APP / PREF_ADV_APP_BYPASS / PREF_ADV_APP_LIST). IP-address rows skipped: engine has no IP split-tunneling support. Apps page opens directly via `startOnApps` arg (refuse-to-connect link).
+  - `SplitTunnelingScreen.kt` — Include-only single mode: feature header + toggle card + Included-apps row (no Mode row/dialog); apps page has search bar, selected-apps section (minus) and all-other-apps section (plus). Same engine prefs minus bypass (`PREF_ADV_PER_APP` / `PREF_ADV_APP_LIST`; legacy `PREF_ADV_APP_BYPASS` ignored, removed from `settings.xml`). Picker hides own package, prunes stale entries on open, auto-turns split OFF when leaving with zero effective apps. IP-address rows skipped: engine has no IP split-tunneling support. Apps page opens directly via `startOnApps` arg (refuse-to-connect link).
   - `SettingsScreen.kt` — Features rows: "Split tunneling" (On/Off), "Theme" (subtitle = theme label), "Floating Bubble" (On/Off), "Advanced Settings" (On/Off, opens AdvancedSettingsScreen); no chevrons.
 - `theme/` — Color, Fonts, Theme, Type (Compose theming, Geist fonts)
 - `viewmodel/VpnViewModel.kt` — Vpn state, AIDL binding, split Include-empty guard, accelerator DNS warm-up
