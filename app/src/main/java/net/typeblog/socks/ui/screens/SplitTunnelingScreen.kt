@@ -185,7 +185,9 @@ fun SplitTunnelingScreen(
         }
     }
 
-    LaunchedEffect(page) { if (page == 1) loadApps() }
+    // Load on every page (not just the apps page) so the main-page subtitle
+    // can resolve persisted selections to app names immediately.
+    LaunchedEffect(page) { loadApps() }
 
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner, page) {
@@ -225,7 +227,10 @@ fun SplitTunnelingScreen(
     val nameByPkg = remember(installedApps) {
         installedApps.associate { it.packageName to it.name }
     }
-    val selectedPkgs = toggleStates.filterValues { it }.keys
+    // Subtitle reads the prefs-backed persisted list (not toggleStates,
+    // which is only populated once the apps list loads), so it is correct
+    // on first display without opening the apps page.
+    val selectedPkgs = persistedList
     val appsSubtitle = when (selectedPkgs.size) {
         0 -> "None"
         1 -> nameByPkg[selectedPkgs.first()] ?: selectedPkgs.first()
@@ -301,6 +306,9 @@ fun SplitTunnelingScreen(
                     val onToggle: (Boolean) -> Unit = { newValue ->
                         splitEnabled = newValue
                         prefs.edit().putBoolean(PREF_ADV_PER_APP, newValue).apply()
+                        // Enabling always opens the apps page: there is nothing
+                        // else to do here, and an empty exit auto-turns it off.
+                        if (newValue) page = 1
                         scheduleRestart()
                     }
                     Row(
