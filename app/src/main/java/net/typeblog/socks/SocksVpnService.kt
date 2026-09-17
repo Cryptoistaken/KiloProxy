@@ -1,6 +1,7 @@
 package net.typeblog.socks
 
 import android.app.ActivityManager
+import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -31,6 +32,7 @@ import androidx.preference.PreferenceManager
 import net.typeblog.socks.R
 import net.typeblog.socks.util.Constants
 import net.typeblog.socks.util.Constants.ACTION_STOP_VPN
+import net.typeblog.socks.util.Countries
 import net.typeblog.socks.util.Constants.INTENT_APP_BYPASS
 import net.typeblog.socks.util.Constants.INTENT_APP_LIST
 import net.typeblog.socks.util.Constants.INTENT_DNS
@@ -227,6 +229,7 @@ class SocksVpnService : VpnService() {
     // Last notification content actually issued, so the retry loop can skip
     // redundant notify() calls when the visible text didn't change.
     private var mLastNotificationText: String? = null
+    private var mLastNotificationTitle: String? = null
     private var mLastNotificationActions = -1
 
     @Volatile
@@ -507,9 +510,10 @@ class SocksVpnService : VpnService() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 CHANNEL_ID,
-                "Floating Control",
+                getString(R.string.notify_channel_status),
                 NotificationManager.IMPORTANCE_LOW
             )
+            channel.description = getString(R.string.notify_channel_status_desc)
             val manager = getSystemService(NotificationManager::class.java)
             if (manager != null) {
                 manager.createNotificationChannel(channel)
@@ -838,12 +842,12 @@ class SocksVpnService : VpnService() {
     }
 
     private fun showNotification() {
-        // Posted at service start when the tunnel is not up yet: claim
-        // Connecting, not Connected. updateNotification() flips the text
-        // once the IP is known.
+        // Posted at service start when the tunnel is not up yet: title already
+        // names the state (Proton style), updateNotification() flips both
+        // lines once the IP is known.
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle(getString(R.string.notify_title))
-            .setContentText("Connecting")
+            .setContentTitle(getString(R.string.notify_connecting_to, mProfileName ?: ""))
+            .setContentText(getString(R.string.notify_establishing))
             .setSmallIcon(R.drawable.ic_notification_transparent)
             // Plain-drawable launcher copy: R.mipmap.ic_launcher resolves to the
             // adaptive-icon XML on API 26+, which BitmapFactory cannot decode
@@ -851,6 +855,10 @@ class SocksVpnService : VpnService() {
             .setLargeIcon(BitmapFactory.decodeResource(resources, R.drawable.app_icon))
             .setContentIntent(notificationContentIntent())
             .setOngoing(true)
+            .setOnlyAlertOnce(true)
+            .setCategory(Notification.CATEGORY_SERVICE)
+            .setShowWhen(false)
+            .addAction(0, getString(R.string.notify_action_disconnect), notificationStopIntent())
             .build()
 
         if (Build.VERSION.SDK_INT >= 34) {
@@ -859,6 +867,14 @@ class SocksVpnService : VpnService() {
             startForeground(NOTIFICATION_ID, notification)
         }
     }
+
+    /** Disconnect action: reaches the service receiver, same as the bubble's. */
+    private fun notificationStopIntent(): PendingIntent =
+        PendingIntent.getBroadcast(
+            this, 3,
+            Intent(ACTION_STOP_VPN).apply { setPackage(packageName) },
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
 
     /** Tapping the VPN notification brings the app to the foreground. */
     private fun notificationContentIntent(): PendingIntent =
@@ -872,14 +888,22 @@ class SocksVpnService : VpnService() {
     private fun updateNotification() {
         if (!mRunning) return
 
-        val notificationText = if (!mCurrentIp.isNullOrEmpty()) {
-            getString(R.string.notify_msg, mProfileName ?: "")
+        // Title always names the state (Proton style); body carries detail.
+        val hasIp = !mCurrentIp.isNullOrEmpty()
+        val title = if (hasIp) {
+            getString(R.string.notify_connected_to, mProfileName ?: "")
         } else {
-            "Connecting"
+            getString(R.string.notify_connecting_to, mProfileName ?: "")
+        }
+        val notificationText = if (hasIp) {
+            val country = mCountryCode?.let { Countries.fromCode(it)?.name }
+            if (!country.isNullOrEmpty()) "$country - ${mCurrentIp}" else "${mCurrentIp}"
+        } else {
+            getString(R.string.notify_verifying)
         }
 
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle(getString(R.string.notify_title))
+            .setContentTitle(title)
             .setContentText(notificationText)
             .setSmallIcon(R.drawable.ic_notification_transparent)
             // Plain-drawable launcher copy: R.mipmap.ic_launcher resolves to the
@@ -888,16 +912,23 @@ class SocksVpnService : VpnService() {
             .setLargeIcon(BitmapFactory.decodeResource(resources, R.drawable.app_icon))
             .setContentIntent(notificationContentIntent())
             .setOngoing(true)
+            .setOnlyAlertOnce(true)
+            .setCategory(Notification.CATEGORY_SERVICE)
+            .setShowWhen(false)
+            .addAction(0, getString(R.string.notify_action_disconnect), notificationStopIntent())
             .build()
 
         val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
         // Skip redundant re-issues when the visible content+actions haven't changed
         // (the healthy-proxy / ip-api-fail retry path can otherwise fire this ~2x/sec).
         val textNow = notificationText
-        if (textNow == mLastNotificationText && ((notification.actions?.size ?: 0) == mLastNotificationActions)) {
+        if (textNow == mLastNotificationText && title == mLastNotificationTitle &&
+            ((notification.actions?.size ?: 0) == mLastNotificationActions)
+        ) {
             return
         }
         mLastNotificationText = textNow
+        mLastNotificationTitle = title
         mLastNotificationActions = notification.actions?.size ?: 0
         nm.notify(NOTIFICATION_ID, notification)
     }

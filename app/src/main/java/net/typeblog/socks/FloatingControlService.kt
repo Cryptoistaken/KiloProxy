@@ -1078,9 +1078,10 @@ class FloatingControlService : Service() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 CHANNEL_ID,
-                "Floating Control",
+                getString(R.string.notify_channel_status),
                 NotificationManager.IMPORTANCE_LOW
             )
+            channel.description = getString(R.string.notify_channel_status_desc)
             channel.setShowBadge(false)
             getSystemService(NotificationManager::class.java)
                 ?.createNotificationChannel(channel)
@@ -1120,7 +1121,15 @@ class FloatingControlService : Service() {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
-        val title = "KiloProxy"
+        val title = try {
+            when {
+                state == BubbleState.CONNECTED -> getString(R.string.bubble_state_connected)
+                state == BubbleState.CONNECTING -> getString(R.string.bubble_state_connecting)
+                else -> getString(R.string.bubble_state_off)
+            }
+        } catch (e: Exception) {
+            "Floating control"
+        }
         val text = try {
             when {
                 state == BubbleState.CONNECTED && !vpnService?.currentIp.isNullOrEmpty() -> {
@@ -1128,18 +1137,19 @@ class FloatingControlService : Service() {
                     val country = vpnService?.country ?: ""
                     // Notification content stays plain ASCII (repo rule): no
                     // flag emoji, no middle-dot separator.
-                    if (country.isNotEmpty()) "$country - $ip" else "Connected - $ip"
+                    if (country.isNotEmpty()) "$country - $ip" else "$ip"
                 }
-                state == BubbleState.CONNECTED -> "Connected"
-                state == BubbleState.CONNECTING -> "Connecting"
-                else -> "Not connected"
+                state == BubbleState.CONNECTED -> getString(R.string.notify_verifying)
+                state == BubbleState.CONNECTING -> getString(R.string.notify_establishing)
+                else -> getString(R.string.bubble_vpn_off)
             }
         } catch (e: Exception) {
             "Floating control"
         }
 
         val isConnected = state == BubbleState.CONNECTED || state == BubbleState.CONNECTING
-        val buttonText = if (isConnected) "Disconnect" else "Connect"
+        val buttonText = if (isConnected) getString(R.string.notify_action_disconnect)
+            else getString(R.string.bubble_action_connect)
         val buttonPending = if (isConnected) stopPending else connectPending
 
         // Standard notification (no custom RemoteViews): the custom-content
@@ -1163,6 +1173,9 @@ class FloatingControlService : Service() {
             .setLargeIcon(BitmapFactory.decodeResource(resources, R.drawable.app_icon))
             .setContentIntent(contentIntent)
             .setOngoing(true)
+            .setOnlyAlertOnce(true)
+            .setCategory(Notification.CATEGORY_SERVICE)
+            .setShowWhen(false)
             .addAction(0, buttonText, buttonPending)
             .build()
     }

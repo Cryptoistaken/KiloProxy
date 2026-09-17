@@ -144,7 +144,7 @@ fun ProxiesScreen(
         scope.launch {
             undoDismissJob?.cancel()
             undoDismissJob = launch { delay(5000); snack.currentSnackbarData?.dismiss() }
-            val r = snack.showSnackbar("Deleted \"$name\"", actionLabel = "Undo", duration = SnackbarDuration.Long)
+            val r = snack.showSnackbar("Profile deleted", actionLabel = "Undo", duration = SnackbarDuration.Long)
             if (r == SnackbarResult.ActionPerformed) {
                 pm.addProfile(backup.name)?.let {
                     it.setServer(backup.server)
@@ -452,7 +452,7 @@ fun ProxiesScreen(
                         if (duplicateProfileAs(pm, target, trimmed)) {
                             viewModel.reloadProfiles(context)
                             android.widget.Toast.makeText(
-                                context, "Duplicated as \"$trimmed\"", android.widget.Toast.LENGTH_SHORT
+                                context, "Profile duplicated", android.widget.Toast.LENGTH_SHORT
                             ).show()
                         }
                         duplicateTarget = null

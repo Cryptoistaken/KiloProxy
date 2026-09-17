@@ -47,8 +47,18 @@
 	
 	<string name="err_add_prof">Failed to add profile %s</string>
 	<string name="err_del_prof">Error deleting profile %s</string>
-	<string name="notify_title">SOCKS5 proxy activated</string>
-	<string name="notify_msg">Connected to %s</string>
+	<string name="notify_channel_status">Connection status</string>
+	<string name="notify_channel_status_desc">Shows your VPN connection status.</string>
+	<string name="notify_connecting_to">Connecting to %1$s</string>
+	<string name="notify_connected_to">Connected to %1$s</string>
+	<string name="notify_establishing">Establishing secure connection</string>
+	<string name="notify_verifying">Verifying connection</string>
+	<string name="notify_action_disconnect">Disconnect</string>
+	<string name="bubble_action_connect">Connect</string>
+	<string name="bubble_state_connected">Connected</string>
+	<string name="bubble_state_connecting">Connecting</string>
+	<string name="bubble_state_off">Not connected</string>
+	<string name="bubble_vpn_off">VPN is off</string>
 	
     <string name="appearance">Appearance</string>
     <string name="theme_mode">Theme Mode</string>
