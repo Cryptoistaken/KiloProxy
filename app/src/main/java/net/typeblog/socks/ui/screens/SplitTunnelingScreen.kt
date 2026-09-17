@@ -7,6 +7,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -26,6 +27,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -152,7 +154,7 @@ fun SplitTunnelingScreen(
     }
     DisposableEffect(Unit) { onDispose { autoOffIfEmpty() } }
 
-    var page by rememberSaveable { mutableStateOf(if (startOnApps) 1 else 0) } // 0 = main, 1 = apps
+    var page by rememberSaveable { mutableStateOf(if (startOnApps) 1 else 0) } // 0 = main, 1 = included, 2 = add apps
 
     var installedApps by remember { mutableStateOf<List<InstalledApp>>(emptyList()) }
 
@@ -219,9 +221,12 @@ fun SplitTunnelingScreen(
     }
 
     var query by rememberSaveable { mutableStateOf("") }
-    BackHandler(enabled = page == 1) {
-        autoOffIfEmpty()
-        page = 0
+    BackHandler(enabled = page == 1 || page == 2) {
+        if (page == 2) page = 1
+        else {
+            autoOffIfEmpty()
+            page = 0
+        }
     }
 
     val nameByPkg = remember(installedApps) {
@@ -240,14 +245,39 @@ fun SplitTunnelingScreen(
     Scaffold(
         modifier = modifier,
         contentWindowInsets = WindowInsets(0),
+        floatingActionButton = {
+            if (page == 1) {
+                FloatingActionButton(onClick = { page = 2 }) {
+                    Icon(
+                        painter = painterResource(R.drawable.lucide_plus),
+                        contentDescription = "Add apps"
+                    )
+                }
+            }
+        },
         topBar = {
             TopAppBar(
-                title = { if (page == 1) Text("Included apps") },
+                title = {
+                    when (page) {
+                        1 -> Text("Included apps")
+                        2 -> Text("Add apps")
+                        else -> {}
+                    }
+                },
                 windowInsets = WindowInsets(0),
                 navigationIcon = {
                     IconButton(onClick = {
-                        autoOffIfEmpty()
-                        if (page == 1) page = 0 else onNavigateBack()
+                        when (page) {
+                            2 -> page = 1
+                            1 -> {
+                                autoOffIfEmpty()
+                                page = 0
+                            }
+                            else -> {
+                                autoOffIfEmpty()
+                                onNavigateBack()
+                            }
+                        }
                     }) {
                         Icon(
                             painter = painterResource(R.drawable.lucide_arrow_left),
@@ -342,8 +372,21 @@ fun SplitTunnelingScreen(
                 }
                 Spacer(modifier = Modifier.height(24.dp))
             }
+        } else if (page == 1) {
+            IncludedPage(
+                paddingValues = paddingValues,
+                installedApps = installedApps,
+                toggleStates = toggleStates,
+                onSetApp = { pkg, on ->
+                    toggleStates[pkg] = on
+                    prefs.edit()
+                        .putString(PREF_ADV_APP_LIST, toggleStates.filterValues { it }.keys.joinToString("\n"))
+                        .apply()
+                    scheduleRestart()
+                }
+            )
         } else {
-            AppsPage(
+            AddAppsPage(
                 paddingValues = paddingValues,
                 installedApps = installedApps,
                 toggleStates = toggleStates,
@@ -362,7 +405,74 @@ fun SplitTunnelingScreen(
 }
 
 @Composable
-private fun AppsPage(
+private fun IncludedPage(
+    paddingValues: androidx.compose.foundation.layout.PaddingValues,
+    installedApps: List<InstalledApp>,
+    toggleStates: Map<String, Boolean>,
+    onSetApp: (String, Boolean) -> Unit
+) {
+    // Read live (no remember): toggleStates mutates in place, so a cached
+    // filter would go stale.
+    val selectedApps = installedApps.filter { toggleStates[it.packageName] == true }
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(paddingValues)
+    ) {
+        if (installedApps.isEmpty()) {
+            Text(
+                text = "Loading apps",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 36.dp, vertical = 16.dp)
+            )
+        } else if (selectedApps.isEmpty()) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 36.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Text(
+                    text = "No apps included yet",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = "Tap + to choose apps that connect through the VPN.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 8.dp)
+                )
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 88.dp)
+            ) {
+                item {
+                    SectionHeader(
+                        title = "Included apps (${selectedApps.size})",
+                        description = "Only these apps connect through the VPN."
+                    )
+                }
+                items(selectedApps, key = { it.packageName }) { app ->
+                    AppRow(
+                        app = app,
+                        trailingIcon = R.drawable.ic_proton_minus_circle_filled,
+                        modifier = Modifier.animateItem(),
+                        onAction = { onSetApp(app.packageName, false) }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AddAppsPage(
     paddingValues: androidx.compose.foundation.layout.PaddingValues,
     installedApps: List<InstalledApp>,
     toggleStates: Map<String, Boolean>,
@@ -375,8 +485,6 @@ private fun AppsPage(
         if (q.isEmpty()) installedApps
         else installedApps.filter { it.name.lowercase().contains(q) || it.packageName.lowercase().contains(q) }
     }
-    val selectedApps = filtered.filter { toggleStates[it.packageName] == true }
-    val otherApps = filtered.filter { toggleStates[it.packageName] != true }
 
     Column(
         modifier = Modifier
@@ -404,32 +512,16 @@ private fun AppsPage(
                     )
                 }
             } else {
-                item {
-                    SectionHeader(
-                        title = "Included apps (${selectedApps.size})",
-                        description = "Only these apps connect through the VPN."
-                    )
-                }
-                items(selectedApps, key = { it.packageName }) { app ->
+                items(filtered, key = { it.packageName }) { app ->
+                    // Added rows flip to a check and stay put so the list
+                    // never jumps under the finger while adding several apps.
+                    val added = toggleStates[app.packageName] == true
                     AppRow(
                         app = app,
-                        trailingIcon = R.drawable.ic_proton_minus_circle_filled,
+                        trailingIcon = if (added) R.drawable.lucide_check
+                            else R.drawable.ic_proton_plus_circle,
                         modifier = Modifier.animateItem(),
-                        onAction = { onSetApp(app.packageName, false) }
-                    )
-                }
-                item {
-                    SectionHeader(
-                        title = "All other regular apps (${otherApps.size})",
-                        description = null
-                    )
-                }
-                items(otherApps, key = { it.packageName }) { app ->
-                    AppRow(
-                        app = app,
-                        trailingIcon = R.drawable.ic_proton_plus_circle,
-                        modifier = Modifier.animateItem(),
-                        onAction = { onSetApp(app.packageName, true) }
+                        onAction = { if (!added) onSetApp(app.packageName, true) }
                     )
                 }
             }
