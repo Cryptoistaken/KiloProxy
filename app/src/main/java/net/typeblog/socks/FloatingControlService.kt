@@ -61,6 +61,7 @@ import net.typeblog.socks.util.Constants.PREF_BUBBLE_X
 import net.typeblog.socks.util.Constants.PREF_BUBBLE_Y
 import net.typeblog.socks.util.ProfileManager
 import net.typeblog.socks.util.ProxyProviders
+import net.typeblog.socks.util.SplitTunnel
 import net.typeblog.socks.util.ThemeMode
 import net.typeblog.socks.util.Utility
 import java.util.Locale
@@ -1328,12 +1329,7 @@ class FloatingControlService : Service() {
 
     private fun isSplitIncludeEmpty(): Boolean {
         val prefs = PreferenceManager.getDefaultSharedPreferences(this)
-        if (!prefs.getBoolean(Constants.PREF_ADV_PER_APP, false)) return false
-        val list = prefs.getString(Constants.PREF_ADV_APP_LIST, "")
-            ?.split("\n")?.map { it.trim() }
-            ?.filter { it.isNotEmpty() && it != packageName }
-            ?: emptyList()
-        return list.isEmpty()
+        return SplitTunnel.isIncludeEmpty(prefs, packageName)
     }
 
     private fun openSplitAppsPage() {

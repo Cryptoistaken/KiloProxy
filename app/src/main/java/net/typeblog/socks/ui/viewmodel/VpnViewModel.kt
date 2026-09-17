@@ -31,8 +31,7 @@ import net.typeblog.socks.IVpnService
 import net.typeblog.socks.SocksVpnService
 import net.typeblog.socks.util.ProfileManager
 import net.typeblog.socks.util.Utility
-import net.typeblog.socks.util.Constants.PREF_ADV_APP_LIST
-import net.typeblog.socks.util.Constants.PREF_ADV_PER_APP
+import net.typeblog.socks.util.SplitTunnel
 import net.typeblog.socks.util.Constants.PREF_ACCEL_DNS_CACHE
 import net.typeblog.socks.util.Constants.PREF_VPN_ACCELERATOR
 import net.typeblog.socks.util.Constants.ACTION_VPN_STATE_CHANGED
@@ -497,12 +496,7 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
      */
     fun isSplitIncludeEmpty(context: Context): Boolean {
         val prefs = PreferenceManager.getDefaultSharedPreferences(context)
-        if (!prefs.getBoolean(PREF_ADV_PER_APP, false)) return false
-        val list = prefs.getString(PREF_ADV_APP_LIST, "")
-            ?.split("\n")?.map { it.trim() }
-            ?.filter { it.isNotEmpty() && it != context.packageName }
-            ?: emptyList()
-        return list.isEmpty()
+        return SplitTunnel.isIncludeEmpty(prefs, context.packageName)
     }
 
     /** Cancel a connect request that has not produced a running tunnel yet. */

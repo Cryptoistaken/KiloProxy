@@ -737,27 +737,24 @@ class SocksVpnService : VpnService() {
         stopSelf()
     }
 
-    private fun usageKeySuffix(): String = Utility.usageSuffix(mProfileName ?: "")
-
     private fun loadProfileBytes(profileName: String?) {
         val name = profileName ?: return
         val prefs = PreferenceManager.getDefaultSharedPreferences(this)
-        val suffix = usageKeySuffix()
-        mCumulativeRx = prefs.getLong("usage_rx_${name}_$suffix", 0L)
-        mCumulativeTx = prefs.getLong("usage_tx_${name}_$suffix", 0L)
+        val (rx, tx) = Utility.readUsage(prefs, name)
+        mCumulativeRx = rx
+        mCumulativeTx = tx
     }
 
     private fun persistProfileBytes() {
         val name = mProfileName ?: return
         val prefs = PreferenceManager.getDefaultSharedPreferences(this)
-        val suffix = usageKeySuffix()
         val totalRx = mCumulativeRx + mReceivedBytes
         val totalTx = mCumulativeTx + mSentBytes
         prefs.edit()
-            .putLong("usage_rx_${name}_$suffix", totalRx)
-            .putLong("usage_tx_${name}_$suffix", totalTx)
+            .putLong(Utility.usageRxKey(name), totalRx)
+            .putLong(Utility.usageTxKey(name), totalTx)
             .commit()
-        Log.d(TAG, "Persisted usage for ${name}_$suffix: rx=$totalRx tx=$totalTx")
+        Log.d(TAG, "Persisted usage for ${name}_${Utility.usageSuffix(name)}: rx=$totalRx tx=$totalTx")
     }
 
     private fun showNotification() {

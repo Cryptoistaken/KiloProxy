@@ -180,8 +180,7 @@ fun StatusScreen(
                 val pm = ProfileManager.getInstance(context)
                 val p = pm.getProfile(target) ?: return@remember null
                 val username = p.getUsername()
-                val type = ProxyProviders.detectType(p.getServer(), username)
-                val code = ProxyProviders.parseCountry(username, type)
+                val code = ProxyProviders.displayCountry(p.getServer(), username)
                 if (code.isNullOrBlank()) null else code
             } catch (_: Exception) {
                 null
@@ -217,12 +216,9 @@ fun StatusScreen(
                         val pm = ProfileManager.getInstance(context)
                         val p = displayProfileName?.let { pm.getProfile(it) }
                         if (p != null) {
-                            val suffix = displayProfileName?.let { Utility.usageSuffix(it) } ?: ""
                             val prefs = PreferenceManager.getDefaultSharedPreferences(context)
-                            Pair(
-                                prefs.getLong("usage_rx_${displayProfileName}_$suffix", 0L),
-                                prefs.getLong("usage_tx_${displayProfileName}_$suffix", 0L)
-                            )
+                            if (displayProfileName != null) Utility.readUsage(prefs, displayProfileName)
+                            else Pair(0L, 0L)
                         } else Pair(0L, 0L)
                     } catch (_: Exception) { Pair(0L, 0L) }
                 }

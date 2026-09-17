@@ -156,7 +156,6 @@ Keep messages short and direct. State what happened, nothing else.
 | `FloatingControlService.kt` | Floating bubble (60dp) + flag pill overlays, long-press popup; WindowManager, SYSTEM_ALERT_WINDOW |
 | `BubbleMenuOverlay.kt` | Popup overlay shown near bubble: country list, search, positioning; window params/IME handling |
 | `BootReceiver.kt` | BOOT_COMPLETED + MY_PACKAGE_REPLACED auto-start receiver (restores VPN for auto-connect profiles and the floating bubble after reboot and after in-app updates) |
-| `AppSelector.kt` | Per-app selection list adapter |
 | `System.kt` | JNI bridge (sendfd) |
 
 Notes on the merged notification/dot pass:
@@ -172,11 +171,12 @@ Notes on the merged notification/dot pass:
 | `LogCollector.kt` | In-app log capture (Debug Logs screen) |
 | `Profile.kt` / `ProfileFactory.kt` | Profile data class + factory (pre-defined server profiles) |
 | `ProfileManager.kt` | **ENGINE** — profile CRUD, prefs. NEVER modify for UI |
-| `ProxyProviders.kt` | Proxy provider catalog (proxy list presets) |
+| `ProxyProviders.kt` | Proxy provider catalog (proxy list presets) + country display derivation |
 | `Routes.kt` | VpnService route selection (route config) |
 | `SocksTester.kt` | SOCKS5 liveness/health probe |
+| `SplitTunnel.kt` | Split-tunnel list parse/format + include-empty guard (single home for UI + engine guards) |
 | `ThemeMode.kt` | Effective theme (manual theme_mode override, else device) + themedContext for -night inflation |
-| `Utility.kt` | **ENGINE** — pdnsd conf, ip lookups, misc helpers. NEVER modify for UI |
+| `Utility.kt` | **ENGINE** — pdnsd conf, ip lookups, usage-stats keys, misc helpers. NEVER modify for UI |
 
 ### `.../ui/`
 - `components/` — Compose components: ConnectionCard, ProxyCard, ProfileDetailSheet, ProtonControls (ProtonSwitch + ProtonRadio + ProtonDialogRadioRow, mock-exact mono controls), SearchInput, SettingsItem, UpdateDialog

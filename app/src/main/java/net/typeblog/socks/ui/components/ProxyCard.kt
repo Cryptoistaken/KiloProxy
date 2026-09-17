@@ -57,12 +57,12 @@ internal fun profileDisplayUsage(
     val context = LocalContext.current
     var usageRx by remember { mutableStateOf(0L) }
     var usageTx by remember { mutableStateOf(0L) }
-    val usageSuffix = remember(profileName) { Utility.usageSuffix(profileName) }
 
     LaunchedEffect(profileName, password) {
         val prefs = PreferenceManager.getDefaultSharedPreferences(context)
-        usageRx = prefs.getLong("usage_rx_${profileName}_$usageSuffix", 0L)
-        usageTx = prefs.getLong("usage_tx_${profileName}_$usageSuffix", 0L)
+        val (rx, tx) = Utility.readUsage(prefs, profileName)
+        usageRx = rx
+        usageTx = tx
     }
 
     val liveTotal = liveUsageRx + liveUsageTx
@@ -88,10 +88,7 @@ fun ProxyCard(
     checked: Boolean = false,
     onLongPress: (() -> Unit)? = null
 ) {
-    val providerType = remember(username, server) { ProxyProviders.detectType(server, username) }
-    val countryCode = remember(username, providerType) {
-        ProxyProviders.parseCountry(username, providerType)?.uppercase()
-    }
+    val countryCode = remember(username, server) { ProxyProviders.displayCountry(server, username) }
     val displayUsed = profileDisplayUsage(profileName, password, isConnected, liveUsageRx, liveUsageTx)
 
     Card(

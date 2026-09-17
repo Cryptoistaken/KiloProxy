@@ -2,6 +2,7 @@ package net.typeblog.socks.util
 
 import android.content.Context
 import android.content.Intent
+import android.content.SharedPreferences
 import android.os.Build
 import android.util.Log
 import androidx.preference.PreferenceManager
@@ -337,6 +338,18 @@ object Utility {
     @JvmStatic
     fun usageSuffix(name: String): String =
         try { java.net.URLEncoder.encode(name, "UTF-8") } catch (_: Exception) { name.hashCode().toString() }
+
+    /** Canonical persisted-usage keys: same in :vpn (writer) and UI (readers). */
+    @JvmStatic
+    fun usageRxKey(profileName: String): String = "usage_rx_${profileName}_${usageSuffix(profileName)}"
+
+    @JvmStatic
+    fun usageTxKey(profileName: String): String = "usage_tx_${profileName}_${usageSuffix(profileName)}"
+
+    /** Read persisted usage totals (0L when never recorded). */
+    @JvmStatic
+    fun readUsage(prefs: SharedPreferences, profileName: String): Pair<Long, Long> =
+        Pair(prefs.getLong(usageRxKey(profileName), 0L), prefs.getLong(usageTxKey(profileName), 0L))
 
     @JvmStatic
     fun countryCodeToFlag(countryCode: String): String {

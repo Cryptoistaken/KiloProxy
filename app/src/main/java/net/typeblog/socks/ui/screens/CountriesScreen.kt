@@ -98,8 +98,7 @@ fun CountriesScreen(
             try {
                 val pm = ProfileManager.getInstance(context)
                 val profile = pm.getProfile(defaultProfileName) ?: return@remember null
-                val type = ProxyProviders.detectType(profile.getServer(), profile.getUsername())
-                ProxyProviders.parseCountry(profile.getUsername(), type)?.uppercase()
+                ProxyProviders.displayCountry(profile.getServer(), profile.getUsername())
             } catch (_: Exception) {
                 null
             }

@@ -72,6 +72,7 @@ import net.typeblog.socks.ui.components.SettingsItem
 import net.typeblog.socks.ui.viewmodel.VpnViewModel
 import net.typeblog.socks.util.Constants.PREF_ADV_APP_LIST
 import net.typeblog.socks.util.Constants.PREF_ADV_PER_APP
+import net.typeblog.socks.util.SplitTunnel
 import java.util.concurrent.ConcurrentHashMap
 
 private data class InstalledApp(
@@ -120,19 +121,14 @@ fun SplitTunnelingScreen(
 
     var splitEnabled by remember { mutableStateOf(prefs.getBoolean(PREF_ADV_PER_APP, false)) }
     var persistedList by remember {
-        mutableStateOf(
-            prefs.getString(PREF_ADV_APP_LIST, "")?.split("\n")
-                ?.map { it.trim() }
-                ?.filter { it.isNotEmpty() }
-                ?.toSet() ?: emptySet()
-        )
+        mutableStateOf(SplitTunnel.parseAppList(prefs.getString(PREF_ADV_APP_LIST, "")))
     }
     DisposableEffect(context) {
         val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
             when (key) {
                 PREF_ADV_PER_APP -> splitEnabled = prefs.getBoolean(PREF_ADV_PER_APP, false)
-                PREF_ADV_APP_LIST -> persistedList = prefs.getString(PREF_ADV_APP_LIST, "")?.split("\n")
-                    ?.map { it.trim() }?.filter { it.isNotEmpty() }?.toSet() ?: emptySet()
+                PREF_ADV_APP_LIST -> persistedList =
+                    SplitTunnel.parseAppList(prefs.getString(PREF_ADV_APP_LIST, ""))
             }
         }
         prefs.registerOnSharedPreferenceChangeListener(listener)
@@ -143,10 +139,8 @@ fun SplitTunnelingScreen(
     // Leaving with zero effective apps auto-turns split off, so an empty
     // allow-list can never reach the engine.
     fun effectiveApps(): List<String> =
-        prefs.getString(PREF_ADV_APP_LIST, "")?.split("\n")
-            ?.map { it.trim() }
-            ?.filter { it.isNotEmpty() && it != context.packageName }
-            ?: emptyList()
+        SplitTunnel.parseAppList(prefs.getString(PREF_ADV_APP_LIST, ""))
+            .filter { it != context.packageName }
 
     fun autoOffIfEmpty() {
         if (prefs.getBoolean(PREF_ADV_PER_APP, false) && effectiveApps().isEmpty()) {
@@ -395,7 +389,7 @@ fun SplitTunnelingScreen(
                 onSetApp = { pkg, on ->
                     toggleStates[pkg] = on
                     prefs.edit()
-                        .putString(PREF_ADV_APP_LIST, toggleStates.filterValues { it }.keys.joinToString("\n"))
+                        .putString(PREF_ADV_APP_LIST, SplitTunnel.joinAppList(toggleStates.filterValues { it }.keys))
                         .apply()
                     scheduleRestart()
                 }
@@ -411,7 +405,7 @@ fun SplitTunnelingScreen(
                 onSetApp = { pkg, on ->
                     toggleStates[pkg] = on
                     prefs.edit()
-                        .putString(PREF_ADV_APP_LIST, toggleStates.filterValues { it }.keys.joinToString("\n"))
+                        .putString(PREF_ADV_APP_LIST, SplitTunnel.joinAppList(toggleStates.filterValues { it }.keys))
                         .apply()
                     scheduleRestart()
                 }

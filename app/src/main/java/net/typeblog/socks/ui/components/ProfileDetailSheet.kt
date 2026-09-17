@@ -70,9 +70,7 @@ fun ProfileDetailSheet(
     liveUsageTx: Long = 0L
 ) {
     val providerType = remember(username, server) { ProxyProviders.detectType(server, username) }
-    val countryCode = remember(username, providerType) {
-        ProxyProviders.parseCountry(username, providerType)?.uppercase()
-    }
+    val countryCode = remember(username, server) { ProxyProviders.displayCountry(server, username) }
     val providerLabel = remember(providerType) { ProxyProviders.label(providerType) }
     val sub = remember(countryCode, providerType) {
         if (countryCode != null) {

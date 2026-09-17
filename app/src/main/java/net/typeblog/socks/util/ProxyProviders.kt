@@ -85,6 +85,15 @@ object ProxyProviders {
         else -> null
     }
 
+    /**
+     * Display country code (uppercased) for a server+username pair, or null.
+     * Same derivation everywhere so cards, sheets, and screens agree.
+     */
+    fun displayCountry(host: String, username: String): String? {
+        val type = detectType(host, username)
+        return parseCountry(username, type)?.uppercase()
+    }
+
     fun extractBase(username: String, type: String): String? = when (type) {
         TYPE_OWL -> Regex("^(.+?)_custom_zone_[a-zA-Z]{2}(.*)$").find(username)?.groupValues?.get(1)
         TYPE_RAPID -> Regex("^(.+)-residential-[a-zA-Z]{2}(.*)$").find(username)?.groupValues?.get(1)
