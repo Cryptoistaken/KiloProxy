@@ -53,6 +53,8 @@ import net.typeblog.socks.util.Utility
 import net.typeblog.socks.BuildConfig.DEBUG
 import java.util.concurrent.Callable
 import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.TimeoutException
 import java.util.concurrent.atomic.AtomicBoolean
 
 class SocksVpnService : VpnService() {
@@ -179,6 +181,11 @@ class SocksVpnService : VpnService() {
     @Volatile
     private var mError: String? = null
     private var mIpCheckFailures = 0
+    // Pre-tunnel soft-fail streak for connect-time fast-fail (silent probe
+    // answers only; deterministic answers stop at once). Fresh slate per
+    // connect; post-tunnel rules use mIpCheckFailures instead.
+    @Volatile
+    private var mPreTunnelProbeFailures = 0
     @Volatile
     private var mTunnelUp = false
     private var mPendingIpInfo: IpInfo? = null
@@ -322,11 +329,12 @@ class SocksVpnService : VpnService() {
                 try {
                     // Race the raw SOCKS probe against the HTTPS checker so a
                     // slow checker no longer serializes the full probe behind
-                    // it. The future is only consumed on the checker-failed
-                    // path; on success it finishes harmlessly in the
-                    // background. Awaiting it unbounded below matches today's
-                    // inline call exactly: no new timeout may invent failures,
-                    // and only a real probe result reaches the counter.
+                    // it. The future feeds the pre-tunnel fast-fail below and,
+                    // on the checker-failed path, an unbounded get(); on
+                    // success it finishes harmlessly in the background.
+                    // Awaiting it unbounded matches today's inline call
+                    // exactly: no new timeout may invent failures, and only a
+                    // real probe result reaches the counter.
                     // Probe-off mode spawns nothing (pref respected as before).
                     val probeFuture = if (!mAccel || mAccelProbe) {
                         mProbeExecutor.submit(Callable {
@@ -334,6 +342,52 @@ class SocksVpnService : VpnService() {
                         })
                     } else {
                         null
+                    }
+                    // Connect-time fast-fail (pre-tunnel only): if the raced
+                    // probe already knows the proxy is dead, stop now instead
+                    // of waiting out the HTTPS chain + 3 strikes + UI timeout.
+                    // Deterministic answers (auth rejected, not SOCKS5) stop at
+                    // once — they can never be transient. Silent answers need
+                    // PRE_TUNNEL_FAST_FAIL_STRIKES in a row: flaky gateways
+                    // drop single greets on healthy proxies. An HTTPS success
+                    // later always wins and clears the streak. Post-tunnel
+                    // rules below are untouched.
+                    if (!mTunnelUp && probeFuture != null) {
+                        val early: SocksTester.ProxyProbe? = try {
+                            probeFuture.get(PROBE_FAST_FAIL_MS, TimeUnit.MILLISECONDS)
+                        } catch (_: TimeoutException) {
+                            null
+                        } catch (_: Exception) {
+                            SocksTester.ProxyProbe.UNREACHABLE
+                        }
+                        when (early) {
+                            SocksTester.ProxyProbe.AUTH_FAILED,
+                            SocksTester.ProxyProbe.NOT_SOCKS5 -> {
+                                runOnMainThread {
+                                    mProbeInFlight.set(false)
+                                    mError = probeErrorMessage(early)
+                                    Log.e(TAG, "Connect fast-fail: $early")
+                                    stopMe("proxy_probe_fast_fail")
+                                }
+                                return@execute
+                            }
+                            SocksTester.ProxyProbe.CONNECT_FAILED,
+                            SocksTester.ProxyProbe.UNREACHABLE -> {
+                                mPreTunnelProbeFailures++
+                                if (mPreTunnelProbeFailures >= PRE_TUNNEL_FAST_FAIL_STRIKES) {
+                                    runOnMainThread {
+                                        mProbeInFlight.set(false)
+                                        mError = probeErrorMessage(early)
+                                        Log.e(TAG, "Connect fast-fail: $early x$mPreTunnelProbeFailures")
+                                        stopMe("proxy_probe_fast_fail")
+                                    }
+                                    return@execute
+                                }
+                            }
+                            else -> {
+                                mPreTunnelProbeFailures = 0
+                            }
+                        }
                     }
                     // Master OFF keeps stock selection: kiloip first, trace
                     // fallback. Master ON honors the Advanced Settings page.
@@ -347,6 +401,7 @@ class SocksVpnService : VpnService() {
                             mProbeInFlight.set(false)
                             if (!mTunnelUp) {
                                 mPendingIpInfo = info
+                                mPreTunnelProbeFailures = 0
                             } else {
                                 applyIpInfo(info)
                                 mIpCheckHandler.postDelayed(this, healthyInterval())
@@ -401,16 +456,7 @@ class SocksVpnService : VpnService() {
                                 mIpCheckFailures++
                                 Log.e(TAG, "IP check failed ($mIpCheckFailures/$MAX_IP_CHECK_FAILURES): $probe")
                                 if (mIpCheckFailures >= MAX_IP_CHECK_FAILURES) {
-                                    mError = when (probe) {
-                                        SocksTester.ProxyProbe.AUTH_FAILED ->
-                                            "Connection failed: proxy authentication failed. Check your username and password."
-                                        SocksTester.ProxyProbe.NOT_SOCKS5 ->
-                                            "Connection failed: server is not a SOCKS5 proxy."
-                                        SocksTester.ProxyProbe.CONNECT_FAILED ->
-                                            "Connection failed: proxy refused the connection."
-                                        else ->
-                                            "Connection failed: proxy unreachable or not responding."
-                                    }
+                                    mError = probeErrorMessage(probe)
                                     Log.e(TAG, "Connectivity never verified — stopping: $mError")
                                     stopMe("proxy_connect_failed")
                                     return@runOnMainThread
@@ -558,6 +604,7 @@ class SocksVpnService : VpnService() {
         // New connect generation: any background start thread from a previous
         // attempt is now stale and must abort at its next checkpoint.
         mConnectSeq++
+        mPreTunnelProbeFailures = 0
         val connectSeq = mConnectSeq
 
             // Register notification action receiver
@@ -1155,6 +1202,19 @@ class SocksVpnService : VpnService() {
         }
     }
 
+    /** User-facing message for a dead proxy. Shared by the 3-strike teardown
+     * and the connect-time fast-fail so both report identically. */
+    private fun probeErrorMessage(probe: SocksTester.ProxyProbe?): String = when (probe) {
+        SocksTester.ProxyProbe.AUTH_FAILED ->
+            "Connection failed: proxy authentication failed. Check your username and password."
+        SocksTester.ProxyProbe.NOT_SOCKS5 ->
+            "Connection failed: server is not a SOCKS5 proxy."
+        SocksTester.ProxyProbe.CONNECT_FAILED ->
+            "Connection failed: proxy refused the connection."
+        else ->
+            "Connection failed: proxy unreachable or not responding."
+    }
+
     private fun applyIpInfo(info: IpInfo) {
         applyIpInfo(info, fromCache = false)
     }
@@ -1191,6 +1251,7 @@ class SocksVpnService : VpnService() {
         mError = null
         mProxyVerified = false
         mIpCheckFailures = 0
+        mPreTunnelProbeFailures = 0
         loadProfileBytes(mProfileName)
         mReceivedBytes = 0L
         mSentBytes = 0L
@@ -1250,6 +1311,13 @@ class SocksVpnService : VpnService() {
         private const val IP_INFO_RETRY = 500L
         private const val IP_CHECK_RETRY = 5000L
         private const val MAX_IP_CHECK_FAILURES = 3
+        // Connect-time fast-fail: how long to wait for the raced probe before
+        // falling back to today's path (await the HTTPS chain, then the probe).
+        // Only switches paths, never invents a failure.
+        private const val PROBE_FAST_FAIL_MS = 5000L
+        // Pre-tunnel soft answers (silent/timeout) needed in a row to stop.
+        // Single drops happen on healthy proxies, so one is never enough.
+        private const val PRE_TUNNEL_FAST_FAIL_STRIKES = 2
         private const val DOZE_CHECK_INTERVAL = 60000L
         private const val STATS_INTERVAL = 1000L
         private const val USAGE_PERSIST_TICKS = 5L
