@@ -30,6 +30,7 @@ import kotlinx.coroutines.withContext
 import net.typeblog.socks.IVpnService
 import net.typeblog.socks.SocksVpnService
 import net.typeblog.socks.util.ProfileManager
+import net.typeblog.socks.util.ServiceRebind
 import net.typeblog.socks.util.Utility
 import net.typeblog.socks.util.SplitTunnel
 import net.typeblog.socks.util.Constants.PREF_ACCEL_DNS_CACHE
@@ -269,11 +270,7 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
         if (!bindToService(getApplication())) {
             rebinding = false
             rebindAttempts++
-            val delayMs = when {
-                rebindAttempts <= 3 -> 200L
-                rebindAttempts <= 10 -> 1000L
-                else -> 3000L
-            }
+            val delayMs = ServiceRebind.backoffDelayMs(rebindAttempts)
             rebindRunnable?.let { rebindHandler.removeCallbacks(it) }
             val r = Runnable { if (!cleared) scheduleRebind() }
             rebindRunnable = r

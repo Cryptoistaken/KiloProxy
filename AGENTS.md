@@ -174,6 +174,7 @@ Notes on the merged notification/dot pass:
 | `ProxyProviders.kt` | Proxy provider catalog (proxy list presets) + country display derivation + country-switch rewrite |
 | `Routes.kt` | VpnService route selection (route config) |
 | `SocksTester.kt` | SOCKS5 liveness/health probe |
+| `ServiceRebind.kt` | Shared AIDL rebind backoff ladder (200/1000/3000ms by attempt) |
 | `SplitTunnel.kt` | Split-tunnel list parse/format + include-empty guard (single home for UI + engine guards) |
 | `ThemeMode.kt` | Effective theme (manual theme_mode override, else device) + themedContext for -night inflation |
 | `Utility.kt` | **ENGINE** — pdnsd conf, ip lookups, usage-stats keys, misc helpers. NEVER modify for UI |

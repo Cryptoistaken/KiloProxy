@@ -61,6 +61,7 @@ import net.typeblog.socks.util.Constants.PREF_BUBBLE_X
 import net.typeblog.socks.util.Constants.PREF_BUBBLE_Y
 import net.typeblog.socks.util.ProfileManager
 import net.typeblog.socks.util.ProxyProviders
+import net.typeblog.socks.util.ServiceRebind
 import net.typeblog.socks.util.SplitTunnel
 import net.typeblog.socks.util.ThemeMode
 import net.typeblog.socks.util.Utility
@@ -1057,11 +1058,7 @@ class FloatingControlService : Service() {
         if (rebindInFlight) return
         rebindInFlight = true
         rebindAttempts++
-        val delayMs = when {
-            rebindAttempts <= 3 -> 200L
-            rebindAttempts <= 10 -> 1000L
-            else -> 3000L
-        }
+        val delayMs = ServiceRebind.backoffDelayMs(rebindAttempts)
         rebindRunnable?.let { pollHandler.removeCallbacks(it) }
         val r = Runnable {
             rebindInFlight = false
