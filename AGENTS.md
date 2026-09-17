@@ -128,6 +128,7 @@ Keep messages short and direct. State what happened, nothing else.
 | `AGENTS.md` | This file — agent rules, build/install flow, snapshots, filesystem map |
 | `task.md` | VPN Accelerator task (experimental connect-time goal, SOCKS5-client scope) |
 | `checker/` | Own exit-IP checker (Cloudflare Worker source; deploys via wrangler, outside the APK build) |
+| `cli/` | On-device Go test harness (stdlib only) for the portable engine half: `probe` (SocksTester parity), `check` (Utility.checkWith parity), `bench` (repeat connect-time stats + CSV), `sweep` (bulk proxy list), `speed` (throughput via proxy/direct), `dns` (IPv4-preferred resolve timing). Build: `go build -o kiloproxy .` in `cli/` (binary gitignored). Cannot drive TUN/tun2socks/pdnsd (Android-only). |
 | `protonvpn-settings.html` | Settings mock reference (tracked; `design/` docs were deleted) |
 | `build.gradle` | Root Gradle build (plugins: android.application, Kotlin compose) |
 | `settings.gradle` / `gradle.properties` / `gradle/wrapper/gradle-wrapper.properties` | Gradle config (Gradle 9.4.1, AGP 9.2.1, Kotlin 2.2.10, Java 17) |
