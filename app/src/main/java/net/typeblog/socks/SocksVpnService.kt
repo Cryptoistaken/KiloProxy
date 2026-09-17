@@ -51,6 +51,7 @@ import net.typeblog.socks.util.Routes
 import net.typeblog.socks.util.SocksTester
 import net.typeblog.socks.util.Utility
 import net.typeblog.socks.BuildConfig.DEBUG
+import java.util.concurrent.Callable
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -186,6 +187,13 @@ class SocksVpnService : VpnService() {
     private val mIpCheckExecutor = Executors.newSingleThreadExecutor { r ->
         Thread(r, "ipcheck").apply { isDaemon = true }
     }
+    // Race pool for the raw SOCKS probe (change 3): one short-lived daemon
+    // thread per check at most; the socket self-limits (~5s dial/read
+    // timeouts) and closes itself, so no shutdown bookkeeping is needed.
+    // A cached pool avoids head-of-line blocking behind a hung probe.
+    private val mProbeExecutor = Executors.newCachedThreadPool { r ->
+        Thread(r, "sockprobe").apply { isDaemon = true }
+    }
     private val mProbeInFlight = AtomicBoolean(false)
     @Volatile
     private var mSendfdCancelled = false
@@ -312,6 +320,21 @@ class SocksVpnService : VpnService() {
             if (!mProbeInFlight.compareAndSet(false, true)) return
             mIpCheckExecutor.execute {
                 try {
+                    // Race the raw SOCKS probe against the HTTPS checker so a
+                    // slow checker no longer serializes the full probe behind
+                    // it. The future is only consumed on the checker-failed
+                    // path; on success it finishes harmlessly in the
+                    // background. Awaiting it unbounded below matches today's
+                    // inline call exactly: no new timeout may invent failures,
+                    // and only a real probe result reaches the counter.
+                    // Probe-off mode spawns nothing (pref respected as before).
+                    val probeFuture = if (!mAccel || mAccelProbe) {
+                        mProbeExecutor.submit(Callable {
+                            SocksTester.probeProxy(server, port, username, password)
+                        })
+                    } else {
+                        null
+                    }
                     // Master OFF keeps stock selection: kiloip first, trace
                     // fallback. Master ON honors the Advanced Settings page.
                     val info = if (mAccel) {
@@ -334,7 +357,17 @@ class SocksVpnService : VpnService() {
                         // checker is unreachable. Connected state is already
                         // set at tunnel-up, so this is pure enrichment. Only a real SOCKS handshake failure
                         // counts as a dead proxy and may tear down the VPN.
-                        val probe = SocksTester.probeProxy(server, port, username, password)
+                        // The raced probe above is already running (or done):
+                        // await it instead of starting it only now.
+                        val probe = if (probeFuture != null) {
+                            try {
+                                probeFuture.get()
+                            } catch (_: Exception) {
+                                SocksTester.ProxyProbe.UNREACHABLE
+                            }
+                        } else {
+                            null
+                        }
                         runOnMainThread {
                             mProbeInFlight.set(false)
                             if (!mTunnelUp) {
