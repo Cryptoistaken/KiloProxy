@@ -80,6 +80,7 @@ import androidx.compose.ui.text.style.TextAlign
 
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import net.typeblog.socks.R
@@ -127,6 +128,9 @@ fun ProxiesScreen(
     // Proxy auto-sync is paused — proxies are managed manually on this screen.
     val scope = rememberCoroutineScope()
     val snack = remember { SnackbarHostState() }
+    // Single 5s Undo dismiss timer: a repeat delete cancels the previous
+    // timer so it can never dismiss the new snackbar early.
+    var undoDismissJob by remember { mutableStateOf<Job?>(null) }
 
     // Swipe-left delete: immediate, with 5s Undo. Same stop-VPN handling
     // as the confirm dialog when the active profile is removed.
@@ -138,7 +142,8 @@ fun ProxiesScreen(
         pm.removeProfile(name)
         viewModel.reloadProfiles(context)
         scope.launch {
-            launch { delay(5000); snack.currentSnackbarData?.dismiss() }
+            undoDismissJob?.cancel()
+            undoDismissJob = launch { delay(5000); snack.currentSnackbarData?.dismiss() }
             val r = snack.showSnackbar("Deleted \"$name\"", actionLabel = "Undo", duration = SnackbarDuration.Long)
             if (r == SnackbarResult.ActionPerformed) {
                 pm.addProfile(backup.name)?.let {
