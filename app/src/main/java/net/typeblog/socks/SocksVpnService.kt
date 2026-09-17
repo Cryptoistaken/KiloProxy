@@ -1043,6 +1043,13 @@ class SocksVpnService : VpnService() {
         // landing before the tunnel is up are buffered (mPendingIpInfo) and shown
         // the moment the tunnel is ready — never before.
         mIpCheckHandler.post(mIpCheckRunnable)
+        // Parallel connect-time health gate: full SOCKS5 handshake with a
+        // CONNECT to google.com:80 (SocksTester default target). Runs alongside
+        // everything above; a dead proxy drops the connection as soon as the
+        // answer arrives. Existing ip-check/fast-fail flow is untouched — this
+        // is purely additive. Once the proxy verifies, the gate goes quiet and
+        // post-tunnel rules own later failures.
+        startParallelHealthGate(server, port, user, passwd, connectSeq)
         val libDir = applicationInfo.nativeLibraryDir
         val dir = filesDir.absolutePath
         Thread {
@@ -1244,6 +1251,54 @@ class SocksVpnService : VpnService() {
             "Connection failed: proxy refused the connection."
         else ->
             "Connection failed: proxy unreachable or not responding."
+    }
+
+    /**
+     * Parallel connect-time health gate (additive, touches no existing flow).
+     * Full SOCKS5 handshake + CONNECT to google.com:80 via [SocksTester],
+     * racing the tunnel spawn. Healthy answers do nothing; dead answers stop
+     * the connection at once with the shared professional message.
+     * Deterministic answers stop on first sight; silent ones get one confirm
+     * probe so a single dropped greet on a healthy proxy never kills alone.
+     * Quiet once verified, stale-seq safe, never resurrects a stopped tunnel.
+     */
+    private fun startParallelHealthGate(
+        server: String?,
+        port: Int,
+        user: String?,
+        passwd: String?,
+        connectSeq: Int
+    ) {
+        mProbeExecutor.execute {
+            val first = try {
+                SocksTester.probeProxy(server, port, user, passwd)
+            } catch (_: Exception) {
+                SocksTester.ProxyProbe.UNREACHABLE
+            }
+            Log.d(TAG, "Health gate: server=$server:$port user=${if (user.isNullOrEmpty()) "-" else user} first=$first seq=$connectSeq")
+            if (first == SocksTester.ProxyProbe.OK) return@execute
+            val dead: SocksTester.ProxyProbe = when (first) {
+                SocksTester.ProxyProbe.AUTH_FAILED,
+                SocksTester.ProxyProbe.NOT_SOCKS5 -> first
+                else -> {
+                    val second = try {
+                        SocksTester.probeProxy(server, port, user, passwd)
+                    } catch (_: Exception) {
+                        SocksTester.ProxyProbe.UNREACHABLE
+                    }
+                    Log.d(TAG, "Health gate: server=$server:$port second=$second seq=$connectSeq")
+                    if (second == SocksTester.ProxyProbe.OK) return@execute
+                    second
+                }
+            }
+            runOnMainThread {
+                if (connectSeq != mConnectSeq || !mRunning) return@runOnMainThread
+                if (mProxyVerified || mCurrentIp != null) return@runOnMainThread
+                mError = probeErrorMessage(dead)
+                Log.e(TAG, "Health gate dead: $dead seq=$connectSeq")
+                stopMe("proxy_health_gate:$dead")
+            }
+        }
     }
 
     private fun applyIpInfo(info: IpInfo) {
