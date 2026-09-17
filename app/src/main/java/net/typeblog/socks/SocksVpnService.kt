@@ -357,10 +357,10 @@ class SocksVpnService : VpnService() {
                                 mIpCheckHandler.postDelayed(this, IP_INFO_RETRY)
                             } else if (!mAccel || mAccelProbe) {
                                 // SOCKS handshake failed against the address in
-                                // use. In accelerated mode that address may come
-                                // from the DNS cache; drop it so the next connect
-                                // resolves fresh instead of reusing a dead IP.
-                                if (mAccel) Utility.clearAccelDns(this@SocksVpnService)
+                                // use. That address may come from the DNS cache;
+                                // drop it so the next connect resolves fresh
+                                // instead of reusing a dead IP.
+                                Utility.clearAccelDns(this@SocksVpnService)
                                 if (mProxyVerified) {
                                     mProxyVerified = false
                                     notifyStateChanged()
@@ -385,7 +385,7 @@ class SocksVpnService : VpnService() {
                                 mIpCheckHandler.postDelayed(this, IP_CHECK_RETRY)
                             } else {
                                 // Probe off: never tear down, only retry enrichment.
-                                if (mAccel) Utility.clearAccelDns(this@SocksVpnService)
+                                Utility.clearAccelDns(this@SocksVpnService)
                                 mIpCheckHandler.postDelayed(this, IP_CHECK_RETRY)
                             }
                         }
@@ -939,15 +939,13 @@ class SocksVpnService : VpnService() {
         val dir = filesDir.absolutePath
         Thread {
             try {
-                // Accelerator + DNS cache option: resolve the SOCKS hostname
-                // in parallel with pdnsd bring-up, so the wait is
-                // max(conf+pdnsd, dns).
-                var accelDnsThread: Thread? = null
-                if (mAccel && mAccelDns) {
-                    accelDnsThread = Thread {
-                        mResolvedServer = Utility.resolveServerHost(this, server, true)
-                    }.apply { isDaemon = true; start() }
-                }
+                // Unconditional parallel resolve: the SOCKS hostname resolves
+                // (validated file DNS cache unless its toggle is off, else
+                // fresh IPv4-preferred lookup) while pdnsd comes up, so the
+                // wait is max(conf+pdnsd, dns) in every mode.
+                val dnsThread = Thread {
+                    mResolvedServer = Utility.resolveServerHost(this, server, mAccelDns)
+                }.apply { isDaemon = true; start() }
 
                 Utility.makePdnsdConf(this, dns ?: "8.8.8.8", dnsPort)
 
@@ -960,27 +958,15 @@ class SocksVpnService : VpnService() {
                     return@Thread
                 }
 
-                // FIX #5: resolve the SOCKS server hostname once on this background
-                // thread and pass the resolved IP to tun2socks so the native binary
-                // does NOT perform its own getaddrinfo during bring-up.
-                // Accelerator: the parallel thread above already resolved (cache
-                // or fresh); just join it. Otherwise keep the original call.
-                val serverIp = if (mAccel && mAccelDns) {
-                    try {
-                        accelDnsThread?.join(15000)
-                    } catch (_: Exception) {
-                    }
-                    mResolvedServer ?: server
-                } else {
-                    val ip = try {
-                        java.net.InetAddress.getByName(server).hostAddress
-                    } catch (e: Exception) {
-                        Log.e(TAG, "Failed to resolve SOCKS server '$server', using as-is", e)
-                        server
-                    }
-                    mResolvedServer = ip
-                    ip
+                // The parallel thread above already resolved (cache or fresh);
+                // just join it (15s cap), falling back to the hostname as-is.
+                // The resolved IP goes to tun2socks so the native binary does
+                // NOT perform its own getaddrinfo during bring-up.
+                try {
+                    dnsThread.join(15000)
+                } catch (_: Exception) {
                 }
+                val serverIp = mResolvedServer ?: server
 
                 // Cancel checkpoint: DNS resolution blocks for seconds. If the
                 // user stopped while connecting, abort before spawning tun2socks
@@ -1071,30 +1057,30 @@ class SocksVpnService : VpnService() {
                 }
 
                 // FIX #1: short fixed poll for sendfd instead of a 1s..5s sleep ramp
-                // (up to 15s on the main thread). Poll every 50ms up to 100 attempts
+                // (up to 15s on the main thread). Poll every 20ms up to 250 attempts
                 // (~5s cap).
                 var attempts = 0
-                while (attempts < 100 && !mSendfdCancelled && mRunning && connectSeq == mConnectSeq) {
+                while (attempts < 250 && !mSendfdCancelled && mRunning && connectSeq == mConnectSeq) {
                     val sendResult = System.sendfd(fd)
                     if (sendResult != -1) {
-                        Log.d(TAG, "sendfd succeeded on attempt ${attempts + 1}/100")
+                        Log.d(TAG, "sendfd succeeded on attempt ${attempts + 1}/250")
                         // FIX #2: connected is now immediate on tunnel-up; the IP check
                         // is posted below as async enrichment.
                         runOnMainThread { if (!mSendfdCancelled && mRunning && connectSeq == mConnectSeq) postStartOnMain() }
                         return@Thread
                     }
                     attempts++
-                    Log.d(TAG, "sendfd attempt $attempts/100 returned: $sendResult")
+                    Log.d(TAG, "sendfd attempt $attempts/250 returned: $sendResult")
                     try {
-                        Thread.sleep(50)
+                        Thread.sleep(20)
                     } catch (e: Exception) {
                         Log.e(TAG, "Error: ${e.message}", e)
                     }
                 }
 
                 if (mSendfdCancelled || !mRunning || connectSeq != mConnectSeq) return@Thread
-                Log.e(TAG, "sendfd failed after 100 attempts, stopping VPN")
-                runOnMainThread { stopMe("sendfd_failed_100_attempts") }
+                Log.e(TAG, "sendfd failed after 250 attempts, stopping VPN")
+                runOnMainThread { stopMe("sendfd_failed_250_attempts") }
                 return@Thread
             } catch (e: Exception) {
                 Log.e(TAG, "Vpn startup failed", e)
