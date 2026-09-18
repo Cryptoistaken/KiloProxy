@@ -52,7 +52,8 @@ fun ConnectionCard(
     onStartClick: () -> Unit,
     onStopClick: () -> Unit,
     modifier: Modifier = Modifier,
-    countryCode: String? = null
+    countryCode: String? = null,
+    errorMessage: String? = null
 ) {
     val country = countryCode?.let { Countries.fromCode(it) }
     val countryName = country?.name
@@ -136,18 +137,27 @@ fun ConnectionCard(
 
             Spacer(modifier = Modifier.height(24.dp))
 
+            val isError = errorMessage != null
             val buttonColor = when {
+                isError -> MaterialTheme.colorScheme.error
                 isConnecting -> MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
                 isConnected -> MaterialTheme.colorScheme.error
                 else -> MaterialTheme.colorScheme.primary
             }
             val buttonContentColor =
-                if (isConnected) MaterialTheme.colorScheme.onError else MaterialTheme.colorScheme.onPrimary
+                if (isConnected || isError) MaterialTheme.colorScheme.onError else MaterialTheme.colorScheme.onPrimary
 
             Surface(
                 // Tapping while connecting cancels instantly (same as the
                 // bubble): stopVpn clears the pending request and the service.
-                onClick = { if (isConnected || isConnecting) onStopClick() else onStartClick() },
+                // While showing an error, tap retries immediately.
+                onClick = {
+                    when {
+                        isError -> onStartClick()
+                        isConnected || isConnecting -> onStopClick()
+                        else -> onStartClick()
+                    }
+                },
                 shape = RoundedCornerShape(12.dp),
                 color = buttonColor,
                 contentColor = buttonContentColor,
@@ -160,7 +170,7 @@ fun ConnectionCard(
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    if (isConnecting) {
+                    if (isConnecting && !isError) {
                         CircularProgressIndicator(
                             modifier = Modifier.size(22.dp),
                             color = buttonContentColor,
@@ -170,13 +180,16 @@ fun ConnectionCard(
                     }
                     Text(
                         text = when {
+                            isError -> errorMessage!!
                             isConnecting -> "Connecting"
                             isConnected -> "Disconnect"
                             else -> "Connect"
                         },
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.SemiBold,
-                        color = buttonContentColor
+                        color = buttonContentColor,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
             }

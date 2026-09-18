@@ -3,7 +3,6 @@ package net.typeblog.socks.ui.screens
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
-import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
@@ -124,13 +123,20 @@ fun StatusScreen(
         }
     }
 
+    // Transient in-button error: show inside the Connect button for 5s instead of
+    // a persistent red line below the card. LaunchedEffect cancels previous job
+    // on new error so each failure gets its own 5s window.
+    var buttonError by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(errorMessage) {
         val message = errorMessage
         if (message != null) {
-            Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+            buttonError = message
             // A failure ends any in-flight connect request so the button is
             // never left stuck on a disabled "Connecting…" state.
             viewModel.cancelConnect()
+            delay(5000)
+            buttonError = null
+            viewModel.clearError()
         }
     }
 
@@ -328,6 +334,11 @@ fun StatusScreen(
                 serverName = serverName,
                 connectedSince = connectedSince,
                 onStartClick = {
+                    // While showing an error, tap retries immediately instead of waiting 5s.
+                    if (buttonError != null) {
+                        buttonError = null
+                        viewModel.clearError()
+                    }
                     // Include mode with zero apps can never connect: refuse
                     // and point at the apps list instead of failing later.
                     if (viewModel.isSplitIncludeEmpty(context)) {
@@ -361,18 +372,9 @@ fun StatusScreen(
                     viewModel.stopVpn(context)
                 },
                 modifier = Modifier.fillMaxWidth(),
-                countryCode = cardCountryCode
+                countryCode = cardCountryCode,
+                errorMessage = buttonError
             )
-
-            errorMessage?.let { message ->
-                Spacer(modifier = Modifier.height(12.dp))
-                Text(
-                    text = message,
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
 
             Spacer(modifier = Modifier.height(16.dp))
 
