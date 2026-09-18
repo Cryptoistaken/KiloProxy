@@ -590,11 +590,11 @@ class SocksVpnService : VpnService() {
         mAccelKey = if (mAccel) Utility.accelKey(server, port, username) else null
         mAccelPrimary = accelPrefs.getString(Constants.PREF_ACCEL_PRIMARY, Constants.ACCEL_PRIMARY_TRACE)
             ?: Constants.ACCEL_PRIMARY_TRACE
-        mAccelBoth = accelPrefs.getString(Constants.PREF_ACCEL_MODE, Constants.ACCEL_MODE_BOTH) != Constants.ACCEL_MODE_SINGLE
+        mAccelBoth = true
         mAccelCacheIp = accelPrefs.getBoolean(Constants.PREF_ACCEL_CACHE_IP, false)
         mAccelProbe = accelPrefs.getBoolean(Constants.PREF_ACCEL_PROBE, true)
         mAccelDns = accelPrefs.getBoolean(Constants.PREF_ACCEL_DNS_CACHE, true)
-        mAccelIntervalMs = accelPrefs.getLong(Constants.PREF_ACCEL_INTERVAL_MS, 60000L)
+        mAccelIntervalMs = 60000L
         val perApp = cmd.getBooleanExtra(INTENT_PER_APP, false)
         val appBypass = cmd.getBooleanExtra(INTENT_APP_BYPASS, false)
         val appList = cmd.getStringArrayExtra(INTENT_APP_LIST)

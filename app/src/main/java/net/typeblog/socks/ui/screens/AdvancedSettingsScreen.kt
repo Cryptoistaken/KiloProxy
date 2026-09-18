@@ -40,23 +40,13 @@ import net.typeblog.socks.ui.components.ProtonDialogRadioRow
 import net.typeblog.socks.ui.components.ProtonSwitch
 import net.typeblog.socks.ui.components.SettingsItem
 import net.typeblog.socks.ui.components.rememberPref
-import net.typeblog.socks.util.Constants.ACCEL_MODE_BOTH
-import net.typeblog.socks.util.Constants.ACCEL_MODE_SINGLE
 import net.typeblog.socks.util.Constants.ACCEL_PRIMARY_KILOIP
 import net.typeblog.socks.util.Constants.ACCEL_PRIMARY_TRACE
 import net.typeblog.socks.util.Constants.PREF_ACCEL_CACHE_IP
 import net.typeblog.socks.util.Constants.PREF_ACCEL_DNS_CACHE
-import net.typeblog.socks.util.Constants.PREF_ACCEL_INTERVAL_MS
-import net.typeblog.socks.util.Constants.PREF_ACCEL_MODE
 import net.typeblog.socks.util.Constants.PREF_ACCEL_PRIMARY
 import net.typeblog.socks.util.Constants.PREF_ACCEL_PROBE
 import net.typeblog.socks.util.Constants.PREF_VPN_ACCELERATOR
-
-private val INTERVAL_OPTIONS = listOf(
-    30000L to "30 seconds",
-    60000L to "1 minute",
-    120000L to "2 minutes"
-)
 
 /**
  * Advanced Settings: experimental connect-time options for our SOCKS5
@@ -79,25 +69,17 @@ fun AdvancedSettingsScreen(
     var primary by rememberPref(prefs, PREF_ACCEL_PRIMARY) {
         it.getString(PREF_ACCEL_PRIMARY, ACCEL_PRIMARY_TRACE) ?: ACCEL_PRIMARY_TRACE
     }
-    var mode by rememberPref(prefs, PREF_ACCEL_MODE) {
-        it.getString(PREF_ACCEL_MODE, ACCEL_MODE_BOTH) ?: ACCEL_MODE_BOTH
-    }
     var cacheIp by rememberPref(prefs, PREF_ACCEL_CACHE_IP) {
         it.getBoolean(PREF_ACCEL_CACHE_IP, false)
     }
     var probe by rememberPref(prefs, PREF_ACCEL_PROBE) {
         it.getBoolean(PREF_ACCEL_PROBE, true)
     }
-    var intervalMs by rememberPref(prefs, PREF_ACCEL_INTERVAL_MS) {
-        it.getLong(PREF_ACCEL_INTERVAL_MS, 60000L)
-    }
     var dnsCache by rememberPref(prefs, PREF_ACCEL_DNS_CACHE) {
         it.getBoolean(PREF_ACCEL_DNS_CACHE, true)
     }
 
     var showPrimaryDialog by remember { mutableStateOf(false) }
-    var showModeDialog by remember { mutableStateOf(false) }
-    var showIntervalDialog by remember { mutableStateOf(false) }
 
     if (showPrimaryDialog) {
         PrimaryDialog(
@@ -110,32 +92,8 @@ fun AdvancedSettingsScreen(
             onDismiss = { showPrimaryDialog = false }
         )
     }
-    if (showModeDialog) {
-        ModeChoiceDialog(
-            mode = mode,
-            onSelect = {
-                mode = it
-                prefs.edit().putString(PREF_ACCEL_MODE, it).apply()
-                showModeDialog = false
-            },
-            onDismiss = { showModeDialog = false }
-        )
-    }
-    if (showIntervalDialog) {
-        IntervalDialog(
-            intervalMs = intervalMs,
-            onSelect = {
-                intervalMs = it
-                prefs.edit().putLong(PREF_ACCEL_INTERVAL_MS, it).apply()
-                showIntervalDialog = false
-            },
-            onDismiss = { showIntervalDialog = false }
-        )
-    }
 
     val primaryLabel = if (primary == ACCEL_PRIMARY_KILOIP) "Kilo IP" else "Trace"
-    val modeLabel = if (mode == ACCEL_MODE_SINGLE) "Primary only" else "Both"
-    val intervalLabel = INTERVAL_OPTIONS.firstOrNull { it.first == intervalMs }?.second ?: "1 minute"
 
     Scaffold(
         modifier = modifier,
@@ -228,13 +186,6 @@ fun AdvancedSettingsScreen(
                 showChevron = false,
                 onClick = { showPrimaryDialog = true }
             )
-            SettingsItem(
-                icon = painterResource(R.drawable.lucide_arrows_right_left),
-                label = "Checker mode",
-                description = modeLabel,
-                showChevron = false,
-                onClick = { showModeDialog = true }
-            )
             SwitchRow(
                 iconRes = R.drawable.lucide_eye,
                 label = "Cache last IP",
@@ -252,15 +203,6 @@ fun AdvancedSettingsScreen(
                     probe = it
                     prefs.edit().putBoolean(PREF_ACCEL_PROBE, it).apply()
                 }
-            )
-
-            SectionTitle(text = "Other")
-            SettingsItem(
-                icon = painterResource(R.drawable.lucide_rotate_cw),
-                label = "Recheck interval",
-                description = intervalLabel,
-                showChevron = false,
-                onClick = { showIntervalDialog = true }
             )
             SwitchRow(
                 iconRes = R.drawable.ic_proton_filter,
@@ -340,76 +282,6 @@ private fun PrimaryDialog(
                     selected = primary == ACCEL_PRIMARY_KILOIP,
                     onClick = { onSelect(ACCEL_PRIMARY_KILOIP) }
                 )
-            }
-        }
-    }
-}
-
-@Composable
-private fun ModeChoiceDialog(
-    mode: String,
-    onSelect: (String) -> Unit,
-    onDismiss: () -> Unit
-) {
-    Dialog(onDismissRequest = onDismiss) {
-        Surface(
-            shape = RoundedCornerShape(24.dp),
-            color = MaterialTheme.colorScheme.surfaceContainerLow
-        ) {
-            Column(modifier = Modifier.padding(24.dp)) {
-                Text(
-                    text = "Checker mode",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Spacer(modifier = Modifier.height(12.dp))
-                ProtonDialogRadioRow(
-                    title = "Both",
-                    description = "Primary checker first, then the other for details or fallback.",
-                    selected = mode == ACCEL_MODE_BOTH,
-                    onClick = { onSelect(ACCEL_MODE_BOTH) }
-                )
-                DialogHairline()
-                ProtonDialogRadioRow(
-                    title = "Primary only",
-                    description = "Only the primary checker runs.",
-                    selected = mode == ACCEL_MODE_SINGLE,
-                    onClick = { onSelect(ACCEL_MODE_SINGLE) }
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun IntervalDialog(
-    intervalMs: Long,
-    onSelect: (Long) -> Unit,
-    onDismiss: () -> Unit
-) {
-    Dialog(onDismissRequest = onDismiss) {
-        Surface(
-            shape = RoundedCornerShape(24.dp),
-            color = MaterialTheme.colorScheme.surfaceContainerLow
-        ) {
-            Column(modifier = Modifier.padding(24.dp)) {
-                Text(
-                    text = "Recheck interval",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Spacer(modifier = Modifier.height(12.dp))
-                INTERVAL_OPTIONS.forEachIndexed { index, (value, label) ->
-                    if (index > 0) DialogHairline()
-                    ProtonDialogRadioRow(
-                        title = label,
-                        description = "Refresh connection info every ${label.lowercase()}.",
-                        selected = intervalMs == value,
-                        onClick = { onSelect(value) }
-                    )
-                }
             }
         }
     }
