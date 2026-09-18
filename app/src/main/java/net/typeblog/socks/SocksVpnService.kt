@@ -25,6 +25,7 @@ import android.os.Looper
 import android.os.ParcelFileDescriptor
 import android.os.Process
 import android.os.PowerManager
+import android.os.SystemClock
 import android.text.TextUtils
 import android.util.Log
 import androidx.core.app.NotificationCompat
@@ -1278,26 +1279,26 @@ class SocksVpnService : VpnService() {
         connectSeq: Int
     ) {
         mProbeExecutor.execute {
-            val t0 = System.currentTimeMillis()
+            val t0 = SystemClock.elapsedRealtime()
             val first = try {
                 SocksTester.probeProxy(server, port, user, passwd)
             } catch (_: Exception) {
                 SocksTester.ProxyProbe.UNREACHABLE
             }
-            val d1 = System.currentTimeMillis() - t0
+            val d1 = SystemClock.elapsedRealtime() - t0
             Log.d(TAG, "Health gate: server=$server:$port user=${if (user.isNullOrEmpty()) "-" else user} first=$first durMs=$d1 seq=$connectSeq")
             if (first == SocksTester.ProxyProbe.OK) return@execute
             val dead: SocksTester.ProxyProbe = when (first) {
                 SocksTester.ProxyProbe.AUTH_FAILED,
                 SocksTester.ProxyProbe.NOT_SOCKS5 -> first
                 else -> {
-                    val t1 = System.currentTimeMillis()
+                    val t1 = SystemClock.elapsedRealtime()
                     val second = try {
                         SocksTester.probeProxy(server, port, user, passwd)
                     } catch (_: Exception) {
                         SocksTester.ProxyProbe.UNREACHABLE
                     }
-                    val d2 = System.currentTimeMillis() - t1
+                    val d2 = SystemClock.elapsedRealtime() - t1
                     Log.d(TAG, "Health gate: server=$server:$port second=$second durMs=$d2 seq=$connectSeq")
                     if (second == SocksTester.ProxyProbe.OK) return@execute
                     second
