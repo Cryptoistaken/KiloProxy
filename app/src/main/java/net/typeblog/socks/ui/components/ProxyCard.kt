@@ -66,11 +66,7 @@ internal fun profileDisplayUsage(
     }
 
     val liveTotal = liveUsageRx + liveUsageTx
-    return if (isConnected) {
-        liveTotal
-    } else {
-        if (liveTotal > 0L) liveTotal else usageRx + usageTx
-    }
+    return if (isConnected) liveTotal else usageRx + usageTx
 }
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)

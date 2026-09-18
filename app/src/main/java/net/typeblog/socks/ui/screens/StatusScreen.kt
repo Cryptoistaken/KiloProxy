@@ -205,33 +205,28 @@ fun StatusScreen(
         }
     }
 
-    // Show persisted totals when disconnected so the usage card is never blank.
+    // Show persisted totals when disconnected or connecting so the usage
+    // card is always visible but only ticks when actually connected.
     val displayProfileName = selectedProfile ?: activeProfileName ?: profiles.firstOrNull()
     val persistedUsage by produceState(
         initialValue = Triple(false, receivedBytes, sentBytes),
-        displayProfileName, receivedBytes, sentBytes, isActuallyConnected
+        displayProfileName, isActuallyConnected
     ) {
         if (isActuallyConnected) {
             value = Triple(false, receivedBytes, sentBytes)
         } else {
-            var rx = receivedBytes
-            var tx = sentBytes
-            if (rx <= 0L && tx <= 0L) {
-                val loaded = withContext(Dispatchers.IO) {
-                    try {
-                        val pm = ProfileManager.getInstance(context)
-                        val p = displayProfileName?.let { pm.getProfile(it) }
-                        if (p != null) {
-                            val prefs = PreferenceManager.getDefaultSharedPreferences(context)
-                            if (displayProfileName != null) Utility.readUsage(prefs, displayProfileName)
-                            else Pair(0L, 0L)
-                        } else Pair(0L, 0L)
-                    } catch (_: Exception) { Pair(0L, 0L) }
-                }
-                rx = loaded.first
-                tx = loaded.second
+            val loaded = withContext(Dispatchers.IO) {
+                try {
+                    val pm = ProfileManager.getInstance(context)
+                    val p = displayProfileName?.let { pm.getProfile(it) }
+                    if (p != null) {
+                        val prefs = PreferenceManager.getDefaultSharedPreferences(context)
+                        if (displayProfileName != null) Utility.readUsage(prefs, displayProfileName)
+                        else Pair(0L, 0L)
+                    } else Pair(0L, 0L)
+                } catch (_: Exception) { Pair(0L, 0L) }
             }
-            value = Triple(true, rx, tx)
+            value = Triple(true, loaded.first, loaded.second)
         }
     }
 

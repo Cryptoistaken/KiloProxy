@@ -270,7 +270,10 @@ class SocksVpnService : VpnService() {
             if (mRunning) {
                 // Persist usage periodically so the profiles page proxy card
                 // reflects live data instead of only updating on VPN stop.
-                if (mStatsTick % USAGE_PERSIST_TICKS == 0L) {
+                // Only when actually connected — count stays frozen while
+                // connecting so the user sees "always shown but only ticks
+                // when connected".
+                if (mProxyVerified && mStatsTick % USAGE_PERSIST_TICKS == 0L) {
                     persistProfileBytes()
                 }
                 mStatsHandler.postDelayed(this, STATS_INTERVAL)
