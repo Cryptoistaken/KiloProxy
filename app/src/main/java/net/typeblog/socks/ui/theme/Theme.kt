@@ -28,6 +28,7 @@ private val LightColorScheme = lightColorScheme(
     onSurfaceVariant = LightOnSurfaceVariant,
     tertiary = LightTertiary,
     error = LightError,
+    surfaceContainer = LightSurfaceContainer,
     surfaceContainerLow = LightSurfaceContainerLow,
     surfaceContainerHighest = LightSurfaceContainerHighest
 )
@@ -48,6 +49,7 @@ private val DarkColorScheme = darkColorScheme(
     onSurfaceVariant = DarkOnSurfaceVariant,
     tertiary = DarkTertiary,
     error = DarkError,
+    surfaceContainer = DarkSurfaceContainer,
     surfaceContainerLow = DarkSurfaceContainerLow,
     surfaceContainerHighest = DarkSurfaceContainerHighest
 )
