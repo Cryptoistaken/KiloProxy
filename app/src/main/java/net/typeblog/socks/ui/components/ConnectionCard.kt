@@ -27,6 +27,8 @@ import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import net.typeblog.socks.ui.theme.GeistMonoFonts
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -38,10 +40,12 @@ import net.typeblog.socks.util.Countries
 /**
  * Hero connection control for the Connect tab.
  *
- * ProtonVPN-style connect card: a country row (flag chip + name) followed by a
- * full-width rounded Connect/Disconnect button, with the connection timer line
- * rendered directly under the button. Shows a "Connecting…" state while the VPN
- * is starting and until the proxy IP info has been populated.
+ * ProtonVPN-style connect card: a location row (large flag tile + bold
+ * country name + mono host:port subtitle + circular chevron) that opens the
+ * Countries list, followed by a full-width rounded Connect/Disconnect
+ * button, with the connection timer line rendered directly under the
+ * button. Shows a "Connecting…" state while the VPN is starting and until
+ * the proxy IP info has been populated.
  */
 @Composable
 fun ConnectionCard(
@@ -53,7 +57,8 @@ fun ConnectionCard(
     onStopClick: () -> Unit,
     modifier: Modifier = Modifier,
     countryCode: String? = null,
-    errorMessage: String? = null
+    errorMessage: String? = null,
+    onCountryClick: (() -> Unit)? = null
 ) {
     val country = countryCode?.let { Countries.fromCode(it) }
     val countryName = country?.name
@@ -82,8 +87,89 @@ fun ConnectionCard(
                 textAlign = TextAlign.Center
             )
 
-            // Country row — only when a country can be parsed from the profile.
-            if (countryName != null) {
+            // Location row (Proton-style) - only when a country can be parsed
+            // from the profile. Tapping opens the Countries list.
+            if (countryName != null && onCountryClick != null) {
+                Spacer(modifier = Modifier.height(16.dp))
+                Surface(
+                    onClick = onCountryClick,
+                    shape = RoundedCornerShape(10.dp),
+                    color = MaterialTheme.colorScheme.surface,
+                    contentColor = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .semantics {
+                            contentDescription = "Country, $countryName"
+                        }
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Surface(
+                            shape = RoundedCornerShape(7.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant,
+                            modifier = Modifier.size(width = 40.dp, height = 30.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = country?.flag ?: "",
+                                    fontSize = 22.sp,
+                                    textAlign = TextAlign.Center
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            horizontalAlignment = Alignment.Start
+                        ) {
+                            Text(
+                                text = countryName,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                textAlign = TextAlign.Start
+                            )
+                            Text(
+                                text = serverName,
+                                fontSize = 11.sp,
+                                fontFamily = GeistMonoFonts.Family,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                textAlign = TextAlign.Start
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Surface(
+                            shape = RoundedCornerShape(50),
+                            color = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary,
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "\u203A",
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    textAlign = TextAlign.Center
+                                )
+                            }
+                        }
+                    }
+                }
+            } else if (countryName != null) {
                 Spacer(modifier = Modifier.height(16.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -100,7 +186,7 @@ fun ConnectionCard(
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                text = country.flag,
+                                text = country?.flag ?: "",
                                 fontSize = 18.sp,
                                 textAlign = TextAlign.Center
                             )
@@ -122,18 +208,22 @@ fun ConnectionCard(
                 }
             }
 
-            // Host name — ALWAYS shown so the layout never shifts on connect.
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = serverName,
-                fontSize = 12.sp,
-                fontFamily = GeistMonoFonts.Family,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.fillMaxWidth(),
-                textAlign = TextAlign.Center
-            )
+            // Host name - shown standalone only when the location row above is
+            // absent (it already carries the host:port subtitle). Either branch
+            // is always rendered for a given profile, so the layout never shifts.
+            if (countryName == null || onCountryClick == null) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = serverName,
+                    fontSize = 12.sp,
+                    fontFamily = GeistMonoFonts.Family,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.fillMaxWidth(),
+                    textAlign = TextAlign.Center
+                )
+            }
 
             Spacer(modifier = Modifier.height(24.dp))
 

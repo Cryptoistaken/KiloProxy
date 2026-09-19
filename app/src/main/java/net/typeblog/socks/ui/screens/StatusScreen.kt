@@ -60,6 +60,7 @@ import net.typeblog.socks.R
 import net.typeblog.socks.ui.components.ConnectionCard
 import net.typeblog.socks.ui.components.ConnectionStatusCard
 import net.typeblog.socks.ui.components.DataUsageCard
+import net.typeblog.socks.ui.components.RecentsCard
 import net.typeblog.socks.ui.viewmodel.VpnViewModel
 import net.typeblog.socks.util.ProfileManager
 import net.typeblog.socks.util.ProxyProviders
@@ -71,7 +72,9 @@ fun StatusScreen(
     modifier: Modifier = Modifier,
     viewModel: VpnViewModel,
     onPickProfileClick: () -> Unit = {},
-    onOpenSplitAppsClick: () -> Unit = {}
+    onOpenSplitAppsClick: () -> Unit = {},
+    onCountryPickClick: () -> Unit = {},
+    onSeeAllRecentsClick: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -103,6 +106,25 @@ fun StatusScreen(
         if (pickedProfile != null) {
             selectedProfile = pickedProfile
             viewModel.pickProfile(null)
+        }
+    }
+
+    var homePickedCountryCode by rememberSaveable { mutableStateOf<String?>(null) }
+    val pickedCountry by viewModel.pickedCountry.collectAsState()
+    LaunchedEffect(pickedCountry) {
+        val code = pickedCountry
+        if (code != null) {
+            try {
+                val pm = ProfileManager.getInstance(context)
+                val profile = pm.getDefault()
+                val newUsername = ProxyProviders.switchCountry(profile.getServer(), profile.getUsername(), code)
+                if (newUsername != null) {
+                    profile.setUsername(newUsername)
+                    Utility.addRecentCountry(context, code)
+                    homePickedCountryCode = code
+                }
+            } catch (_: Exception) {}
+            viewModel.pickCountry(null)
         }
     }
 
@@ -193,6 +215,8 @@ fun StatusScreen(
             }
         }
     }
+
+    val effectiveCountryCode = homePickedCountryCode ?: cardCountryCode
 
     val serverName = remember(selectedProfile, activeProfileName, profiles) {
         val target = selectedProfile ?: activeProfileName ?: profiles.firstOrNull()
@@ -367,8 +391,9 @@ fun StatusScreen(
                     viewModel.stopVpn(context)
                 },
                 modifier = Modifier.fillMaxWidth(),
-                countryCode = cardCountryCode,
-                errorMessage = buttonError
+                countryCode = effectiveCountryCode,
+                errorMessage = buttonError,
+                onCountryClick = onCountryPickClick
             )
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -392,6 +417,27 @@ fun StatusScreen(
                 org = org,
                 asName = asName,
                 timezone = timezone,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            RecentsCard(
+                context = context,
+                currentCountryCode = effectiveCountryCode,
+                onSeeAllClick = onSeeAllRecentsClick,
+                onRecentClick = { code ->
+                    try {
+                        val pm = ProfileManager.getInstance(context)
+                        val profile = pm.getDefault()
+                        val newUsername = ProxyProviders.switchCountry(profile.getServer(), profile.getUsername(), code)
+                        if (newUsername != null) {
+                            profile.setUsername(newUsername)
+                            Utility.addRecentCountry(context, code)
+                            homePickedCountryCode = code
+                        }
+                    } catch (_: Exception) {}
+                },
                 modifier = Modifier.fillMaxWidth()
             )
         }

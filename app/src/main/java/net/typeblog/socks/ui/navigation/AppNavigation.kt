@@ -79,11 +79,13 @@ fun AppNavigation(splitAppsSignal: Int = 0) {
     val vpnViewModel: VpnViewModel = viewModel()
     var profilePickMode by rememberSaveable { mutableStateOf(false) }
     var countryPickMode by rememberSaveable { mutableStateOf(false) }
+    var homeCountryPickMode by rememberSaveable { mutableStateOf(false) }
     // Pick flows (profile from Home, country from the add-proxy sheet)
     // hide the bottom bar on the pick screen so it feels like a
     // separate page whose only action is selecting.
     val inPickFlow = (profilePickMode && currentDestination?.route == Screen.Profiles.route) ||
-        (countryPickMode && currentDestination?.route == Screen.Countries.route)
+        (countryPickMode && currentDestination?.route == Screen.Countries.route) ||
+        (homeCountryPickMode && currentDestination?.route == Screen.Countries.route)
     val showBottomBar = currentDestination?.route in bottomNavRoutes && !inPickFlow
 
     // External request (e.g. bubble refuse-to-connect): jump straight to the
@@ -146,6 +148,7 @@ fun AppNavigation(splitAppsSignal: Int = 0) {
                                     onClick = {
                                         profilePickMode = false
                                         countryPickMode = false
+                                        homeCountryPickMode = false
                                         navigateToTab(item.screen.route)
                                     }
                                 )
@@ -197,6 +200,13 @@ fun AppNavigation(splitAppsSignal: Int = 0) {
                     },
                     onOpenSplitAppsClick = {
                         navController.navigate(Screen.SplitTunneling.route + "?startOnApps=true")
+                    },
+                    onCountryPickClick = {
+                        homeCountryPickMode = true
+                        navigateToTab(Screen.Countries.route)
+                    },
+                    onSeeAllRecentsClick = {
+                        navigateToTab(Screen.Countries.route)
                     }
                 )
             }
@@ -204,15 +214,22 @@ fun AppNavigation(splitAppsSignal: Int = 0) {
                 CountriesScreen(
                     viewModel = vpnViewModel,
                     onConnected = {
+                        countryPickMode = false
+                        homeCountryPickMode = false
                         navController.navigate(Screen.Connect.route) {
                             popUpTo(Screen.Countries.route) { inclusive = true }
                         }
                     },
-                    pickMode = countryPickMode,
+                    pickMode = countryPickMode || homeCountryPickMode,
                     onPickCountry = { code ->
                         vpnViewModel.pickCountry(code)
-                        countryPickMode = false
-                        navigateToTab(Screen.Profiles.route)
+                        if (homeCountryPickMode) {
+                            homeCountryPickMode = false
+                            navigateToTab(Screen.Connect.route)
+                        } else {
+                            countryPickMode = false
+                            navigateToTab(Screen.Profiles.route)
+                        }
                     }
                 )
             }
