@@ -425,6 +425,7 @@ fun StatusScreen(
             RecentsCard(
                 context = context,
                 currentCountryCode = effectiveCountryCode,
+                isConnected = isActuallyConnected,
                 onSeeAllClick = onSeeAllRecentsClick,
                 onRecentClick = { code ->
                     try {

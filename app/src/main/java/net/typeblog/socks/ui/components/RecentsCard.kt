@@ -38,14 +38,16 @@ import net.typeblog.socks.util.Utility
  *
  * Each row matches the CountriesScreen row pattern: flag, name, CODE, and a
  * fixed-width right-aligned dial-code slot that swaps for a green dot plus
- * "Connected" label on the active row. Tapping a recent only selects that
- * country (same rewrite as the hero selector); "See all" jumps to the
- * Countries tab.
+ * "Connected" label on the connected row (shown only while the VPN is
+ * actually connected, same gating as CountriesScreen). Tapping a recent
+ * only selects that country (same rewrite as the hero selector); "See all"
+ * jumps to the Countries tab.
  */
 @Composable
 fun RecentsCard(
     context: Context,
     currentCountryCode: String?,
+    isConnected: Boolean,
     onRecentClick: (String) -> Unit,
     modifier: Modifier = Modifier,
     onSeeAllClick: () -> Unit = {}
@@ -93,7 +95,7 @@ fun RecentsCard(
             Spacer(modifier = Modifier.height(4.dp))
             recents.forEachIndexed { index, code ->
                 val country = Countries.fromCode(code) ?: return@forEachIndexed
-                val isActive = code == currentCountryCode
+                val isActive = isConnected && code == currentCountryCode
                 if (index > 0) {
                     HorizontalDivider(
                         thickness = 0.5.dp,
