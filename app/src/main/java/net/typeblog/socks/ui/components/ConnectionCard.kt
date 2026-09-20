@@ -206,13 +206,12 @@ fun ConnectionCard(
 
             val isError = errorMessage != null
             val buttonColor = when {
-                isError -> MaterialTheme.colorScheme.error
                 isConnecting -> MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
                 isConnected -> MaterialTheme.colorScheme.error
                 else -> MaterialTheme.colorScheme.primary
             }
             val buttonContentColor =
-                if (isConnected || isError) MaterialTheme.colorScheme.onError else MaterialTheme.colorScheme.onPrimary
+                if (isConnected) MaterialTheme.colorScheme.onError else MaterialTheme.colorScheme.onPrimary
 
             Surface(
                 // Tapping while connecting cancels instantly (same as the
@@ -237,7 +236,7 @@ fun ConnectionCard(
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    if (isConnecting && !isError) {
+                    if (isConnecting) {
                         CircularProgressIndicator(
                             modifier = Modifier.size(22.dp),
                             color = buttonContentColor,
@@ -247,7 +246,6 @@ fun ConnectionCard(
                     }
                     Text(
                         text = when {
-                            isError -> errorMessage!!
                             isConnecting -> "Connecting"
                             isConnected -> "Disconnect"
                             else -> "Connect"
@@ -259,6 +257,22 @@ fun ConnectionCard(
                         overflow = TextOverflow.Ellipsis
                     )
                 }
+            }
+
+            // Error line — red text under the button, shown for 5s then
+            // cleared by StatusScreen. The button itself never turns red
+            // for errors; red is reserved for the connected state.
+            if (isError) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = errorMessage!!,
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.error,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.fillMaxWidth(),
+                    textAlign = TextAlign.Center
+                )
             }
 
             // Timer/status line — always rendered (same height) so nothing shifts.

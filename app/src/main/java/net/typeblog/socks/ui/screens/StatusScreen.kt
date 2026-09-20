@@ -151,19 +151,20 @@ fun StatusScreen(
         }
     }
 
-    // Transient in-button error: show inside the Connect button for 5s instead of
-    // a persistent red line below the card. LaunchedEffect cancels previous job
+    // Transient card error: red line under the Connect button for 5s, then
+    // gone. The button itself stays primary; red is reserved for the
+    // connected (Disconnect) state. LaunchedEffect cancels the previous job
     // on new error so each failure gets its own 5s window.
-    var buttonError by remember { mutableStateOf<String?>(null) }
+    var cardError by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(errorMessage) {
         val message = errorMessage
         if (message != null) {
-            buttonError = message
+            cardError = message
             // A failure ends any in-flight connect request so the button is
             // never left stuck on a disabled "Connecting…" state.
             viewModel.cancelConnect()
             delay(5000)
-            buttonError = null
+            cardError = null
             viewModel.clearError()
         }
     }
@@ -207,8 +208,8 @@ fun StatusScreen(
     // connects exactly like a manual tap.
     fun startVpnForSelected() {
         // While showing an error, tap retries immediately instead of waiting 5s.
-        if (buttonError != null) {
-            buttonError = null
+        if (cardError != null) {
+            cardError = null
             viewModel.clearError()
         }
         // Include mode with zero apps can never connect: refuse
@@ -415,7 +416,7 @@ fun StatusScreen(
                 },
                 modifier = Modifier.fillMaxWidth(),
                 countryCode = effectiveCountryCode,
-                errorMessage = buttonError,
+                errorMessage = cardError,
                 onCountryClick = onCountryPickClick
             )
 
