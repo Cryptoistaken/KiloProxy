@@ -517,7 +517,8 @@ fun ProxiesScreen(
 }
 
 // Square full-bleed swipe hints behind proxy cards: right = Edit on
-// surface, left = Delete on error red. Direct commit, no buttons.
+// solid black with white pencil, left = Delete on error red with white
+// dustbin. Direct commit, no buttons.
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SwipeActionBg(direction: SwipeToDismissBoxValue) {
@@ -526,14 +527,14 @@ private fun SwipeActionBg(direction: SwipeToDismissBoxValue) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(if (fromStart) MaterialTheme.colorScheme.surfaceContainerLow else MaterialTheme.colorScheme.error)
+            .background(if (fromStart) Color.Black else MaterialTheme.colorScheme.error)
             .padding(horizontal = 20.dp),
         contentAlignment = if (fromStart) Alignment.CenterStart else Alignment.CenterEnd
     ) {
         Icon(
             painter = painterResource(if (fromStart) R.drawable.ic_sheet_edit else R.drawable.ic_sheet_delete),
             contentDescription = null,
-            tint = if (fromStart) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onError
+            tint = if (fromStart) Color.White else MaterialTheme.colorScheme.onError
         )
     }
 }
