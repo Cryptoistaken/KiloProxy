@@ -243,7 +243,7 @@ fun AppNavigation(splitAppsSignal: Int = 0) {
                 RecentsScreen(
                     viewModel = vpnViewModel,
                     onPickRecent = { code ->
-                        vpnViewModel.pickCountry(code)
+                        vpnViewModel.pickAndConnectCountry(code)
                         navigateToTab(Screen.Connect.route)
                     },
                     onNavigateBack = { navController.popBackStack() }

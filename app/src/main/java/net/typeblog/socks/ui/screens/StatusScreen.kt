@@ -110,20 +110,26 @@ fun StatusScreen(
     }
 
     var homePickedCountryCode by rememberSaveable { mutableStateOf<String?>(null) }
+    // Applies a picked country code to the default profile. Shared by the
+    // select-only flow (hero country picker) and the select-and-connect
+    // flow (Recents) below.
+    fun applyCountryCode(code: String) {
+        try {
+            val pm = ProfileManager.getInstance(context)
+            val profile = pm.getDefault()
+            val newUsername = ProxyProviders.switchCountry(profile.getServer(), profile.getUsername(), code)
+            if (newUsername != null) {
+                profile.setUsername(newUsername)
+                Utility.addRecentCountry(context, code)
+                homePickedCountryCode = code
+            }
+        } catch (_: Exception) {}
+    }
     val pickedCountry by viewModel.pickedCountry.collectAsState()
     LaunchedEffect(pickedCountry) {
         val code = pickedCountry
         if (code != null) {
-            try {
-                val pm = ProfileManager.getInstance(context)
-                val profile = pm.getDefault()
-                val newUsername = ProxyProviders.switchCountry(profile.getServer(), profile.getUsername(), code)
-                if (newUsername != null) {
-                    profile.setUsername(newUsername)
-                    Utility.addRecentCountry(context, code)
-                    homePickedCountryCode = code
-                }
-            } catch (_: Exception) {}
+            applyCountryCode(code)
             viewModel.pickCountry(null)
         }
     }
@@ -196,6 +202,55 @@ fun StatusScreen(
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { }
+
+    // Same start path as the hero Connect button, shared so a Recent tap
+    // connects exactly like a manual tap.
+    fun startVpnForSelected() {
+        // While showing an error, tap retries immediately instead of waiting 5s.
+        if (buttonError != null) {
+            buttonError = null
+            viewModel.clearError()
+        }
+        // Include mode with zero apps can never connect: refuse
+        // and point at the apps list instead of failing later.
+        if (viewModel.isSplitIncludeEmpty(context)) {
+            scope.launch {
+                val result = snackbarHostState.showSnackbar(
+                    message = "Select an app",
+                    actionLabel = "Select apps"
+                )
+                if (result == SnackbarResult.ActionPerformed) {
+                    onOpenSplitAppsClick()
+                }
+            }
+            return
+        }
+        val targetProfile = selectedProfile ?: activeProfileName ?: profiles.firstOrNull()
+        if (targetProfile != null) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
+                PackageManager.PERMISSION_GRANTED
+            ) {
+                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+            viewModel.clearError()
+            val intent = viewModel.prepareAndStartVpn(context, targetProfile)
+            if (intent != null) {
+                vpnPermissionLauncher.launch(intent)
+            }
+        }
+    }
+
+    // Recent tapped on Home or the Recents page: apply, then connect.
+    val connectCountry by viewModel.connectCountry.collectAsState()
+    LaunchedEffect(connectCountry) {
+        val code = connectCountry
+        if (code != null) {
+            viewModel.pickAndConnectCountry(null)
+            applyCountryCode(code)
+            startVpnForSelected()
+        }
+    }
 
     // Country code for the card's target profile, using the same derivation as
     // FloatingControlService.onBubbleCountrySelected (username/type/parseCountry).
@@ -353,39 +408,7 @@ fun StatusScreen(
                 serverName = serverName,
                 connectedSince = connectedSince,
                 onStartClick = {
-                    // While showing an error, tap retries immediately instead of waiting 5s.
-                    if (buttonError != null) {
-                        buttonError = null
-                        viewModel.clearError()
-                    }
-                    // Include mode with zero apps can never connect: refuse
-                    // and point at the apps list instead of failing later.
-                    if (viewModel.isSplitIncludeEmpty(context)) {
-                        scope.launch {
-                            val result = snackbarHostState.showSnackbar(
-                                message = "Select an app",
-                                actionLabel = "Select apps"
-                            )
-                            if (result == SnackbarResult.ActionPerformed) {
-                                onOpenSplitAppsClick()
-                            }
-                        }
-                        return@ConnectionCard
-                    }
-                    val targetProfile = selectedProfile ?: activeProfileName ?: profiles.firstOrNull()
-                    if (targetProfile != null) {
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-                            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
-                            PackageManager.PERMISSION_GRANTED
-                        ) {
-                            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                        }
-                        viewModel.clearError()
-                        val intent = viewModel.prepareAndStartVpn(context, targetProfile)
-                        if (intent != null) {
-                            vpnPermissionLauncher.launch(intent)
-                        }
-                    }
+                    startVpnForSelected()
                 },
                 onStopClick = {
                     viewModel.stopVpn(context)
@@ -428,16 +451,7 @@ fun StatusScreen(
                 isConnected = isActuallyConnected,
                 onSeeAllClick = onSeeAllRecentsClick,
                 onRecentClick = { code ->
-                    try {
-                        val pm = ProfileManager.getInstance(context)
-                        val profile = pm.getDefault()
-                        val newUsername = ProxyProviders.switchCountry(profile.getServer(), profile.getUsername(), code)
-                        if (newUsername != null) {
-                            profile.setUsername(newUsername)
-                            Utility.addRecentCountry(context, code)
-                            homePickedCountryCode = code
-                        }
-                    } catch (_: Exception) {}
+                    viewModel.pickAndConnectCountry(code)
                 },
                 modifier = Modifier.fillMaxWidth()
             )

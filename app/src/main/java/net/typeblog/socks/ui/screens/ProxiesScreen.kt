@@ -168,7 +168,10 @@ fun ProxiesScreen(
         modifier = modifier,
         snackbarHost = { SnackbarHost(hostState = snack) },
         floatingActionButton = {
-            if (!pickMode && !selecting) {
+            // Pick mode (opened from Home) keeps the full page: FAB,
+            // swipe actions and multi-select all work; only the tap
+            // behavior differs (select + return Home).
+            if (!selecting) {
                 IconButton(
                     onClick = {
                         selectedProvider = "custom"
@@ -186,7 +189,7 @@ fun ProxiesScreen(
             }
         },
         bottomBar = {
-            if (selecting && !pickMode) {
+            if (selecting) {
                 BulkBar(
                     count = selected.size,
                     allSelected = filteredProfiles.isNotEmpty() && selected.size == filteredProfiles.size,
@@ -265,7 +268,7 @@ fun ProxiesScreen(
                 )
                 // Small selected-count at the top of the list while
                 // multi-selecting; the page header stays "Profiles".
-                if (selecting && !pickMode) {
+                if (selecting) {
                     Text(
                         text = "${selected.size} selected",
                         fontSize = 12.sp,
@@ -297,7 +300,7 @@ fun ProxiesScreen(
                         )
                         SwipeToDismissBox(
                             state = dismissState,
-                            gesturesEnabled = !selecting && !pickMode,
+                            gesturesEnabled = !selecting,
                             backgroundContent = { SwipeActionBg(dismissState.dismissDirection) }
                         ) {
                             ProxyCard(
@@ -321,14 +324,10 @@ fun ProxiesScreen(
                             } else {
                                 { detailTarget = profileName }
                             },
-                            onLongPress = if (pickMode) {
-                                null
-                            } else {
-                                {
-                                    selecting = true
-                                    if (!selected.contains(profileName)) {
-                                        selected = selected + profileName
-                                    }
+                            onLongPress = {
+                                selecting = true
+                                if (!selected.contains(profileName)) {
+                                    selected = selected + profileName
                                 }
                             },
                             checked = selected.contains(profileName)

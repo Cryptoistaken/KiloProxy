@@ -132,6 +132,16 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
         _pickedCountry.value = code
     }
 
+    // Country code tapped on a Recent (Home card or Recents page).
+    // StatusScreen applies the default-profile rewrite like a normal pick,
+    // then starts the VPN for the selected profile.
+    private val _connectCountry = MutableStateFlow<String?>(null)
+    val connectCountry: StateFlow<String?> = _connectCountry.asStateFlow()
+
+    fun pickAndConnectCountry(code: String?) {
+        _connectCountry.value = code
+    }
+
     // In-progress add/edit proxy form, snapshotted before leaving to the
     // Countries tab for country picking so the sheet can restore it untouched
     // when navigation back recreates it.
