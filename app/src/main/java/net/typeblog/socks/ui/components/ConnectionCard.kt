@@ -108,22 +108,11 @@ fun ConnectionCard(
                             .padding(horizontal = 12.dp, vertical = 10.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Surface(
-                            shape = RoundedCornerShape(7.dp),
-                            color = MaterialTheme.colorScheme.surfaceVariant,
-                            modifier = Modifier.size(width = 40.dp, height = 30.dp)
-                        ) {
-                            Box(
-                                modifier = Modifier.fillMaxSize(),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = country?.flag ?: "",
-                                    fontSize = 22.sp,
-                                    textAlign = TextAlign.Center
-                                )
-                            }
-                        }
+                        Text(
+                            text = country?.flag ?: "",
+                            fontSize = 30.sp,
+                            textAlign = TextAlign.Center
+                        )
                         Spacer(modifier = Modifier.width(12.dp))
                         Column(
                             modifier = Modifier.weight(1f),
