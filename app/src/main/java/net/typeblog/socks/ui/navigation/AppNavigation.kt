@@ -36,6 +36,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import net.typeblog.socks.R
 import net.typeblog.socks.ui.screens.ProxiesScreen
 import net.typeblog.socks.ui.screens.CountriesScreen
+import net.typeblog.socks.ui.screens.RecentsScreen
 import net.typeblog.socks.ui.screens.StatusScreen
 import net.typeblog.socks.ui.screens.BubbleSettingsScreen
 import net.typeblog.socks.ui.screens.SettingsScreen
@@ -49,6 +50,7 @@ sealed class Screen(val route: String) {
     data object Profiles : Screen("profiles")
     data object Connect : Screen("connect")
     data object Countries : Screen("countries")
+    data object Recents : Screen("recents")
     data object Settings : Screen("settings")
     data object SplitTunneling : Screen("split_tunneling")
     data object Theme : Screen("theme")
@@ -206,7 +208,7 @@ fun AppNavigation(splitAppsSignal: Int = 0) {
                         navigateToTab(Screen.Countries.route)
                     },
                     onSeeAllRecentsClick = {
-                        navigateToTab(Screen.Countries.route)
+                        navigateToTab(Screen.Recents.route)
                     }
                 )
             }
@@ -231,6 +233,20 @@ fun AppNavigation(splitAppsSignal: Int = 0) {
                             navigateToTab(Screen.Profiles.route)
                         }
                     }
+                )
+            }
+            composable(Screen.Recents.route) {
+                // Not a bottom-tab destination, so the bottom bar stays
+                // hidden here. Tapping a recent only selects the country:
+                // StatusScreen consumes viewModel.pickedCountry and applies
+                // the default-profile rewrite, then we return Home.
+                RecentsScreen(
+                    viewModel = vpnViewModel,
+                    onPickRecent = { code ->
+                        vpnViewModel.pickCountry(code)
+                        navigateToTab(Screen.Connect.route)
+                    },
+                    onNavigateBack = { navController.popBackStack() }
                 )
             }
             composable(Screen.Settings.route) {

@@ -64,7 +64,7 @@ fun ConnectionStatusCard(
 
             if (!isConnected) {
                 Text(
-                    text = "Not connected. Tap the connect button to see your proxy details.",
+                    text = "Not connected.",
                     fontSize = 13.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

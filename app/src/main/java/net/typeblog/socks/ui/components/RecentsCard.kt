@@ -52,7 +52,7 @@ fun RecentsCard(
     modifier: Modifier = Modifier,
     onSeeAllClick: () -> Unit = {}
 ) {
-    val recents = remember(currentCountryCode) { Utility.getRecentCountries(context).take(5) }
+    val recents = remember(currentCountryCode) { Utility.getRecentCountries(context).take(10) }
     if (recents.isEmpty()) return
 
     Card(
