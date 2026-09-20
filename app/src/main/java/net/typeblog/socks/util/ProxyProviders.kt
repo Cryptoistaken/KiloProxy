@@ -14,6 +14,8 @@ package net.typeblog.socks.util
  *   ClipProxy  host *.cliproxy.io             username ...-region-<cc>
  *   IpDeep     host *.ipdeep.com              username ...-res-country-<cc>[-state-<city>]-session-<id>-sessiontime-<t>]
  *              (the -state-<city> segment is optional; sticky = -session- block present)
+ *   ProxyRise  host *.proxyrise.com            username res-<cc> (e.g. res-aq)
+ *              (country zone is exactly res-<cc>; base is always "res")
  *   Generic    any                           username ...[-_]<cc>
   */
 object ProxyProviders {
@@ -22,6 +24,7 @@ object ProxyProviders {
     const val TYPE_RAPID = "rapid"
     const val TYPE_CLIP = "clip"
     const val TYPE_IPDEEP = "ipdeep"
+    const val TYPE_PROXYRISE = "proxyrise"
     const val TYPE_GENERIC = "generic"
 
     data class GenericParts(
@@ -36,6 +39,7 @@ object ProxyProviders {
         isRapid(host, username) -> TYPE_RAPID
         isClip(host, username) -> TYPE_CLIP
         isIpDeep(host, username) -> TYPE_IPDEEP
+        isProxyRise(host, username) -> TYPE_PROXYRISE
         genericParts(username) != null -> TYPE_GENERIC
         else -> TYPE_CUSTOM
     }
@@ -55,11 +59,16 @@ object ProxyProviders {
         hostEndsWith(host, "ipdeep.com") ||
             Regex("^(.+)-res-country-[a-zA-Z]{2}(.*)$").matches(username)
 
+    fun isProxyRise(host: String, username: String): Boolean =
+        hostEndsWith(host, "proxyrise.com") ||
+            Regex("^res-[a-zA-Z]{2}$").matches(username.trim())
+
     fun label(type: String): String = when (type) {
         TYPE_OWL -> "OwlProxy"
         TYPE_RAPID -> "RapidProxy"
         TYPE_CLIP -> "ClipProxy"
         TYPE_IPDEEP -> "IpDeep"
+        TYPE_PROXYRISE -> "Proxyrise"
         TYPE_GENERIC -> "Custom"
         else -> "Custom"
     }
@@ -81,6 +90,7 @@ object ProxyProviders {
         TYPE_RAPID -> Regex("^(.+)-residential-([a-zA-Z]{2})(.*)$").find(username)?.groupValues?.get(2)
         TYPE_CLIP -> Regex("^(.+)-region-([a-zA-Z]{2})(.*)$").find(username)?.groupValues?.get(2)
         TYPE_IPDEEP -> Regex("^(.+)-res-country-([a-zA-Z]{2})(.*)$").find(username)?.groupValues?.get(2)
+        TYPE_PROXYRISE -> Regex("^res-([a-zA-Z]{2})$").find(username.trim())?.groupValues?.get(1)
         TYPE_GENERIC -> genericParts(username)?.country
         else -> null
     }
@@ -99,6 +109,7 @@ object ProxyProviders {
         TYPE_RAPID -> Regex("^(.+)-residential-[a-zA-Z]{2}(.*)$").find(username)?.groupValues?.get(1)
         TYPE_CLIP -> Regex("^(.+)-region-[a-zA-Z]{2}(.*)$").find(username)?.groupValues?.get(1)
         TYPE_IPDEEP -> Regex("^(.+)-res-country-[a-zA-Z]{2}(.*)$").find(username)?.groupValues?.get(1)
+        TYPE_PROXYRISE -> "res"
         TYPE_GENERIC -> genericParts(username)?.base
         else -> null
     }
@@ -168,6 +179,7 @@ object ProxyProviders {
         TYPE_RAPID -> "${base}-residential-${countryCode.uppercase()}"
         TYPE_CLIP -> "${base}-region-${countryCode.uppercase()}"
         TYPE_IPDEEP -> "${base}-res-country-${countryCode.lowercase()}"
+        TYPE_PROXYRISE -> "res-${countryCode.lowercase()}"
         TYPE_GENERIC -> "$base$separator${if (upper) countryCode.uppercase() else countryCode.lowercase()}"
         else -> null
     }
@@ -175,6 +187,22 @@ object ProxyProviders {
     private fun hostEndsWith(host: String, domain: String): Boolean {
         val h = host.trim().lowercase()
         return h == domain || h.endsWith(".$domain")
+    }
+
+    /**
+     * Display name derived from a hostname: the second-level domain label
+     * with the first letter capitalized. `gw.proxyrise.com` -> "Proxyrise",
+     * `proxy.example.com` -> "Example". Returns null for IPs, single
+     * labels, and blanks so callers can fall back to a fixed label.
+     */
+    fun nameFromHost(host: String): String? {
+        val h = host.trim().lowercase()
+        if (h.isEmpty() || h.matches(Regex("^[0-9.]+$")) || h.matches(Regex("^\\[[0-9a-fA-F:]+\\]$"))) return null
+        val parts = h.split(".").filter { it.isNotEmpty() }
+        if (parts.size < 2) return null
+        val sld = parts[parts.size - 2].replace(Regex("[^a-z0-9]"), "")
+        if (sld.isEmpty()) return null
+        return sld.replaceFirstChar { it.uppercase() }
     }
 
     /**
@@ -196,6 +224,11 @@ object ProxyProviders {
                 buildUsername(base, type, countryCode)
             }
             TYPE_IPDEEP -> switchIpDeepCountry(username, countryCode)
+            TYPE_PROXYRISE -> if (Regex("^res-[a-zA-Z]{2}$").matches(username.trim())) {
+                buildUsername("res", type, countryCode)
+            } else {
+                null
+            }
             TYPE_GENERIC -> {
                 val parts = genericParts(username) ?: return null
                 buildUsername(

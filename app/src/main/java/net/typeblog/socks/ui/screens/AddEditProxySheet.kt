@@ -209,10 +209,16 @@ fun AddEditProxySheet(
         }
         // Adding (not editing) + pasted/typed a known provider + user never
         // touched the name: rename to "<Provider> <n>" with a free number.
+        // ProxyRise names come from the hostname (gw.proxyrise.com -> Proxyrise 1).
         if (!isEdit && !nameTouched && proxyType != ProxyProviders.TYPE_CUSTOM) {
+            val base = if (proxyType == ProxyProviders.TYPE_PROXYRISE) {
+                ProxyProviders.nameFromHost(host) ?: ProxyProviders.label(proxyType)
+            } else {
+                ProxyProviders.label(proxyType)
+            }
             name = freshProfileName(
                 ProfileManager.getInstance(context),
-                ProxyProviders.label(proxyType)
+                base
             )
         }
         syncing = false
@@ -255,8 +261,19 @@ fun AddEditProxySheet(
             t != ProxyProviders.TYPE_RAPID &&
             t != ProxyProviders.TYPE_CLIP &&
             t != ProxyProviders.TYPE_IPDEEP &&
+            t != ProxyProviders.TYPE_PROXYRISE &&
             t != ProxyProviders.TYPE_GENERIC
         ) return
+        if (t == ProxyProviders.TYPE_PROXYRISE) {
+            val full = ProxyProviders.buildUsername(
+                "res", t, selectedCountry!!.code
+            ) ?: return
+            syncing = true
+            username = full
+            syncing = false
+            credsModified = true
+            return
+        }
         if (t == ProxyProviders.TYPE_GENERIC) {
             val parts = ProxyProviders.genericParts(username) ?: return
             val full = ProxyProviders.buildUsername(

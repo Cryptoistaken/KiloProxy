@@ -197,7 +197,7 @@ Notes on the merged notification/dot pass:
 | `LogCollector.kt` | In-app log capture (Debug Logs screen) |
 | `Profile.kt` / `ProfileFactory.kt` | Profile data class + factory (pre-defined server profiles) |
 | `ProfileManager.kt` | **ENGINE** — profile CRUD, prefs. NEVER modify for UI |
-| `ProxyProviders.kt` | Proxy provider catalog (proxy list presets) + country display derivation + country-switch rewrite |
+| `ProxyProviders.kt` | Proxy provider catalog (Owl/Rapid/Clip/IpDeep/ProxyRise/generic presets) + country display derivation + country-switch rewrite + `nameFromHost` (hostname-derived profile names) |
 | `Routes.kt` | VpnService route selection (route config) |
 | `NotifText.kt` | Notification text caps (static titles, body capped at 40, no big notifications) |
 | `SocksTester.kt` | SOCKS5 liveness/health probe |
