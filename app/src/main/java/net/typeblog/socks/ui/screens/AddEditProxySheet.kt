@@ -124,7 +124,8 @@ fun AddEditProxySheet(
     var testStatus by remember { mutableStateOf<String?>(null) }
     var testFailedFlash by remember { mutableStateOf(false) }
     var credsModified by remember { mutableStateOf(false) }
-    // In-button confirmation for Copy/Paste (no Toast): label flips briefly.
+    // In-button confirmation for Copy/Paste (no Toast): label flips briefly,
+    // icon hides while feedback shows (Copied/Pasted/Invalid = text only).
     var copiedFlash by remember { mutableStateOf(false) }
     var pasteFlash by remember { mutableStateOf<String?>(null) }
     val copyPop by animateFloatAsState(if (copiedFlash) 0.96f else 1f, label = "copyPop")
@@ -517,12 +518,14 @@ fun AddEditProxySheet(
                         contentColor = MaterialTheme.colorScheme.onSurface
                     )
                 ) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_copy),
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
+                    if (!copiedFlash) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_copy),
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                    }
                     Text(if (copiedFlash) "Copied" else "Copy", fontSize = 13.sp)
                 }
                 OutlinedButton(
@@ -541,12 +544,14 @@ fun AddEditProxySheet(
                         contentColor = MaterialTheme.colorScheme.onSurface
                     )
                 ) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_paste),
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
+                    if (pasteFlash == null) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_paste),
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                    }
                     Text(pasteFlash ?: "Paste", fontSize = 13.sp)
                 }
             }

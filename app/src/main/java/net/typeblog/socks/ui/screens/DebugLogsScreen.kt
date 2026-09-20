@@ -189,14 +189,14 @@ fun DebugLogsScreen(onNavigateBack: () -> Unit) {
                         .height(52.dp),
                     shape = RoundedCornerShape(14.dp)
                 ) {
-                    Icon(
-                        painter = painterResource(
-                            if (copied.value) R.drawable.lucide_check else R.drawable.lucide_copy
-                        ),
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
+                    if (!copied.value) {
+                        Icon(
+                            painter = painterResource(R.drawable.lucide_copy),
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                    }
                     Text(text = if (copied.value) "Copied!" else "Copy Logs")
                 }
             }

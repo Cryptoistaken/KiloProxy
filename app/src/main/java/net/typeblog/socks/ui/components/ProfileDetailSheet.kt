@@ -261,7 +261,7 @@ private fun SheetRow(
 private enum class TestPhase { Idle, Testing, Works, Failed }
 
 // Copies host:port:user:pass to the clipboard. Feedback is the row itself
-// flipping to bold "Copied" in text color with a tap-scale pop — no Toast.
+// flipping to bold "Copied" with the icon hidden — text only, no Toast.
 @Composable
 private fun CopyRow(
     copyText: String,
@@ -295,12 +295,14 @@ private fun CopyRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        Icon(
-            painter = painterResource(R.drawable.ic_copy),
-            contentDescription = null,
-            modifier = Modifier.size(22.dp),
-            tint = contentColor
-        )
+        if (!copied) {
+            Icon(
+                painter = painterResource(R.drawable.ic_copy),
+                contentDescription = null,
+                modifier = Modifier.size(22.dp),
+                tint = contentColor
+            )
+        }
         Text(
             text = if (copied) "Copied" else "Copy",
             fontSize = 15.sp,
