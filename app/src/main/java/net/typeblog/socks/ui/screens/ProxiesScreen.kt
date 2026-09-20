@@ -63,6 +63,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalClipboardManager
@@ -518,7 +519,8 @@ fun ProxiesScreen(
 
 // Square full-bleed swipe hints behind proxy cards: right = Edit on
 // solid black with white pencil, left = Delete on error red with white
-// dustbin. Direct commit, no buttons.
+// dustbin. Clipped to the card's 12dp round so no square corners peek
+// out on a partial swipe. Direct commit, no buttons.
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SwipeActionBg(direction: SwipeToDismissBoxValue) {
@@ -527,6 +529,7 @@ private fun SwipeActionBg(direction: SwipeToDismissBoxValue) {
     Box(
         modifier = Modifier
             .fillMaxSize()
+            .clip(RoundedCornerShape(12.dp))
             .background(if (fromStart) Color.Black else MaterialTheme.colorScheme.error)
             .padding(horizontal = 20.dp),
         contentAlignment = if (fromStart) Alignment.CenterStart else Alignment.CenterEnd
