@@ -87,21 +87,32 @@ fun ProxyCard(
     val countryCode = remember(username, server) { ProxyProviders.displayCountry(server, username) }
     val displayUsed = profileDisplayUsage(profileName, password, isConnected, liveUsageRx, liveUsageTx)
 
-    Card(
+    val containerColor = if (checked) MaterialTheme.colorScheme.primaryContainer
+    else MaterialTheme.colorScheme.surfaceContainerHighest
+
+    // Opaque round behind the Card in the same color: the Card's own
+    // corners are transparent, so without this the swipe-action color
+    // behind bleeds through the 4 corners on a partial swipe and blinks
+    // on release.
+    Box(
         modifier = modifier
             .fillMaxWidth()
-            .combinedClickable(onClick = onSelect, onLongClick = onLongPress),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = if (checked) MaterialTheme.colorScheme.primaryContainer
-            else MaterialTheme.colorScheme.surfaceContainerHighest
-        ),
-        border = BorderStroke(
-            1.dp,
-            if (checked) MaterialTheme.colorScheme.primary
-            else Color.Transparent
-        )
+            .background(containerColor, RoundedCornerShape(12.dp))
     ) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .combinedClickable(onClick = onSelect, onLongClick = onLongPress),
+            shape = RoundedCornerShape(12.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = containerColor
+            ),
+            border = BorderStroke(
+                1.dp,
+                if (checked) MaterialTheme.colorScheme.primary
+                else Color.Transparent
+            )
+        ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -182,5 +193,6 @@ fun ProxyCard(
                 )
             }
         }
+    }
     }
 }
