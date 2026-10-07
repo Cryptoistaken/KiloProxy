@@ -69,6 +69,16 @@
 			</intent-filter>
 		</receiver>
 
+		<receiver
+			android:name=".ToggleReceiver"
+			android:exported="true">
+			<intent-filter>
+				<action android:name="com.kiloproxy.app.START_VPN"/>
+				<action android:name="com.kiloproxy.app.STOP_VPN"/>
+				<action android:name="com.kiloproxy.app.TOGGLE_VPN"/>
+			</intent-filter>
+		</receiver>
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.provider"

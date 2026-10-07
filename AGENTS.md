@@ -182,6 +182,8 @@ codebase stays clean without future cleanups:
 | `FloatingControlService.kt` | Floating bubble (60dp) + flag pill overlays, long-press popup; WindowManager, SYSTEM_ALERT_WINDOW |
 | `BubbleMenuOverlay.kt` | Popup overlay shown near bubble: country list, search, positioning; window params/IME handling |
 | `BootReceiver.kt` | BOOT_COMPLETED + MY_PACKAGE_REPLACED auto-start receiver (restores VPN for auto-connect profiles and the floating bubble after reboot and after in-app updates) |
+| `ToggleReceiver.kt` | Exported START/STOP/TOGGLE_VPN receiver — headless adb control, reuses bubble/engine paths |
+| `AppSelector.kt` | Per-app selection list adapter |
 | `System.kt` | JNI bridge (sendfd) |
 
 Notes on the merged notification/dot pass:
