@@ -1,5 +1,6 @@
 package net.typeblog.socks.util
 
+import java.io.InputStream
 import java.net.InetSocketAddress
 import java.net.Socket
 import kotlinx.coroutines.Dispatchers
@@ -32,6 +33,22 @@ object SocksTester {
     }
 
     /**
+     * Reads exactly [len] bytes. A single read() may return fewer bytes than
+     * asked for, which used to turn a healthy proxy into a false failure.
+     * Returns false on EOF.
+     */
+    private fun readFull(ins: InputStream, buf: ByteArray, off: Int, len: Int): Boolean {
+        var o = off
+        val end = off + len
+        while (o < end) {
+            val n = ins.read(buf, o, end - o)
+            if (n < 0) return false
+            o += n
+        }
+        return true
+    }
+
+    /**
      * Performs the full raw-socket SOCKS5 handshake (method negotiation,
      * optional username/password auth, CONNECT to a test target) and returns
      * a [ProxyProbe] classifying the outcome. Safe to call from any thread.
@@ -52,7 +69,7 @@ object SocksTester {
             outs.write(byteArrayOf(0x05, 0x01, 0x02.toByte()))
             outs.flush()
             val authResp = ByteArray(2)
-            if (ins.read(authResp) < 2) return ProxyProbe.UNREACHABLE
+            if (!readFull(ins, authResp, 0, 2)) return ProxyProbe.UNREACHABLE
             if (authResp[0] != 0x05.toByte()) return ProxyProbe.NOT_SOCKS5
             if (authResp[1] == 0xff.toByte()) return ProxyProbe.NOT_SOCKS5
 
@@ -69,7 +86,7 @@ object SocksTester {
                 outs.write(authReq)
                 outs.flush()
                 val authResp2 = ByteArray(2)
-                if (ins.read(authResp2) < 2) return ProxyProbe.UNREACHABLE
+                if (!readFull(ins, authResp2, 0, 2)) return ProxyProbe.UNREACHABLE
                 if (authResp2[1] != 0x00.toByte()) return ProxyProbe.AUTH_FAILED
             }
 
@@ -89,27 +106,23 @@ object SocksTester {
             outs.write(connectReq)
             outs.flush()
             val connectResp = ByteArray(4)
-            if (ins.read(connectResp) < 4) return ProxyProbe.UNREACHABLE
+            if (!readFull(ins, connectResp, 0, 4)) return ProxyProbe.UNREACHABLE
             if (connectResp[1] != 0x00.toByte()) return ProxyProbe.CONNECT_FAILED
 
-            // Consume the rest of the SOCKS response (BND.ADDR + BND.PORT)
+            // Consume the rest of the SOCKS response (BND.ADDR + BND.PORT).
             val addrType = connectResp[3]
             val remaining = when (addrType.toInt()) {
                 0x01 -> 4 + 2
                 0x04 -> 16 + 2
                 0x03 -> {
                     val lenByte = ByteArray(1)
-                    if (ins.read(lenByte) < 1) return ProxyProbe.UNREACHABLE
-                    1 + lenByte[0].toInt() + 2
+                    if (!readFull(ins, lenByte, 0, 1)) return ProxyProbe.UNREACHABLE
+                    // Length byte already consumed; only the domain + port remain.
+                    lenByte[0].toInt() + 2
                 }
                 else -> return ProxyProbe.NOT_SOCKS5
             }
-            var skipped = 0
-            while (skipped < remaining) {
-                val n = ins.read(ByteArray(remaining - skipped))
-                if (n < 0) return ProxyProbe.UNREACHABLE
-                skipped += n
-            }
+            if (!readFull(ins, ByteArray(remaining), 0, remaining)) return ProxyProbe.UNREACHABLE
             ProxyProbe.OK
         } catch (e: Exception) {
             ProxyProbe.UNREACHABLE
